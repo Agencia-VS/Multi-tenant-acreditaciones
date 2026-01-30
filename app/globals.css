@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  /* Colores del tenant - se sobrescriben dinámicamente vía JavaScript */
+  --tenant-primario: #1e5799;
+  --tenant-secundario: #207cca;
+  --tenant-light: #7db9e8;
+  --tenant-dark: #2989d8;
+  --blanco: #ffffff;
+  --font-barlow-condensed: 'Barlow Condensed', sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-barlow-condensed);
+  overflow-x: hidden;
+  font-size: 20px;
+}
+
+/* Estilos del diseño */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.hero-overlay {
+  background: linear-gradient(135deg, 
+      rgba(var(--tenant-primario-rgb, 30, 87, 153), 0.45) 0%, 
+      rgba(var(--tenant-secundario-rgb, 32, 124, 202), 0.35) 50%,
+      rgba(var(--tenant-primario-rgb, 30, 87, 153), 0.50) 100%);
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 30px rgba(var(--tenant-secundario-rgb, 32, 124, 202), 0.6);
+}
+
+.minimal-line {
+  height: 2px;
+  background: linear-gradient(90deg, 
+      transparent 0%, 
+      var(--tenant-light) 50%, 
+      transparent 100%);
+}
+
+/* Animaciones para landing page */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-fade-in-delay-1 {
+  animation: fadeIn 0.8s ease-out 0.2s forwards;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeIn 0.8s ease-out 0.4s forwards;
+}
+
+.animate-fade-in-delay-3 {
+  animation: fadeIn 0.8s ease-out 0.6s forwards;
+}
+
+.animate-fade-in-delay-4 {
+  animation: fadeIn 0.8s ease-out 0.8s forwards;
+}
+
+.animate-fade-in-delay-5 {
+  animation: fadeIn 0.8s ease-out 1s forwards;
+}
