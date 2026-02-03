@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import BotonFlotante from "../../../components/common/BotonesFlotantes/BotonFlotante";
 import IconoFlotanteAdmin from "../../../components/common/BotonesFlotantes/IconoFlotanteAdmin";
 import DisclaimerModal from "../../../components/acreditacion/Disclaimer";
@@ -15,6 +17,7 @@ import { useTenant, useTenantColors } from "../../../components/tenant/TenantCon
 import BotonVolver from "../../../components/common/BotonesFlotantes/BotonVolver";
 import { useAcreditacionForm } from "../../../hooks/useAcreditacionForm";
 import { useAcreditacionModals } from "../../../hooks/useAcreditacionModals";
+import { useAutoFill } from "../../../hooks/useAutoFill";
 import { CANALES } from "../../../constants/acreditacion";
 import { validateForm } from "../../../lib/services/acreditacion";
 import type { FormDataAcreditacion, AcreditadoFormulario } from "../../../types/acreditacion";
@@ -22,7 +25,11 @@ import type { FormDataAcreditacion, AcreditadoFormulario } from "../../../types/
 export default function AcreditacionPage() {
   const { tenant } = useTenant();
   const colors = useTenantColors();
+  const pathname = usePathname();
   const { areas, loading: areasLoading, cuposError, closeCuposError, submitAcreditacion, error: areasError } = useAcreditacion();
+  
+  // Hook de auto-fill para usuarios autenticados
+  const { isLoggedIn, hasPerfil, datos: datosAutoFill, loading: autoFillLoading } = useAutoFill();
   
   // Hook de formulario con áreas
   const {
@@ -41,7 +48,26 @@ export default function AcreditacionPage() {
     removeAcreditado,
     updateAcreditado,
     reset: resetForm,
+    setFormData,
   } = useAcreditacionForm({ areas });
+
+  // Auto-fill cuando hay datos del perfil
+  const [autoFillApplied, setAutoFillApplied] = useState(false);
+  
+  useEffect(() => {
+    if (datosAutoFill && !autoFillApplied && hasPerfil) {
+      setFormData(prev => ({
+        ...prev,
+        responsable_nombre: datosAutoFill.nombre || prev.responsable_nombre,
+        responsable_primer_apellido: datosAutoFill.apellido || prev.responsable_primer_apellido,
+        responsable_rut: datosAutoFill.rut || prev.responsable_rut,
+        responsable_email: datosAutoFill.email || prev.responsable_email,
+        responsable_telefono: datosAutoFill.telefono || prev.responsable_telefono,
+        empresa: datosAutoFill.empresa || prev.empresa,
+      }));
+      setAutoFillApplied(true);
+    }
+  }, [datosAutoFill, autoFillApplied, hasPerfil, setFormData]);
 
   // Hook de modales
   const {
@@ -147,6 +173,61 @@ export default function AcreditacionPage() {
             Tenant: {tenant.nombre} ({tenant.slug})
           </p>
         </header>
+
+        {/* Banner de login/perfil */}
+        {!autoFillLoading && (
+          <div className="mb-6">
+            {isLoggedIn ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-800">
+                      {hasPerfil ? '¡Datos pre-llenados!' : 'Sesión iniciada'}
+                    </p>
+                    <p className="text-sm text-green-600">
+                      {hasPerfil 
+                        ? 'Tus datos de acreditaciones anteriores han sido cargados'
+                        : 'Completa el formulario para guardar tu perfil'
+                      }
+                    </p>
+                  </div>
+                </div>
+                {datosAutoFill?.email && (
+                  <span className="text-sm text-green-700 hidden sm:block">
+                    {datosAutoFill.email}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-800">¿Ya te has acreditado antes?</p>
+                    <p className="text-sm text-blue-600">
+                      Inicia sesión para pre-llenar tus datos automáticamente
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={`/auth/acreditado/login?returnTo=${encodeURIComponent(pathname)}`}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                >
+                  Iniciar Sesión
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
 
         <form
           onSubmit={handleSubmit}

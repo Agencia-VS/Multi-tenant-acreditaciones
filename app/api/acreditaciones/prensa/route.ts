@@ -199,6 +199,46 @@ export async function POST(req: Request) {
 
     if (insertError) throw insertError;
 
+    // 4. Crear o actualizar perfil del responsable (para auto-fill futuro)
+    try {
+      // Intentar usar la función de Supabase si existe
+      const perfilResult = await supabaseAdmin.rpc('get_or_create_perfil', {
+        p_user_id: null, // Sin usuario autenticado desde la API
+        p_rut: responsable_rut,
+        p_nombre: responsable_nombre,
+        p_apellido: responsable_primer_apellido + (responsable_segundo_apellido ? ` ${responsable_segundo_apellido}` : ''),
+        p_email: responsable_email,
+        p_empresa: empresa,
+        p_cargo: null,
+        p_telefono: responsable_telefono || null,
+        p_nacionalidad: 'Chile',
+      });
+      
+      if (perfilResult.error) {
+        // Si la función no existe, intentar upsert directo
+        console.warn('get_or_create_perfil no disponible, intentando upsert directo:', perfilResult.error.message);
+        
+        // Upsert directo en la tabla
+        await supabaseAdmin
+          .from('mt_perfiles_acreditados')
+          .upsert({
+            rut: responsable_rut,
+            nombre: responsable_nombre,
+            apellido: responsable_primer_apellido + (responsable_segundo_apellido ? ` ${responsable_segundo_apellido}` : ''),
+            email: responsable_email,
+            empresa: empresa,
+            telefono: responsable_telefono || null,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'rut',
+            ignoreDuplicates: false,
+          });
+      }
+    } catch (perfilError) {
+      // No fallar si el perfil no se puede crear (tabla puede no existir aún)
+      console.warn('No se pudo crear/actualizar perfil:', perfilError);
+    }
+
     return NextResponse.json(
       {
         success: true,

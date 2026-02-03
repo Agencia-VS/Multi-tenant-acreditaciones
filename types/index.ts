@@ -39,3 +39,6 @@ export {
   type UIMessage,
   type NavItem,
 } from './superadmin';
+
+// Tipos de autenticación para acreditados
+export * from './auth-acreditado';

@@ -16,5 +16,12 @@ export {
 // Modal de recuperación de contraseña
 export { ForgotPasswordModal } from './ForgotPasswordModal';
 
+// Contexto de autenticación para acreditados
+export { 
+  AuthAcreditadoProvider, 
+  useAuthAcreditado, 
+  AuthAcreditadoContext 
+} from './AuthAcreditadoContext';
+
 // NOTA: Para usar AuthGuard, SuperAdminGuard, TenantAdminGuard
 // importar directamente: import { AuthGuard } from '@/components/auth/AuthGuard'
