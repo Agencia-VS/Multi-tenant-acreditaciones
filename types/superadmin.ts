@@ -72,12 +72,17 @@ export interface TenantFormData {
   slug: string;
   logo_url: string;
   shield_url: string;
+  background_url: string;
   color_primario: string;
   color_secundario: string;
-  instagram_url: string;
-  twitter_url: string;
-  youtube_url: string;
-  website_url: string;
+  color_light: string;
+  color_dark: string;
+  arena_logo_url: string;
+  arena_nombre: string;
+  social_facebook: string;
+  social_twitter: string;
+  social_instagram: string;
+  social_youtube: string;
 }
 
 // ============================================================================

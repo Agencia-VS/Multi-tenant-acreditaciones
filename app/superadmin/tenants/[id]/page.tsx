@@ -1,8 +1,11 @@
 /**
- * Página de Edición de Tenant
+ * Página de Edición de Tenant - Completa
  * 
- * Permite editar la configuración y branding
- * de un tenant existente.
+ * Permite editar toda la configuración de un tenant:
+ * - Información básica
+ * - Branding (logos, colores, backgrounds)
+ * - Arena/Estadio
+ * - Redes sociales
  */
 
 "use client";
@@ -12,7 +15,28 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../../../lib/supabase/client";
 import { useSuperAdmin } from "../../../../components/superadmin";
-import type { TenantFull, TenantFormData } from "../../../../types";
+import ImageUploader from "../../../../components/superadmin/ImageUploader";
+import type { TenantFormData } from "../../../../types";
+
+interface TenantDB {
+  id: string;
+  slug: string;
+  nombre: string;
+  logo_url: string | null;
+  shield_url: string | null;
+  background_url: string | null;
+  color_primario: string | null;
+  color_secundario: string | null;
+  color_light: string | null;
+  color_dark: string | null;
+  arena_logo_url: string | null;
+  arena_nombre: string | null;
+  social_facebook: string | null;
+  social_twitter: string | null;
+  social_instagram: string | null;
+  social_youtube: string | null;
+  created_at: string;
+}
 
 export default function EditTenantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -24,19 +48,25 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<"basico" | "branding" | "arena" | "social">("basico");
 
-  // Form state
+  // Form state con todos los campos
   const [formData, setFormData] = useState<TenantFormData>({
     nombre: "",
     slug: "",
     logo_url: "",
     shield_url: "",
+    background_url: "",
     color_primario: "#1e40af",
     color_secundario: "#64748b",
-    instagram_url: "",
-    twitter_url: "",
-    youtube_url: "",
-    website_url: "",
+    color_light: "#93c5fd",
+    color_dark: "#1e3a8a",
+    arena_logo_url: "",
+    arena_nombre: "",
+    social_facebook: "",
+    social_twitter: "",
+    social_instagram: "",
+    social_youtube: "",
   });
 
   const [originalSlug, setOriginalSlug] = useState("");
@@ -60,19 +90,24 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
       if (error) throw error;
       if (!data) throw new Error('Tenant no encontrado');
 
-      const tenant = data as TenantFull;
+      const tenant = data as TenantDB;
       setOriginalSlug(tenant.slug);
       setFormData({
-        nombre: tenant.nombre,
-        slug: tenant.slug,
+        nombre: tenant.nombre || "",
+        slug: tenant.slug || "",
         logo_url: tenant.logo_url || "",
         shield_url: tenant.shield_url || "",
+        background_url: tenant.background_url || "",
         color_primario: tenant.color_primario || "#1e40af",
         color_secundario: tenant.color_secundario || "#64748b",
-        instagram_url: tenant.instagram_url || "",
-        twitter_url: tenant.twitter_url || "",
-        youtube_url: tenant.youtube_url || "",
-        website_url: tenant.website_url || "",
+        color_light: tenant.color_light || "#93c5fd",
+        color_dark: tenant.color_dark || "#1e3a8a",
+        arena_logo_url: tenant.arena_logo_url || "",
+        arena_nombre: tenant.arena_nombre || "",
+        social_facebook: tenant.social_facebook || "",
+        social_twitter: tenant.social_twitter || "",
+        social_instagram: tenant.social_instagram || "",
+        social_youtube: tenant.social_youtube || "",
       });
     } catch (err) {
       console.error('Error loading tenant:', err);
@@ -87,6 +122,10 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleImageChange = (field: keyof TenantFormData) => (url: string) => {
+    setFormData(prev => ({ ...prev, [field]: url }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -94,17 +133,14 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
     setSuccess(false);
 
     try {
-      // Validar campos requeridos
       if (!formData.nombre.trim() || !formData.slug.trim()) {
         throw new Error("Nombre y slug son requeridos");
       }
 
-      // Validar formato de slug
       if (!/^[a-z0-9-]+$/.test(formData.slug)) {
         throw new Error("El slug solo puede contener letras minúsculas, números y guiones");
       }
 
-      // Si cambió el slug, verificar que no exista
       if (formData.slug !== originalSlug) {
         const { data: existing } = await supabase
           .from('mt_tenants')
@@ -117,7 +153,6 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
         }
       }
 
-      // Actualizar tenant
       const { error: updateError } = await supabase
         .from('mt_tenants')
         .update({
@@ -125,12 +160,17 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
           slug: formData.slug.trim(),
           logo_url: formData.logo_url || null,
           shield_url: formData.shield_url || null,
+          background_url: formData.background_url || null,
           color_primario: formData.color_primario,
           color_secundario: formData.color_secundario,
-          instagram_url: formData.instagram_url || null,
-          twitter_url: formData.twitter_url || null,
-          youtube_url: formData.youtube_url || null,
-          website_url: formData.website_url || null,
+          color_light: formData.color_light,
+          color_dark: formData.color_dark,
+          arena_logo_url: formData.arena_logo_url || null,
+          arena_nombre: formData.arena_nombre || null,
+          social_facebook: formData.social_facebook || null,
+          social_twitter: formData.social_twitter || null,
+          social_instagram: formData.social_instagram || null,
+          social_youtube: formData.social_youtube || null,
         })
         .eq('id', id);
 
@@ -140,7 +180,6 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
       setSuccess(true);
       refreshStats();
 
-      // Auto-ocultar mensaje de éxito
       setTimeout(() => setSuccess(false), 3000);
 
     } catch (err) {
@@ -150,6 +189,13 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
       setSaving(false);
     }
   };
+
+  const tabs = [
+    { id: "basico", label: "Básico", icon: "📋" },
+    { id: "branding", label: "Branding", icon: "🎨" },
+    { id: "arena", label: "Arena", icon: "🏟️" },
+    { id: "social", label: "Redes", icon: "🔗" },
+  ] as const;
 
   if (loading) {
     return (
@@ -163,7 +209,7 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -175,10 +221,22 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
           </svg>
           Volver a Tenants
         </Link>
-        <h1 className="text-2xl font-semibold text-gray-900">Editar Tenant</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Modifica la configuración de {formData.nombre || 'este tenant'}
-        </p>
+        
+        <div className="flex items-center gap-4">
+          {(formData.shield_url || formData.logo_url) && (
+            <img 
+              src={formData.shield_url || formData.logo_url} 
+              alt={formData.nombre}
+              className="w-16 h-16 object-contain"
+            />
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">{formData.nombre || 'Editar Tenant'}</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              /{formData.slug}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Mensajes */}
@@ -202,231 +260,245 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab.id
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            <span>{tab.icon}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Formulario */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Información Básica */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Información Básica
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Nombre del Tenant *
-              </label>
-              <input
-                type="text"
-                id="nombre"
-                name="nombre"
-                value={formData.nombre}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Slug (URL) *
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-sm">/</span>
+        {/* Tab: Básico */}
+        {activeTab === "basico" && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+            <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+              <span>📋</span> Información Básica
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Nombre del Tenant *
+                </label>
                 <input
                   type="text"
-                  id="slug"
-                  name="slug"
-                  value={formData.slug}
+                  id="nombre"
+                  name="nombre"
+                  value={formData.nombre}
                   onChange={handleChange}
                   required
-                  pattern="[a-z0-9-]+"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-sm"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  placeholder="Universidad Católica"
                 />
               </div>
-              {formData.slug !== originalSlug && (
-                <p className="mt-1 text-xs text-amber-600">
-                  ⚠️ Cambiar el slug afectará las URLs existentes
-                </p>
-              )}
+
+              <div>
+                <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Slug (URL) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 text-sm bg-gray-100 px-3 py-2.5 rounded-l-lg border border-r-0 border-gray-300">/</span>
+                  <input
+                    type="text"
+                    id="slug"
+                    name="slug"
+                    value={formData.slug}
+                    onChange={handleChange}
+                    required
+                    pattern="[a-z0-9-]+"
+                    className="flex-1 px-3 py-2.5 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-sm"
+                    placeholder="cruzados"
+                  />
+                </div>
+                {formData.slug !== originalSlug && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    ⚠️ Cambiar el slug afectará las URLs existentes
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Branding */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Branding
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="logo_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Logo URL
-              </label>
-              <input
-                type="url"
-                id="logo_url"
-                name="logo_url"
-                value={formData.logo_url}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="shield_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Escudo URL
-              </label>
-              <input
-                type="url"
-                id="shield_url"
-                name="shield_url"
-                value={formData.shield_url}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="color_primario" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Color Primario
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  id="color_primario"
-                  name="color_primario"
-                  value={formData.color_primario}
-                  onChange={handleChange}
-                  className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+        {/* Tab: Branding */}
+        {activeTab === "branding" && (
+          <div className="space-y-6">
+            {/* Logos */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2 mb-6">
+                <span>🖼️</span> Logos e Imágenes
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <ImageUploader
+                  value={formData.logo_url}
+                  onChange={handleImageChange("logo_url")}
+                  label="Logo Principal"
+                  folder={`tenants/${formData.slug}`}
+                  aspectRatio="square"
+                  placeholder="Logo horizontal o cuadrado"
                 />
+
+                <ImageUploader
+                  value={formData.shield_url}
+                  onChange={handleImageChange("shield_url")}
+                  label="Escudo"
+                  folder={`tenants/${formData.slug}`}
+                  aspectRatio="square"
+                  placeholder="Escudo del equipo"
+                />
+
+                <ImageUploader
+                  value={formData.background_url}
+                  onChange={handleImageChange("background_url")}
+                  label="Background"
+                  folder={`tenants/${formData.slug}`}
+                  aspectRatio="wide"
+                  placeholder="Imagen de fondo"
+                />
+              </div>
+            </div>
+
+            {/* Colores */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2 mb-6">
+                <span>🎨</span> Paleta de Colores
+              </h2>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { id: "color_primario", label: "Primario" },
+                  { id: "color_secundario", label: "Secundario" },
+                  { id: "color_light", label: "Claro" },
+                  { id: "color_dark", label: "Oscuro" },
+                ].map((color) => (
+                  <div key={color.id}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      {color.label}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        name={color.id}
+                        value={formData[color.id as keyof TenantFormData]}
+                        onChange={handleChange}
+                        className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={formData[color.id as keyof TenantFormData]}
+                        onChange={(e) => setFormData(prev => ({ ...prev, [color.id]: e.target.value }))}
+                        className="flex-1 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Preview de colores */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-3">Vista previa</p>
+                <div className="flex gap-2 flex-wrap">
+                  {["color_primario", "color_secundario", "color_light", "color_dark"].map((colorKey) => (
+                    <div 
+                      key={colorKey}
+                      className="px-6 py-3 rounded-lg text-sm font-medium"
+                      style={{ 
+                        backgroundColor: formData[colorKey as keyof TenantFormData],
+                        color: colorKey === "color_light" ? "#1f2937" : "#ffffff"
+                      }}
+                    >
+                      {colorKey.replace("color_", "").charAt(0).toUpperCase() + colorKey.replace("color_", "").slice(1)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Arena */}
+        {activeTab === "arena" && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+            <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+              <span>🏟️</span> Arena / Estadio
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="arena_nombre" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Nombre del Estadio
+                </label>
                 <input
                   type="text"
-                  value={formData.color_primario}
-                  onChange={(e) => setFormData(prev => ({ ...prev, color_primario: e.target.value }))}
-                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-sm"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="color_secundario" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Color Secundario
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  id="color_secundario"
-                  name="color_secundario"
-                  value={formData.color_secundario}
+                  id="arena_nombre"
+                  name="arena_nombre"
+                  value={formData.arena_nombre}
                   onChange={handleChange}
-                  className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={formData.color_secundario}
-                  onChange={(e) => setFormData(prev => ({ ...prev, color_secundario: e.target.value }))}
-                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-sm"
+                  placeholder="Claro Arena"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Preview */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm font-medium text-gray-700 mb-3">Vista previa</p>
-            <div 
-              className="p-4 rounded-lg flex items-center gap-4"
-              style={{ backgroundColor: formData.color_primario }}
-            >
-              {(formData.shield_url || formData.logo_url) && (
-                <img 
-                  src={formData.shield_url || formData.logo_url} 
-                  alt="Logo"
-                  className="w-12 h-12 object-contain"
-                  onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                />
-              )}
-              <span className="text-white font-semibold text-lg">
-                {formData.nombre || 'Nombre del Tenant'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Redes Sociales */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Redes Sociales
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="instagram_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Instagram
-              </label>
-              <input
-                type="url"
-                id="instagram_url"
-                name="instagram_url"
-                value={formData.instagram_url}
-                onChange={handleChange}
-                placeholder="https://instagram.com/..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="twitter_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Twitter / X
-              </label>
-              <input
-                type="url"
-                id="twitter_url"
-                name="twitter_url"
-                value={formData.twitter_url}
-                onChange={handleChange}
-                placeholder="https://twitter.com/..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="youtube_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                YouTube
-              </label>
-              <input
-                type="url"
-                id="youtube_url"
-                name="youtube_url"
-                value={formData.youtube_url}
-                onChange={handleChange}
-                placeholder="https://youtube.com/..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="website_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Sitio Web
-              </label>
-              <input
-                type="url"
-                id="website_url"
-                name="website_url"
-                value={formData.website_url}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              <ImageUploader
+                value={formData.arena_logo_url}
+                onChange={handleImageChange("arena_logo_url")}
+                label="Logo del Estadio"
+                folder={`tenants/${formData.slug}`}
+                aspectRatio="wide"
+                placeholder="Logo del estadio/arena"
               />
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Tab: Redes Sociales */}
+        {activeTab === "social" && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+            <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+              <span>🔗</span> Redes Sociales
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { id: "social_facebook", label: "Facebook", icon: "📘", placeholder: "https://facebook.com/..." },
+                { id: "social_twitter", label: "Twitter / X", icon: "🐦", placeholder: "https://twitter.com/..." },
+                { id: "social_instagram", label: "Instagram", icon: "📸", placeholder: "https://instagram.com/..." },
+                { id: "social_youtube", label: "YouTube", icon: "📺", placeholder: "https://youtube.com/..." },
+              ].map((social) => (
+                <div key={social.id}>
+                  <label htmlFor={social.id} className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <span className="mr-1">{social.icon}</span> {social.label}
+                  </label>
+                  <input
+                    type="url"
+                    id={social.id}
+                    name={social.id}
+                    value={formData[social.id as keyof TenantFormData]}
+                    onChange={handleChange}
+                    placeholder={social.placeholder}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Botones */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-4 border-t">
           <Link
             href={`/${formData.slug}`}
             target="_blank"

@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../../../lib/supabase/client";
 import { useSuperAdmin } from "../../../../components/superadmin";
+import ImageUploader from "../../../../components/superadmin/ImageUploader";
 import type { TenantFormData } from "../../../../types";
 
 export default function NewTenantPage() {
@@ -22,19 +23,28 @@ export default function NewTenantPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
+  // Form state con todos los campos
   const [formData, setFormData] = useState<TenantFormData>({
     nombre: "",
     slug: "",
     logo_url: "",
     shield_url: "",
+    background_url: "",
     color_primario: "#1e40af",
     color_secundario: "#64748b",
-    instagram_url: "",
-    twitter_url: "",
-    youtube_url: "",
-    website_url: "",
+    color_light: "#93c5fd",
+    color_dark: "#1e3a8a",
+    arena_logo_url: "",
+    arena_nombre: "",
+    social_facebook: "",
+    social_twitter: "",
+    social_instagram: "",
+    social_youtube: "",
   });
+
+  const handleImageChange = (field: keyof TenantFormData) => (url: string) => {
+    setFormData(prev => ({ ...prev, [field]: url }));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -84,7 +94,7 @@ export default function NewTenantPage() {
         throw new Error("Ya existe un tenant con este slug");
       }
 
-      // Crear tenant
+      // Crear tenant con todos los campos
       const { error: insertError } = await supabase
         .from('mt_tenants')
         .insert({
@@ -92,12 +102,17 @@ export default function NewTenantPage() {
           slug: formData.slug.trim(),
           logo_url: formData.logo_url || null,
           shield_url: formData.shield_url || null,
+          background_url: formData.background_url || null,
           color_primario: formData.color_primario,
           color_secundario: formData.color_secundario,
-          instagram_url: formData.instagram_url || null,
-          twitter_url: formData.twitter_url || null,
-          youtube_url: formData.youtube_url || null,
-          website_url: formData.website_url || null,
+          color_light: formData.color_light,
+          color_dark: formData.color_dark,
+          arena_logo_url: formData.arena_logo_url || null,
+          arena_nombre: formData.arena_nombre || null,
+          social_facebook: formData.social_facebook || null,
+          social_twitter: formData.social_twitter || null,
+          social_instagram: formData.social_instagram || null,
+          social_youtube: formData.social_youtube || null,
         });
 
       if (insertError) throw insertError;
@@ -195,86 +210,76 @@ export default function NewTenantPage() {
           </div>
         </div>
 
-        {/* Branding */}
+        {/* Branding - Imágenes */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Branding
+          <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <span>🖼️</span> Logos e Imágenes
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="logo_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Logo URL
-              </label>
-              <input
-                type="url"
-                id="logo_url"
-                name="logo_url"
-                value={formData.logo_url}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ImageUploader
+              value={formData.logo_url}
+              onChange={handleImageChange("logo_url")}
+              label="Logo Principal"
+              folder={`tenants/${formData.slug || 'nuevo'}`}
+              aspectRatio="square"
+              placeholder="Logo horizontal o cuadrado"
+            />
 
-            <div>
-              <label htmlFor="shield_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Escudo URL
-              </label>
-              <input
-                type="url"
-                id="shield_url"
-                name="shield_url"
-                value={formData.shield_url}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
+            <ImageUploader
+              value={formData.shield_url}
+              onChange={handleImageChange("shield_url")}
+              label="Escudo"
+              folder={`tenants/${formData.slug || 'nuevo'}`}
+              aspectRatio="square"
+              placeholder="Escudo del equipo"
+            />
 
-            <div>
-              <label htmlFor="color_primario" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Color Primario
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  id="color_primario"
-                  name="color_primario"
-                  value={formData.color_primario}
-                  onChange={handleChange}
-                  className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={formData.color_primario}
-                  onChange={(e) => setFormData(prev => ({ ...prev, color_primario: e.target.value }))}
-                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-sm"
-                />
+            <ImageUploader
+              value={formData.background_url}
+              onChange={handleImageChange("background_url")}
+              label="Background"
+              folder={`tenants/${formData.slug || 'nuevo'}`}
+              aspectRatio="wide"
+              placeholder="Imagen de fondo"
+            />
+          </div>
+        </div>
+
+        {/* Branding - Colores */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <span>🎨</span> Paleta de Colores
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { id: "color_primario", label: "Primario" },
+              { id: "color_secundario", label: "Secundario" },
+              { id: "color_light", label: "Claro" },
+              { id: "color_dark", label: "Oscuro" },
+            ].map((color) => (
+              <div key={color.id}>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  {color.label}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    name={color.id}
+                    value={formData[color.id as keyof TenantFormData]}
+                    onChange={handleChange}
+                    className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData[color.id as keyof TenantFormData]}
+                    onChange={(e) => setFormData(prev => ({ ...prev, [color.id]: e.target.value }))}
+                    className="flex-1 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-xs"
+                  />
+                </div>
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="color_secundario" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Color Secundario
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  id="color_secundario"
-                  name="color_secundario"
-                  value={formData.color_secundario}
-                  onChange={handleChange}
-                  className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={formData.color_secundario}
-                  onChange={(e) => setFormData(prev => ({ ...prev, color_secundario: e.target.value }))}
-                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-mono text-sm"
-                />
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Preview */}
@@ -301,72 +306,67 @@ export default function NewTenantPage() {
           )}
         </div>
 
+        {/* Arena / Estadio */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <span>🏟️</span> Arena / Estadio
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="arena_nombre" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nombre del Estadio
+              </label>
+              <input
+                type="text"
+                id="arena_nombre"
+                name="arena_nombre"
+                value={formData.arena_nombre}
+                onChange={handleChange}
+                placeholder="Claro Arena"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              />
+            </div>
+
+            <ImageUploader
+              value={formData.arena_logo_url}
+              onChange={handleImageChange("arena_logo_url")}
+              label="Logo del Estadio"
+              folder={`tenants/${formData.slug || 'nuevo'}`}
+              aspectRatio="wide"
+              placeholder="Logo del estadio/arena"
+            />
+          </div>
+        </div>
+
         {/* Redes Sociales */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Redes Sociales
+          <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <span>🔗</span> Redes Sociales
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="instagram_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Instagram
-              </label>
-              <input
-                type="url"
-                id="instagram_url"
-                name="instagram_url"
-                value={formData.instagram_url}
-                onChange={handleChange}
-                placeholder="https://instagram.com/..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="twitter_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Twitter / X
-              </label>
-              <input
-                type="url"
-                id="twitter_url"
-                name="twitter_url"
-                value={formData.twitter_url}
-                onChange={handleChange}
-                placeholder="https://twitter.com/..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="youtube_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                YouTube
-              </label>
-              <input
-                type="url"
-                id="youtube_url"
-                name="youtube_url"
-                value={formData.youtube_url}
-                onChange={handleChange}
-                placeholder="https://youtube.com/..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="website_url" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Sitio Web
-              </label>
-              <input
-                type="url"
-                id="website_url"
-                name="website_url"
-                value={formData.website_url}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-            </div>
+            {[
+              { id: "social_facebook", label: "Facebook", icon: "📘", placeholder: "https://facebook.com/..." },
+              { id: "social_twitter", label: "Twitter / X", icon: "🐦", placeholder: "https://twitter.com/..." },
+              { id: "social_instagram", label: "Instagram", icon: "📸", placeholder: "https://instagram.com/..." },
+              { id: "social_youtube", label: "YouTube", icon: "📺", placeholder: "https://youtube.com/..." },
+            ].map((social) => (
+              <div key={social.id}>
+                <label htmlFor={social.id} className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <span className="mr-1">{social.icon}</span> {social.label}
+                </label>
+                <input
+                  type="url"
+                  id={social.id}
+                  name={social.id}
+                  value={formData[social.id as keyof TenantFormData]}
+                  onChange={handleChange}
+                  placeholder={social.placeholder}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                />
+              </div>
+            ))}
           </div>
         </div>
 

@@ -15,6 +15,11 @@ export default function LandingPage() {
     const { tenant } = useTenant();
     const { evento, loading, error, isAccreditationOpen } = useEventoActivo(tenant.slug);
 
+    const handleBack = () => {
+        setIsNavigating(true);
+        router.push('/');
+    };
+
     if (loading) {
         return <LoadingSpinner message="Cargando evento..." />;
     }
@@ -88,6 +93,17 @@ export default function LandingPage() {
             </style>
             <div className="relative min-h-screen">
                 {isNavigating && <LoadingSpinner message="Cargando..." />}
+
+                {/* Botón Volver al inicio */}
+                <button
+                    onClick={handleBack}
+                    className="fixed top-3 sm:top-4 left-3 sm:left-4 z-50 inline-flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-md text-white hover:bg-white/30 font-medium transition-all px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-white/30 hover:scale-105 active:scale-95 text-xs sm:text-sm"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span className="hidden sm:inline">Inicio</span>
+                </button>
 
                 <IconoFlotanteAdmin />
                 <BotonFlotante />

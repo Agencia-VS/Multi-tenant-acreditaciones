@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabase';
 import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
 
@@ -96,17 +97,27 @@ export default function AuthAcreditadoPage() {
 
       if (error) throw error;
 
-      if (data.user && formData.rut) {
-        const { error: perfilError } = await supabase.rpc('get_or_create_perfil', {
-          p_user_id: data.user.id,
-          p_rut: formData.rut,
-          p_nombre: formData.nombre,
-          p_apellido: formData.apellido,
-          p_email: formData.email,
-          p_empresa: formData.empresa,
-          p_telefono: formData.telefono,
-        });
-        if (perfilError) console.warn('Error creando perfil:', perfilError);
+      // Crear perfil directamente en mt_perfiles_acreditados
+      if (data.user) {
+        // Generar un RUT temporal si no se proporciona (requerido por la BD)
+        const rutValue = formData.rut || `TEMP-${data.user.id.substring(0, 8)}`;
+        
+        const { error: perfilError } = await supabase
+          .from('mt_perfiles_acreditados')
+          .insert({
+            user_id: data.user.id,
+            rut: rutValue,
+            nombre: formData.nombre,
+            apellido: formData.apellido,
+            email: formData.email,
+            empresa: formData.empresa || null,
+            telefono: formData.telefono || null,
+            nacionalidad: 'Chile',
+          });
+        
+        if (perfilError) {
+          console.warn('Error creando perfil:', perfilError.message);
+        }
       }
 
       setSuccess('¡Cuenta creada! Ya puedes iniciar sesión.');
@@ -134,6 +145,17 @@ export default function AuthAcreditadoPage() {
 
   return (
     <div className="min-h-screen flex overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Botón Volver al inicio */}
+      <Link
+        href="/"
+        className="fixed top-4 left-4 z-50 inline-flex items-center gap-2 bg-white/90 backdrop-blur text-gray-700 hover:bg-white font-medium transition-all px-4 py-2.5 rounded-xl border border-gray-200 hover:scale-105 active:scale-95 text-sm shadow-lg"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span>Inicio</span>
+      </Link>
+
       <div className="relative w-full flex">
         
         {/* Panel de Branding */}

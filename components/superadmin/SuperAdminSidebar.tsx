@@ -149,6 +149,17 @@ export function SuperAdminSidebar() {
 
       {/* Usuario */}
       <div className="p-4 border-t border-gray-200">
+        {/* Link al inicio */}
+        <Link
+          href="/"
+          className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Volver al Inicio
+        </Link>
+        
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
             <span className="text-sm font-medium text-gray-600">

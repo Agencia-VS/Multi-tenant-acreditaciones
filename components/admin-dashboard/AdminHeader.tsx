@@ -7,6 +7,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useTenant } from "../tenant/TenantContext";
 
 // ============================================================================
@@ -52,6 +53,17 @@ export default function AdminHeader({
   return (
     <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
       <div className="flex items-center gap-6">
+        {/* Botón Volver */}
+        <Link
+          href={`/${tenant.slug}`}
+          className="p-2.5 bg-white/10 hover:bg-white/20 backdrop-blur rounded-xl text-white transition-all hover:scale-105 active:scale-95"
+          title="Volver al evento"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </Link>
+        
         {tenant.shield_url || tenant.logo_url ? (
           <Image
             src={tenant.shield_url || tenant.logo_url || "/UCimg/LogoUC.png"}

@@ -5,23 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import type { PerfilAcreditado } from '../../../types/acreditado';
 
-interface Perfil {
-  id: string;
-  nombre: string;
-  apellido: string;
-  email: string;
-  empresa: string | null;
-  telefono: string | null;
-  rut: string;
-  nacionalidad: string | null;
-  cargo: string | null;
-}
-
-export default function PerfilAcreditado() {
+export default function PerfilAcreditadoPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [perfil, setPerfil] = useState<PerfilAcreditado | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);

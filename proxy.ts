@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 // Configura aquí tu dominio principal
-const MAIN_DOMAIN = 'midominio.cl';
+const MAIN_DOMAIN = 'accredia.cl';
 const LOCALHOSTS = ['localhost', '127.0.0.1'];
 
 function isStaticOrApiPath(pathname: string): boolean {

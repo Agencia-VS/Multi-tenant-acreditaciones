@@ -10,7 +10,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "../../../lib/supabase/client";
 import { ForgotPasswordModal } from "../../../components/auth";
-
+import { BotonVolverGenerico } from "@/components/common/BotonesFlotantes";
 export default function SuperAdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -117,6 +117,7 @@ export default function SuperAdminLoginPage() {
   return (
     <main className="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-gray-50">
       <div className="w-full max-w-md">
+        <BotonVolverGenerico href="/" variant="light" label="Volver al sitio" />
         <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-10 border border-gray-100">
           {/* Icono */}
           <div className="flex justify-center mb-6">

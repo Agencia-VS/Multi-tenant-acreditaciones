@@ -42,3 +42,6 @@ export {
 
 // Tipos de autenticación para acreditados
 export * from './auth-acreditado';
+
+// Tipos del panel de acreditados (responsables)
+export * from './acreditado';

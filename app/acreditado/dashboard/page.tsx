@@ -5,60 +5,23 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
-
-interface Perfil {
-  id: string;
-  nombre: string;
-  apellido: string;
-  email: string;
-  empresa: string | null;
-  telefono: string | null;
-  rut: string;
-}
-
-interface Acreditacion {
-  id: number;
-  nombre: string;
-  apellido: string;
-  email: string;
-  cargo: string;
-  empresa: string;
-  status: 'pendiente' | 'aprobado' | 'rechazado';
-  created_at: string;
-  tenant: {
-    nombre: string;
-    slug: string;
-    shield_url: string | null;
-  };
-  evento: {
-    nombre: string;
-    fecha: string;
-  } | null;
-}
-
-interface Tenant {
-  id: string;
-  nombre: string;
-  slug: string;
-  shield_url: string | null;
-  color_primario: string;
-}
-
-interface Evento {
-  id: number;
-  nombre: string;
-  fecha: string;
-  tenant_id: string;
-}
+import type { 
+  PerfilAcreditado, 
+  AcreditacionConRelaciones, 
+  TenantBasico,
+  PersonaFrecuente,
+  PerfilConEquipo
+} from '../../../types/acreditado';
 
 export default function DashboardAcreditado() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [acreditaciones, setAcreditaciones] = useState<Acreditacion[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [perfil, setPerfil] = useState<PerfilConEquipo | null>(null);
+  const [acreditaciones, setAcreditaciones] = useState<AcreditacionConRelaciones[]>([]);
+  const [tenants, setTenants] = useState<TenantBasico[]>([]);
+  const [frecuentes, setFrecuentes] = useState<PersonaFrecuente[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'solicitudes' | 'nueva'>('solicitudes');
+  const [activeTab, setActiveTab] = useState<'solicitudes' | 'nueva' | 'frecuentes'>('solicitudes');
 
   useEffect(() => {
     const loadData = async () => {
@@ -71,40 +34,75 @@ export default function DashboardAcreditado() {
 
       setUser(session.user);
 
-      // Cargar perfil
-      const { data: perfilData } = await supabase
+      // Cargar perfil con equipo frecuente
+      let { data: perfilData, error: perfilError } = await supabase
         .from('mt_perfiles_acreditados')
         .select('*')
         .eq('user_id', session.user.id)
         .single();
 
+      // Si no tiene perfil, intentar crearlo con datos del usuario
+      if (!perfilData && session.user.user_metadata) {
+        const meta = session.user.user_metadata;
+        // Generar RUT temporal si no existe (la BD lo requiere)
+        const rutValue = meta.rut || `TEMP-${session.user.id.substring(0, 8)}`;
+        
+        const { data: newPerfil, error: createError } = await supabase
+          .from('mt_perfiles_acreditados')
+          .insert({
+            user_id: session.user.id,
+            nombre: meta.nombre || session.user.email?.split('@')[0] || 'Usuario',
+            apellido: meta.apellido || '',
+            email: session.user.email || '',
+            empresa: meta.empresa || null,
+            telefono: meta.telefono || null,
+            rut: rutValue,
+            nacionalidad: 'Chile',
+          })
+          .select()
+          .single();
+
+        if (!createError && newPerfil) {
+          perfilData = newPerfil;
+        } else if (createError) {
+          console.warn('Error creando perfil:', createError.message);
+        }
+      }
+
       if (perfilData) {
         setPerfil(perfilData);
+        // Cargar frecuentes desde el campo JSONB (si existe)
+        setFrecuentes(perfilData.equipo_frecuente || []);
       }
 
-      // Cargar acreditaciones del usuario (por email o RUT)
+      // Cargar acreditaciones del usuario (por email)
       const userEmail = session.user.email;
-      const { data: acreditacionesData } = await supabase
-        .from('mt_acreditados')
-        .select(`
-          id, nombre, apellido, email, cargo, empresa, status, created_at,
-          tenant:tenant_id(nombre, slug, shield_url),
-          evento:evento_id(nombre, fecha)
-        `)
-        .or(`responsable_email.eq.${userEmail},email.eq.${userEmail}`)
-        .order('created_at', { ascending: false });
+      if (userEmail) {
+        const { data: acreditacionesData, error: acreditacionesError } = await supabase
+          .from('mt_acreditados')
+          .select(`
+            id, nombre, apellido, email, cargo, empresa, status, created_at,
+            tenant:tenant_id(nombre, slug, shield_url),
+            evento:evento_id(nombre, fecha)
+          `)
+          .eq('email', userEmail)
+          .order('created_at', { ascending: false });
 
-      if (acreditacionesData) {
-        setAcreditaciones(acreditacionesData as unknown as Acreditacion[]);
+        if (acreditacionesError) {
+          console.warn('Error cargando acreditaciones:', acreditacionesError.message);
+        } else if (acreditacionesData) {
+          setAcreditaciones(acreditacionesData as unknown as AcreditacionConRelaciones[]);
+        }
       }
 
-      // Cargar tenants disponibles
-      const { data: tenantsData } = await supabase
+      // Cargar tenants disponibles (sin filtro de activo ya que puede no existir la columna)
+      const { data: tenantsData, error: tenantsError } = await supabase
         .from('mt_tenants')
-        .select('id, nombre, slug, shield_url, color_primario')
-        .eq('activo', true);
+        .select('id, nombre, slug, shield_url, color_primario');
 
-      if (tenantsData) {
+      if (tenantsError) {
+        console.warn('Error cargando tenants:', tenantsError.message);
+      } else if (tenantsData) {
         setTenants(tenantsData);
       }
 
@@ -162,6 +160,16 @@ export default function DashboardAcreditado() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center gap-4">
+              {/* Botón volver */}
+              <Link
+                href="/"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Volver al inicio"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </Link>
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center text-white font-bold">
                 {perfil?.nombre?.charAt(0) || user?.email?.charAt(0) || 'A'}
               </div>
@@ -212,7 +220,7 @@ export default function DashboardAcreditado() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <button
             onClick={() => setActiveTab('solicitudes')}
             className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
@@ -232,6 +240,16 @@ export default function DashboardAcreditado() {
             }`}
           >
             ➕ Nueva Acreditación
+          </button>
+          <button
+            onClick={() => setActiveTab('frecuentes')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+              activeTab === 'frecuentes'
+                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border'
+            }`}
+          >
+            ⭐ Mi Equipo ({frecuentes.length})
           </button>
         </div>
 
@@ -289,7 +307,9 @@ export default function DashboardAcreditado() {
                         <td className="px-6 py-4 text-gray-600">{acreditacion.cargo}</td>
                         <td className="px-6 py-4">{getStatusBadge(acreditacion.status)}</td>
                         <td className="px-6 py-4 text-sm text-gray-500">
-                          {new Date(acreditacion.created_at).toLocaleDateString('es-CL')}
+                          {acreditacion.created_at 
+                            ? new Date(acreditacion.created_at).toLocaleDateString('es-CL')
+                            : '-'}
                         </td>
                       </tr>
                     ))}
@@ -298,7 +318,7 @@ export default function DashboardAcreditado() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'nueva' ? (
           <div className="bg-white rounded-2xl shadow-sm border p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Selecciona un evento</h2>
             <p className="text-gray-500 mb-6">Elige la organización donde deseas solicitar acreditación</p>
@@ -313,7 +333,7 @@ export default function DashboardAcreditado() {
                 {tenants.map((tenant) => (
                   <Link
                     key={tenant.id}
-                    href={`/${tenant.slug}/acreditacion`}
+                    href={`/acreditado/nueva/${tenant.slug}`}
                     className="group flex items-center gap-4 p-5 border-2 border-gray-100 rounded-2xl hover:border-blue-200 hover:bg-blue-50/50 transition-all"
                   >
                     {tenant.shield_url ? (
@@ -325,7 +345,7 @@ export default function DashboardAcreditado() {
                     ) : (
                       <div 
                         className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold"
-                        style={{ backgroundColor: tenant.color_primario }}
+                        style={{ backgroundColor: tenant.color_primario || '#3b82f6' }}
                       >
                         {tenant.nombre.charAt(0)}
                       </div>
@@ -341,7 +361,77 @@ export default function DashboardAcreditado() {
               </div>
             )}
           </div>
-        )}
+        ) : activeTab === 'frecuentes' ? (
+          <div className="bg-white rounded-2xl shadow-sm border p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Mi Equipo de Prensa</h2>
+                <p className="text-gray-500 text-sm mt-1">Personas que acreditas frecuentemente</p>
+              </div>
+            </div>
+            
+            {frecuentes.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">👥</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes personas guardadas</h3>
+                <p className="text-gray-500 mb-6">Al solicitar acreditaciones, puedes guardar personas para reutilizar sus datos</p>
+                <button
+                  onClick={() => setActiveTab('nueva')}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors"
+                >
+                  Crear acreditación
+                </button>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {frecuentes.map((frecuente) => (
+                  <div 
+                    key={frecuente.id}
+                    className="p-4 border-2 border-gray-100 rounded-2xl hover:border-blue-200 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center text-white font-semibold">
+                        {frecuente.nombre.charAt(0)}{frecuente.apellido.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">
+                          {frecuente.nombre} {frecuente.apellido}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                          {frecuente.cargo || frecuente.tipo_medio || 'Sin cargo'}
+                        </p>
+                        {frecuente.email && (
+                          <p className="text-xs text-gray-400 truncate mt-1">{frecuente.email}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-gray-400">
+                      <span>Usado {frecuente.veces_usado || 0} {frecuente.veces_usado === 1 ? 'vez' : 'veces'}</span>
+                      <button
+                        onClick={async () => {
+                          if (confirm('¿Eliminar esta persona de tu equipo?')) {
+                            const nuevoEquipo = frecuentes.filter(f => f.id !== frecuente.id);
+                            // Actualizar en BD
+                            if (perfil) {
+                              await supabase
+                                .from('mt_perfiles_acreditados')
+                                .update({ equipo_frecuente: nuevoEquipo })
+                                .eq('id', perfil.id);
+                            }
+                            setFrecuentes(nuevoEquipo);
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-600 transition-colors"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
       </main>
     </div>
   );
