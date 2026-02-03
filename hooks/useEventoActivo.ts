@@ -35,13 +35,18 @@ export function useEventoActivo(tenantSlug: string): UseEventoActivoReturn {
     setError(null);
 
     try {
+      // Obtener la fecha de hoy en formato ISO (YYYY-MM-DD)
+      const today = new Date().toISOString().split('T')[0];
+      
       // Usar la vista v_evento_completo si existe, sino hacer JOIN manual
+      // Priorizar: evento activo con fecha >= hoy, ordenado por fecha ASC (el más próximo primero)
       const { data, error: queryError } = await supabase
         .from('v_evento_completo')
         .select('*')
         .eq('tenant_slug', tenantSlug)
         .eq('is_active', true)
-        .order('fecha', { ascending: false })
+        .gte('fecha', today) // Solo eventos futuros o de hoy
+        .order('fecha', { ascending: true }) // El más próximo primero
         .limit(1)
         .single();
 
@@ -105,13 +110,16 @@ async function fetchEventoManual(tenantSlug: string): Promise<EventoCompleto | n
 
   if (tenantError || !tenant) return null;
 
-  // Luego obtener el evento activo
+  // Luego obtener el evento activo más próximo (fecha >= hoy)
+  const today = new Date().toISOString().split('T')[0];
+  
   const { data: evento, error: eventoError } = await supabase
     .from('mt_eventos')
     .select('*')
     .eq('tenant_id', tenant.id)
     .eq('is_active', true)
-    .order('fecha', { ascending: false })
+    .gte('fecha', today) // Solo eventos futuros o de hoy
+    .order('fecha', { ascending: true }) // El más próximo primero
     .limit(1)
     .single();
 

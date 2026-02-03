@@ -1,12 +1,13 @@
 /**
  * Header del panel de administración
  * 
- * Muestra el logo, título y botón de logout.
+ * Muestra el logo, título, rol del usuario y botón de logout.
  */
 
 "use client";
 
 import Image from "next/image";
+import { useTenant } from "../tenant/TenantContext";
 
 // ============================================================================
 // TIPOS
@@ -19,7 +20,20 @@ export interface AdminHeaderProps {
   isLoggingOut: boolean;
   /** Callback para cerrar sesión */
   onLogout: () => void;
+  /** Rol del usuario actual */
+  userRole?: 'superadmin' | 'admin' | 'editor' | 'lector' | null;
 }
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+const ROLE_LABELS: Record<string, { label: string; color: string }> = {
+  superadmin: { label: "Super Admin", color: "bg-purple-500" },
+  admin: { label: "Administrador", color: "bg-blue-500" },
+  editor: { label: "Editor", color: "bg-green-500" },
+  lector: { label: "Lector", color: "bg-gray-500" },
+};
 
 // ============================================================================
 // COMPONENTE
@@ -29,29 +43,46 @@ export default function AdminHeader({
   userEmail,
   isLoggingOut,
   onLogout,
+  userRole,
 }: AdminHeaderProps) {
+  const { tenant } = useTenant();
+  
+  const roleInfo = userRole ? ROLE_LABELS[userRole] : null;
+
   return (
     <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
       <div className="flex items-center gap-6">
-        <Image
-          src="/UCimg/LogoUC.png"
-          alt="Logo UC"
-          width={80}
-          height={80}
-          className="h-auto"
-        />
+        {tenant.shield_url || tenant.logo_url ? (
+          <Image
+            src={tenant.shield_url || tenant.logo_url || "/UCimg/LogoUC.png"}
+            alt={`Logo ${tenant.nombre}`}
+            width={80}
+            height={80}
+            className="h-auto"
+          />
+        ) : (
+          <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center">
+            <span className="text-white text-2xl font-bold">
+              {tenant.nombre?.charAt(0) || "?"}
+            </span>
+          </div>
+        )}
         <div>
           <h1 className="text-3xl font-bold text-white drop-shadow-lg">
             Panel de Administración
           </h1>
           <p className="text-white/90 text-sm mt-1 font-medium">
-            Sistema de Acreditaciones prensa UC
+            Sistema de Acreditaciones - {tenant.nombre}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <p className="text-white/70 text-xs">Administrador</p>
+          {roleInfo && (
+            <span className={`inline-block px-2 py-0.5 ${roleInfo.color} text-white text-xs rounded-full mb-1`}>
+              {roleInfo.label}
+            </span>
+          )}
           <p className="text-white font-medium text-sm">{userEmail}</p>
         </div>
         <button

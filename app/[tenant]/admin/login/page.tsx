@@ -1,13 +1,13 @@
-// ...existing code...
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getSupabaseBrowserClient } from "../../../../lib/supabase/client";
 import Image from "next/image";
 import BotonVolver from "../../../../components/common/BotonesFlotantes/BotonVolver";
 import BotonFlotante from "../../../../components/common/BotonesFlotantes/BotonFlotante";
 import { useTenant, useTenantColors } from "../../../../components/tenant/TenantContext";
+import { ForgotPasswordModal } from "../../../../components/auth";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -15,9 +15,25 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { tenant } = useTenant();
   const colors = useTenantColors();
+  
+  const supabase = getSupabaseBrowserClient();
+  const redirectTo = searchParams.get('redirect') || `/${tenant.slug}/admin`;
+
+  // Verificar si ya hay sesión activa
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push(redirectTo);
+      }
+    };
+    checkSession();
+  }, [supabase, router, redirectTo]);
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -31,13 +47,19 @@ export default function AdminLoginPage() {
       });
 
       if (authError) {
-        setError(authError.message);
+        // Traducir errores comunes
+        const errorMessages: Record<string, string> = {
+          "Invalid login credentials": "Credenciales inválidas. Verifica tu email y contraseña.",
+          "Email not confirmed": "Email no confirmado. Revisa tu bandeja de entrada.",
+          "Too many requests": "Demasiados intentos. Espera unos minutos.",
+        };
+        setError(errorMessages[authError.message] || authError.message);
         setLoading(false);
         return;
       }
 
       if (data.session) {
-        router.push(`/${tenant.slug}/admin`);
+        router.push(redirectTo);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
@@ -208,13 +230,28 @@ export default function AdminLoginPage() {
           </form>
 
           {/* Footer */}
-          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-            <p className="text-xs text-gray-500">
-              Sistema de Acreditación - {tenant.nombre}
-            </p>
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="text-center space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(true)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+              <p className="text-xs text-gray-500">
+                Sistema de Acreditación - {tenant.nombre}
+              </p>
+            </div>
           </div>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        defaultEmail={email}
+      />
     </main>
   );
 }

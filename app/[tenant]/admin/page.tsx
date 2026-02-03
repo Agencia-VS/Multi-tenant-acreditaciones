@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import ConfirmationModal from "../../../components/common/ConfirmationModal";
 import Modal from "../../../components/common/Modal";
@@ -16,19 +15,23 @@ import {
   AdminHeader,
   AdminMessage,
   Acreditacion, 
-  User, 
   AREA_NAMES, 
   ESTADO_COLORS 
 } from "../../../components/admin-dashboard";
 import { useTenant, useTenantColors } from "../../../components/tenant/TenantContext";
 import { useAdminData, useAdminUI, useAdminMutations } from "../../../hooks";
+import { useUserRole } from "../../../hooks/useUserRole";
+import { TenantAdminRoute, usePermissions } from "../../../components/auth";
 
-export default function AdminDashboard() {
-  const [user, setUser] = useState<User | null>(null);
+function AdminDashboardContent() {
   const [localAcreditaciones, setLocalAcreditaciones] = useState<Acreditacion[]>([]);
   const router = useRouter();
   const { tenant } = useTenant();
   const colors = useTenantColors();
+  
+  // Nuevo sistema de autenticación
+  const { user, isSuperAdmin, tenantRole, signOut } = useUserRole({ tenantSlug: tenant.slug });
+  const { canEdit, canDelete, canApprove } = usePermissions(tenant.slug);
 
   // ---- Hooks de datos ----
   const {
@@ -101,19 +104,12 @@ export default function AdminDashboard() {
     tenantSlug: tenant.slug,
   });
 
-  // ---- Auth check ----
+  // ---- Cargar datos cuando hay usuario ----
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.push(`/${tenant.slug}/admin/login`);
-        return;
-      }
-      setUser(data.session.user);
+    if (user) {
       fetchAcreditaciones();
-    };
-    checkAuth();
-  }, [router, tenant.slug, fetchAcreditaciones]);
+    }
+  }, [user, fetchAcreditaciones]);
 
   // ---- Handlers ----
   const openDetail = useCallback((acred: Acreditacion) => {
@@ -167,11 +163,12 @@ export default function AdminDashboard() {
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);
     try {
-      await mutateLogout();
+      await signOut();
+      router.push(`/${tenant.slug}/admin/login`);
     } catch {
       setLoggingOut(false);
     }
-  }, [mutateLogout, setLoggingOut]);
+  }, [signOut, router, tenant.slug, setLoggingOut]);
 
   const handleAsignZona = useCallback(async (zonaId: number) => {
     if (!selectedAcreditacion) return;
@@ -228,6 +225,7 @@ export default function AdminDashboard() {
             userEmail={user?.email}
             isLoggingOut={isLoggingOut}
             onLogout={handleLogout}
+            userRole={isSuperAdmin ? 'superadmin' : tenantRole}
           />
 
           {/* Stats Cards */}
@@ -320,5 +318,20 @@ export default function AdminDashboard() {
       />
       </div>
     </AdminProvider>
+  );
+}
+
+/**
+ * Página de Admin Dashboard con protección de ruta
+ * El middleware ya verifica la autenticación, este wrapper proporciona
+ * verificación adicional del lado del cliente.
+ */
+export default function AdminDashboard() {
+  const { tenant } = useTenant();
+  
+  return (
+    <TenantAdminRoute tenantSlug={tenant.slug} requiredRole="lector">
+      <AdminDashboardContent />
+    </TenantAdminRoute>
   );
 }

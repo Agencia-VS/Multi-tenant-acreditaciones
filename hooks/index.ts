@@ -10,3 +10,6 @@ export { useAdminMutations, type UseAdminMutationsOptions, type UseAdminMutation
 
 // Hook de evento activo (100% Supabase)
 export { useEventoActivo } from "./useEventoActivo";
+
+// Hooks de autenticación y roles
+export { useUserRole, useAuth, type UserRoleInfo, type UseUserRoleOptions, type TenantRole } from "./useUserRole";
