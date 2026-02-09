@@ -3,11 +3,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* Colores del tenant - se sobrescriben dinámicamente vía JavaScript */
-  --tenant-primario: #1e5799;
-  --tenant-secundario: #207cca;
-  --tenant-light: #7db9e8;
-  --tenant-dark: #2989d8;
+  /* Colores del tenant - se sobrescriben dinámicamente con los colores de la DB */
+  --tenant-primario: #374151;
+  --tenant-secundario: #6b7280;
+  --tenant-light: #9ca3af;
+  --tenant-dark: #1f2937;
   --blanco: #ffffff;
   --font-barlow-condensed: 'Barlow Condensed', sans-serif;
 }
@@ -30,9 +30,9 @@ body {
 
 .hero-overlay {
   background: linear-gradient(135deg, 
-      rgba(var(--tenant-primario-rgb, 30, 87, 153), 0.45) 0%, 
-      rgba(var(--tenant-secundario-rgb, 32, 124, 202), 0.35) 50%,
-      rgba(var(--tenant-primario-rgb, 30, 87, 153), 0.50) 100%);
+      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.45) 0%, 
+      rgba(var(--tenant-secundario-rgb, 107, 114, 128), 0.35) 50%,
+      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.50) 100%);
 }
 
 .animate-float {
@@ -45,7 +45,7 @@ body {
 }
 
 .btn-glow:hover {
-  box-shadow: 0 0 30px rgba(var(--tenant-secundario-rgb, 32, 124, 202), 0.6);
+  box-shadow: 0 0 30px rgba(var(--tenant-secundario-rgb, 107, 114, 128), 0.6);
 }
 
 .minimal-line {

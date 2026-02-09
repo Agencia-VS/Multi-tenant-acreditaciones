@@ -45,3 +45,6 @@ export * from './auth-acreditado';
 
 // Tipos del panel de acreditados (responsables)
 export * from './acreditado';
+
+// Tipos de formularios dinámicos
+export * from './form-config';

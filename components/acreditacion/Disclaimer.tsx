@@ -53,7 +53,7 @@ export default function DisclaimerModal({ isVisible, onAccept }: DisclaimerModal
           <div
             ref={contentRef}
             onScroll={handleScroll}
-            className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-[#1e5799]/30 scrollbar-track-gray-100 scrollbar-thumb-rounded-full hover:scrollbar-thumb-[#1e5799]/50 transition-colors"
+            className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400/30 scrollbar-track-gray-100 scrollbar-thumb-rounded-full hover:scrollbar-thumb-gray-500/50 transition-colors"
           >
             <div className="space-y-4 text-base text-gray-700 pr-2">
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 shadow-sm">

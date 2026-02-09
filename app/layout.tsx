@@ -22,10 +22,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Acreditaciones UC",
-  description: "Sistema de acreditación oficial para el partido Universidad Católica vs Deportes Concepción - 8 de Febrero 2026, Claro Arena",
+  title: "Accredia",
+  description: "Sistema de acreditación oficial",
   icons: {
-    icon: "/UCimg/EscudoUC.png",
+    icon: "/VSimg/VSLogo.png",
   },
 };
 

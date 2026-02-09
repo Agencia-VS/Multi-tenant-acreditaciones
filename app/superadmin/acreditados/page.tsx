@@ -49,30 +49,46 @@ export default function AcreditadosPage() {
       setLoading(true);
 
       // Cargar tenants
-      const { data: tenantsData } = await supabase
+      const { data: tenantsData, error: tenantsError } = await supabase
         .from('mt_tenants')
         .select('id, slug, nombre, color_primario')
         .order('nombre');
+      
+      if (tenantsError) {
+        console.error('Error loading tenants:', tenantsError);
+      }
       setTenants(tenantsData || []);
 
       // Cargar eventos
-      const { data: eventosData } = await supabase
+      const { data: eventosData, error: eventosError } = await supabase
         .from('mt_eventos')
         .select('id, tenant_id, nombre_evento, fecha')
         .order('fecha', { ascending: false });
+      
+      if (eventosError) {
+        console.error('Error loading eventos:', eventosError);
+      }
       setEventos(eventosData || []);
 
       // Cargar acreditados
       const { data: acreditadosData, error } = await supabase
         .from('mt_acreditados')
-        .select('*')
+        .select('id, tenant_id, evento_id, nombre, apellido, rut, email, empresa, area, tipo_credencial, status, created_at, responsable_nombre, responsable_email')
         .order('created_at', { ascending: false })
         .limit(200);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
 
       // Enriquecer con tenant y evento
-      const enriched = (acreditadosData || []).map((acr: { id: string; tenant_id: string; evento_id: string; nombre: string; apellido: string; email: string; medio: string | null; tipo: string; status: AcreditadoStatus; created_at: string }) => ({
+      const enriched = (acreditadosData || []).map((acr: Omit<AcreditadoGlobal, 'tenant' | 'evento'>) => ({
         ...acr,
         tenant: tenantsData?.find((t: TenantBasic) => t.id === acr.tenant_id),
         evento: eventosData?.find((e: EventoBasic) => e.id === acr.evento_id),
@@ -81,7 +97,8 @@ export default function AcreditadosPage() {
       setAcreditados(enriched);
     } catch (error) {
       console.error('Error loading data:', error);
-      setMessage({ type: 'error', text: 'Error al cargar datos' });
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar datos (posible problema de permisos RLS)';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -90,12 +107,14 @@ export default function AcreditadosPage() {
   // Filtrar acreditados
   const filteredAcreditados = acreditados.filter(acr => {
     if (filters.tenant_id && acr.tenant_id !== filters.tenant_id) return false;
-    if (filters.evento_id && acr.evento_id !== filters.evento_id) return false;
+    if (filters.evento_id && acr.evento_id !== Number(filters.evento_id)) return false;
     if (filters.status && acr.status !== filters.status) return false;
     if (filters.search) {
       const search = filters.search.toLowerCase();
-      const fullName = `${acr.nombre} ${acr.apellido}`.toLowerCase();
-      if (!fullName.includes(search) && !acr.email.toLowerCase().includes(search)) {
+      const fullName = `${acr.nombre} ${acr.apellido || ''}`.toLowerCase();
+      const email = (acr.email || '').toLowerCase();
+      const empresa = (acr.empresa || '').toLowerCase();
+      if (!fullName.includes(search) && !email.includes(search) && !empresa.includes(search)) {
         return false;
       }
     }
@@ -278,10 +297,10 @@ export default function AcreditadosPage() {
                     Tenant
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
+                    Empresa
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Medio
+                    Área
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
@@ -300,9 +319,9 @@ export default function AcreditadosPage() {
                     <td className="px-4 py-3">
                       <div>
                         <div className="font-medium text-gray-900">
-                          {acr.nombre} {acr.apellido}
+                          {acr.nombre} {acr.apellido || ''}
                         </div>
-                        <div className="text-sm text-gray-500">{acr.email}</div>
+                        <div className="text-sm text-gray-500">{acr.email || acr.rut || '-'}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -320,11 +339,11 @@ export default function AcreditadosPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 capitalize">
-                      {acr.tipo || '-'}
-                    </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {acr.medio || '-'}
+                      {acr.empresa || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 capitalize">
+                      {acr.area || '-'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(acr.status)}`}>

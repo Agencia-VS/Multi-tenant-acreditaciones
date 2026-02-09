@@ -2,12 +2,12 @@
 
 import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 
-// Colores por defecto (Universidad Católica como fallback)
+// Colores por defecto neutros (gris) - se sobrescriben con los colores del tenant de la DB
 const DEFAULT_COLORS = {
-  primario: '#1e5799',
-  secundario: '#207cca',
-  light: '#7db9e8',
-  dark: '#2989d8',
+  primario: '#374151',
+  secundario: '#6b7280',
+  light: '#9ca3af',
+  dark: '#1f2937',
 };
 
 export interface TenantColors {
@@ -66,6 +66,15 @@ function extractColors(tenant: Tenant): TenantColors {
 export function TenantProvider({ children, tenant }: TenantProviderProps) {
   const colors = extractColors(tenant);
 
+  // Convertir hex a RGB para usar en rgba()
+  const hexToRgb = (hex: string): string => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (result) {
+      return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+    }
+    return '55, 65, 81'; // fallback gris
+  };
+
   // Establecer variables CSS en el documento para que estén disponibles globalmente
   useEffect(() => {
     const root = document.documentElement;
@@ -73,6 +82,10 @@ export function TenantProvider({ children, tenant }: TenantProviderProps) {
     root.style.setProperty('--tenant-secundario', colors.secundario);
     root.style.setProperty('--tenant-light', colors.light);
     root.style.setProperty('--tenant-dark', colors.dark);
+    
+    // Variables RGB para usar en rgba()
+    root.style.setProperty('--tenant-primario-rgb', hexToRgb(colors.primario));
+    root.style.setProperty('--tenant-secundario-rgb', hexToRgb(colors.secundario));
 
     // Cleanup al desmontar
     return () => {
@@ -80,6 +93,8 @@ export function TenantProvider({ children, tenant }: TenantProviderProps) {
       root.style.removeProperty('--tenant-secundario');
       root.style.removeProperty('--tenant-light');
       root.style.removeProperty('--tenant-dark');
+      root.style.removeProperty('--tenant-primario-rgb');
+      root.style.removeProperty('--tenant-secundario-rgb');
     };
   }, [colors]);
 

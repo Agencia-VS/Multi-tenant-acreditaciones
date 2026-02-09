@@ -11,6 +11,8 @@ interface Acreditado {
   cargo: string;
   tipo_credencial: string;
   numero_credencial: string;
+  /** Campos custom definidos por el form config del tenant */
+  datos_custom?: Record<string, string>;
 }
 
 interface AccreditacionRequest {
@@ -23,6 +25,8 @@ interface AccreditacionRequest {
   empresa: string;
   area: string;
   acreditados: Acreditado[];
+  /** ID del form config usado (para trazabilidad) */
+  form_config_id?: string;
 }
 
 // Fallback areas data in case Supabase table doesn't exist
@@ -86,7 +90,8 @@ export async function POST(req: Request) {
       responsable_telefono,
       empresa,
       area,
-      acreditados
+      acreditados,
+      form_config_id,
     } = data;
 
     // Validaciones básicas
@@ -188,6 +193,10 @@ export async function POST(req: Request) {
       responsable_nombre,
       responsable_email,
       responsable_telefono,
+      responsable_rut,
+      // Campos dinámicos del formulario configurable
+      datos_custom: acreditado.datos_custom || {},
+      form_config_id: form_config_id || null,
       updated_at: new Date().toISOString(),
     }));
 

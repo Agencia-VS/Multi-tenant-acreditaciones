@@ -51,12 +51,12 @@ export async function POST(req: Request) {
       tenantLogo = 'https://res.cloudinary.com/dubnevl0h/image/upload/v1768312623/Escudo_Club_Deportivo_Universidad_Cat%C3%B3lica.svg_iwzca6.png'
     } = await req.json();
 
-    // Colores con fallback a valores de UC
+    // Colores con fallback a valores neutros (gris)
     const colors = {
-      primario: tenantColors.primario || '#1e5799',
-      secundario: tenantColors.secundario || '#207cca',
-      light: tenantColors.light || '#7db9e8',
-      dark: tenantColors.dark || '#2989d8'
+      primario: tenantColors.primario || '#374151',
+      secundario: tenantColors.secundario || '#6b7280',
+      light: tenantColors.light || '#9ca3af',
+      dark: tenantColors.dark || '#1f2937'
     };
 
     if (!correo) {

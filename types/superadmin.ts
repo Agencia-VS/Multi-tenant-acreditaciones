@@ -93,7 +93,7 @@ export interface TenantFormData {
  * Evento básico
  */
 export interface EventoBasic {
-  id: string;
+  id: number;
   tenant_id: string;
   nombre_evento: string | null;
   fecha: string;
@@ -170,16 +170,20 @@ export interface AdminInviteFormData {
  * Acreditado para vista global del SuperAdmin
  */
 export interface AcreditadoGlobal {
-  id: string;
+  id: number;
   tenant_id: string;
-  evento_id: string;
+  evento_id: number | null;
   nombre: string;
-  apellido: string;
-  email: string;
-  medio: string | null;
-  tipo: string;
+  apellido: string | null;
+  rut: string | null;
+  email: string | null;
+  empresa: string | null;
+  area: string | null;
+  tipo_credencial: string | null;
   status: AcreditadoStatus;
   created_at: string;
+  responsable_nombre: string | null;
+  responsable_email: string | null;
   tenant?: TenantBasic;
   evento?: EventoBasic;
 }

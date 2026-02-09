@@ -55,7 +55,7 @@ function Section({
   title, 
   children, 
   className = "bg-gray-50",
-  titleColor = "#1e5799"
+  titleColor = "#374151"
 }: { 
   title: string; 
   children: React.ReactNode;

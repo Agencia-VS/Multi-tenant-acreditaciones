@@ -49,12 +49,12 @@ export default function LandingPage() {
     // Verificar si hay evento activo
     const hasActiveEvent = evento.is_active && evento.evento_id !== 0;
 
-    // Colores con fallbacks
+    // Colores del tenant desde la DB (sin fallbacks azules hardcodeados)
     const colors = {
-        primary: evento.color_primario || '#1e5799',
-        secondary: evento.color_secundario || '#207cca',
-        light: evento.color_light || '#7db9e8',
-        dark: evento.color_dark || '#2989d8',
+        primary: evento.color_primario || '#374151',
+        secondary: evento.color_secundario || '#6b7280',
+        light: evento.color_light || '#9ca3af',
+        dark: evento.color_dark || '#1f2937',
     };
 
     // Formatear fecha
@@ -294,7 +294,7 @@ export default function LandingPage() {
 
                 {/* Footer Minimalista */}
                 <footer className="relative text-white py-6"
-                    style={{ background: `linear-gradient(180deg, rgba(30, 87, 153, 0.95) 0%, ${colors.primary} 100%)` }}>
+                    style={{ background: `linear-gradient(180deg, ${colors.dark} 0%, ${colors.primary} 100%)` }}>
                     <div className="container mx-auto px-4">
                         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                             {/* Logos y unión */}
