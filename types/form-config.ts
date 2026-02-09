@@ -260,6 +260,8 @@ export interface DynamicFormProps {
   formConfig: FormConfigRecord;
   /** Datos de áreas del evento (para cupos) */
   areas?: Array<{ codigo: string; nombre: string; cupos: number }>;
+  /** Cupos por tipo de medio (restricción por empresa) */
+  tiposMedio?: Array<{ tipo_medio: string; cupo_por_empresa: number; descripcion?: string | null }>;
   /** Datos pre-fill si el usuario está logueado */
   prefillData?: Partial<DynamicFormValues>;
   /** Colores del tenant */
@@ -290,6 +292,7 @@ export const BASE_FIELD_KEYS = {
   // Solicitud
   EMPRESA: 'empresa',
   AREA: 'area',
+  TIPO_MEDIO: 'tipo_medio',
   
   // Acreditado
   NOMBRE: 'nombre',
@@ -316,4 +319,5 @@ export const FIELD_TO_COLUMN_MAP: Record<string, string> = {
   tipo_credencial: 'tipo_credencial',
   empresa: 'empresa',
   area: 'area',
+  tipo_medio: 'tipo_medio',
 };

@@ -12,6 +12,16 @@ export interface Area {
   cupos: number;
 }
 
+/**
+ * Cupo por tipo de medio — restricción por empresa.
+ * cupo_por_empresa = 0 significa sin restricción.
+ */
+export interface TipoMedioCupo {
+  tipo_medio: string;
+  cupo_por_empresa: number;
+  descripcion?: string | null;
+}
+
 interface Acreditado {
   nombre: string;
   primer_apellido: string;
@@ -33,6 +43,7 @@ interface FormData {
   responsable_telefono?: string;
   empresa: string;
   area: string;
+  tipo_medio?: string;
   acreditados: Acreditado[];
   form_config_id?: string;
 }
@@ -53,6 +64,7 @@ export function useAcreditacion(options?: UseAcreditacionOptions) {
   const eventoIdProp = options?.eventoId;
 
   const [areas, setAreas] = useState<Area[]>([]);
+  const [tiposMedio, setTiposMedio] = useState<TipoMedioCupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cuposError, setCuposError] = useState<{
@@ -98,9 +110,20 @@ export function useAcreditacion(options?: UseAcreditacionOptions) {
       }));
 
       setAreas(fetchedAreas);
+
+      // Cargar cupos por tipo de medio si existen
+      const fetchedTiposMedio: TipoMedioCupo[] = (json.tipo_medio_cupos || []).map(
+        (t: { tipo_medio: string; cupo_por_empresa: number; descripcion?: string | null }) => ({
+          tipo_medio: t.tipo_medio,
+          cupo_por_empresa: t.cupo_por_empresa ?? 0,
+          descripcion: t.descripcion || null,
+        })
+      );
+      setTiposMedio(fetchedTiposMedio);
     } catch (err) {
       console.warn('Error fetching areas:', err);
       setAreas([]);
+      setTiposMedio([]);
     } finally {
       setLoading(false);
     }
@@ -131,6 +154,7 @@ export function useAcreditacion(options?: UseAcreditacionOptions) {
         responsable_telefono: formData.responsable_telefono?.trim() || '',
         empresa: formData.empresa.trim(),
         area: formData.area?.trim() || '',
+        tipo_medio: formData.tipo_medio?.trim() || '',
         acreditados: formData.acreditados.map(a => ({
           nombre: a.nombre?.trim() || '',
           primer_apellido: a.primer_apellido?.trim() || '',
@@ -168,8 +192,9 @@ export function useAcreditacion(options?: UseAcreditacionOptions) {
           // ignore
         }
 
-        // Check cupos error
+        // Check cupos error (area or tipo_medio)
         if (errorMessage.includes('No hay cupos disponibles')) {
+          // Match area-based cupo error
           const cuposMatch = errorMessage.match(
             /No hay cupos disponibles para (.+?) en el área (.+?)\. Máximo: (\d+), Acreditados existentes: (\d+), Solicitados: (\d+)/
           );
@@ -179,6 +204,23 @@ export function useAcreditacion(options?: UseAcreditacionOptions) {
               show: true,
               empresa,
               area,
+              maximo: parseInt(maximo),
+              existentes: parseInt(existentes),
+              solicitados: parseInt(solicitados),
+            });
+            return { success: false, cuposError: true };
+          }
+
+          // Match tipo_medio-based cupo error
+          const tipoMedioMatch = errorMessage.match(
+            /No hay cupos disponibles para (.+?) en tipo "(.+?)"\. Máximo: (\d+), Acreditados existentes: (\d+), Solicitados: (\d+)/
+          );
+          if (tipoMedioMatch) {
+            const [, empresa, tipoMedio, maximo, existentes, solicitados] = tipoMedioMatch;
+            setCuposError({
+              show: true,
+              empresa,
+              area: `Tipo: ${tipoMedio}`,
               maximo: parseInt(maximo),
               existentes: parseInt(existentes),
               solicitados: parseInt(solicitados),
@@ -206,6 +248,7 @@ export function useAcreditacion(options?: UseAcreditacionOptions) {
 
   return {
     areas,
+    tiposMedio,
     loading,
     error,
     cuposError,

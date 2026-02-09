@@ -28,6 +28,7 @@ export default function AcreditacionPage() {
   // Cargar áreas y lógica de submit existente
   const {
     areas,
+    tiposMedio,
     loading: areasLoading,
     cuposError,
     closeCuposError,
@@ -155,6 +156,7 @@ export default function AcreditacionPage() {
         responsable_telefono: pendingValues.responsable['responsable_telefono'] || '',
         empresa,
         area: pendingValues.solicitud['area'] || '',
+        tipo_medio: pendingValues.solicitud['tipo_medio'] || '',
         acreditados,
         form_config_id: formConfig?.id !== 'default' ? formConfig?.id : undefined,
       };
@@ -306,6 +308,7 @@ export default function AcreditacionPage() {
           <DynamicFormRenderer
             formConfig={formConfig}
             areas={areas}
+            tiposMedio={tiposMedio}
             prefillData={prefillData}
             tenantColors={colors}
             onSubmit={handleFormSubmit}

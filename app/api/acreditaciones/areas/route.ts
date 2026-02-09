@@ -69,11 +69,25 @@ export async function GET(request: Request) {
 
     if (areasError) {
       console.warn('Error consultando mt_areas_prensa:', areasError.message);
-      return NextResponse.json({ data: [], evento_id: targetEventoId });
+    }
+
+    // 4. Consultar cupos por tipo de medio (restricciones por empresa)
+    let tipoMedioCupos: { tipo_medio: string; cupo_por_empresa: number; descripcion: string | null }[] = [];
+    try {
+      const { data: cuposData } = await supabaseAdmin
+        .from('mt_cupos_tipo_medio')
+        .select('tipo_medio, cupo_por_empresa, descripcion')
+        .eq('tenant_id', tenant.id)
+        .eq('evento_id', targetEventoId)
+        .order('tipo_medio', { ascending: true });
+      tipoMedioCupos = cuposData || [];
+    } catch (err) {
+      console.warn('Error consultando mt_cupos_tipo_medio:', err);
     }
 
     return NextResponse.json({
       data: areas || [],
+      tipo_medio_cupos: tipoMedioCupos,
       evento_id: targetEventoId,
       tenant_id: tenant.id,
     });

@@ -35,6 +35,7 @@ import ProgressIndicator from '../common/ProgressIndicator';
 export default function DynamicFormRenderer({
   formConfig,
   areas = [],
+  tiposMedio = [],
   prefillData,
   tenantColors,
   onSubmit,
@@ -59,11 +60,14 @@ export default function DynamicFormRenderer({
   // Inyectar opciones de áreas dinámicas en el campo "area" si existe
   // Si hay áreas del tenant, inyectarlas como opciones del select.
   // Si no hay áreas configuradas, ocultar el campo "area" (el tenant no usa restricciones).
+  // También inyectar opciones de tipo_medio si hay cupos configurados.
   const solicitudFieldsWithAreas = useMemo(() => {
     return solicitudFields
       .filter((field) => {
         // Si no hay áreas y el campo es "area", ocultarlo
         if (field.key === 'area' && areas.length === 0) return false;
+        // Si no hay tipos de medio y el campo es "tipo_medio", ocultarlo
+        if (field.key === 'tipo_medio' && tiposMedio.length === 0) return false;
         return true;
       })
       .map((field) => {
@@ -78,9 +82,21 @@ export default function DynamicFormRenderer({
             })),
           };
         }
+        if (field.key === 'tipo_medio' && tiposMedio.length > 0) {
+          return {
+            ...field,
+            type: 'select' as const,
+            options: tiposMedio.map((t) => ({
+              value: t.tipo_medio,
+              label: t.cupo_por_empresa > 0
+                ? `${t.tipo_medio} (${t.cupo_por_empresa} ${t.cupo_por_empresa === 1 ? 'cupo' : 'cupos'} por empresa)`
+                : t.tipo_medio,
+            })),
+          };
+        }
         return field;
       });
-  }, [solicitudFields, areas]);
+  }, [solicitudFields, areas, tiposMedio]);
 
   // ---- Estado del formulario ----
   const [values, setValues] = useState<DynamicFormValues>(() => {
@@ -117,14 +133,26 @@ export default function DynamicFormRenderer({
     return areas.find((a) => a.codigo === areaCode);
   }, [areas, values.solicitud]);
 
+  // ---- Tipo de medio seleccionado y cupos por empresa ----
+  const selectedTipoMedio = useMemo(() => {
+    const tm = values.solicitud['tipo_medio'];
+    return tiposMedio.find((t) => t.tipo_medio === tm);
+  }, [tiposMedio, values.solicitud]);
+
+  const hasTipoMedioCupo = selectedTipoMedio ? selectedTipoMedio.cupo_por_empresa > 0 : false;
+
   const maxAcreditados = useMemo(() => {
+    // Si hay cupo por tipo_medio por empresa, usar ese límite
+    if (selectedTipoMedio && selectedTipoMedio.cupo_por_empresa > 0) {
+      return selectedTipoMedio.cupo_por_empresa;
+    }
     // Si el área tiene cupos > 0, usar ese límite
     if (selectedArea && selectedArea.cupos > 0) return selectedArea.cupos;
     // Si no, usar límite global del form config (0 = sin límite)
     return config.max_acreditados_por_solicitud || 50;
-  }, [selectedArea, config.max_acreditados_por_solicitud]);
+  }, [selectedTipoMedio, selectedArea, config.max_acreditados_por_solicitud]);
 
-  const hasCupoLimit = selectedArea ? selectedArea.cupos > 0 : false;
+  const hasCupoLimit = (selectedArea ? selectedArea.cupos > 0 : false) || hasTipoMedioCupo;
   const canAddAcreditado = values.acreditados.length < maxAcreditados;
   const canRemoveAcreditado = values.acreditados.length > (config.min_acreditados || 1);
 
@@ -220,15 +248,24 @@ export default function DynamicFormRenderer({
     [canRemoveAcreditado]
   );
 
-  // Ajustar acreditados cuando cambia el área (recortar si excede cupos)
+  // Ajustar acreditados cuando cambia el área o tipo_medio (recortar si excede cupos)
   useEffect(() => {
-    if (selectedArea && values.acreditados.length > selectedArea.cupos) {
+    if (selectedArea && selectedArea.cupos > 0 && values.acreditados.length > selectedArea.cupos) {
       setValues((prev) => ({
         ...prev,
         acreditados: prev.acreditados.slice(0, selectedArea.cupos),
       }));
     }
   }, [selectedArea]);
+
+  useEffect(() => {
+    if (selectedTipoMedio && selectedTipoMedio.cupo_por_empresa > 0 && values.acreditados.length > selectedTipoMedio.cupo_por_empresa) {
+      setValues((prev) => ({
+        ...prev,
+        acreditados: prev.acreditados.slice(0, selectedTipoMedio.cupo_por_empresa),
+      }));
+    }
+  }, [selectedTipoMedio]);
 
   // ---- Submit ----
   const handleSubmit = async (e: React.FormEvent) => {
@@ -332,11 +369,23 @@ export default function DynamicFormRenderer({
                   ))}
               </div>
 
-              {selectedArea && hasCupoLimit && (
+              {selectedArea && selectedArea.cupos > 0 && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
                     Área seleccionada: {selectedArea.nombre} | Cupos disponibles:{' '}
                     {selectedArea.cupos} {selectedArea.cupos === 1 ? 'cupo' : 'cupos'}
+                  </p>
+                </div>
+              )}
+
+              {selectedTipoMedio && hasTipoMedioCupo && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    Tipo de medio: <strong>{selectedTipoMedio.tipo_medio}</strong> | Cupos por empresa:{' '}
+                    {selectedTipoMedio.cupo_por_empresa} {selectedTipoMedio.cupo_por_empresa === 1 ? 'cupo' : 'cupos'}
+                    {selectedTipoMedio.descripcion && (
+                      <span className="text-amber-600 ml-2">— {selectedTipoMedio.descripcion}</span>
+                    )}
                   </p>
                 </div>
               )}

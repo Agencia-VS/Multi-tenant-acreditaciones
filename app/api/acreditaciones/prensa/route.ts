@@ -24,6 +24,7 @@ interface AccreditacionRequest {
   responsable_telefono: string;
   empresa: string;
   area: string;
+  tipo_medio?: string;
   acreditados: Acreditado[];
   /** ID del form config usado (para trazabilidad) */
   form_config_id?: string;
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
       responsable_telefono,
       empresa,
       area,
+      tipo_medio,
       acreditados,
       form_config_id,
     } = data;
@@ -153,6 +155,47 @@ export async function POST(req: Request) {
       }
     }
 
+    // --- 4b. Validar cupos por tipo de medio (por empresa) ---
+    if (tipo_medio && evento_id) {
+      try {
+        const { data: cupoConfig } = await supabaseAdmin
+          .from('mt_cupos_tipo_medio')
+          .select('cupo_por_empresa')
+          .eq('tenant_id', tenant_id)
+          .eq('evento_id', evento_id)
+          .eq('tipo_medio', tipo_medio)
+          .single();
+
+        if (cupoConfig && cupoConfig.cupo_por_empresa > 0) {
+          // Contar acreditaciones existentes de esta empresa + tipo_medio
+          const { count: countAll } = await supabaseAdmin
+            .from('mt_acreditados')
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', tenant_id)
+            .eq('evento_id', evento_id)
+            .ilike('empresa', empresa)
+            .eq('tipo_medio', tipo_medio)
+            .neq('status', 'rechazado');
+
+          const currentCount = countAll || 0;
+          const totalAfterInsert = currentCount + acreditados.length;
+
+          if (totalAfterInsert > cupoConfig.cupo_por_empresa) {
+            return NextResponse.json({
+              error: `No hay cupos disponibles para ${empresa} en tipo "${tipo_medio}". Máximo: ${cupoConfig.cupo_por_empresa}, Acreditados existentes: ${currentCount}, Solicitados: ${acreditados.length}, Total: ${totalAfterInsert}`,
+              tipo_medio, empresa,
+              cupos_disponibles: Math.max(0, cupoConfig.cupo_por_empresa - currentCount),
+              cupo_maximo: cupoConfig.cupo_por_empresa,
+              acreditados_existentes: currentCount,
+              acreditados_solicitados: acreditados.length,
+            }, { status: 400 });
+          }
+        }
+      } catch (err) {
+        console.warn('Error validando cupos tipo_medio:', err);
+      }
+    }
+
     // --- 5. Insertar acreditados ---
     const acreditadosToInsert = acreditados.map((acreditado: any) => ({
       tenant_id,
@@ -165,6 +208,7 @@ export async function POST(req: Request) {
       tipo_credencial: acreditado.tipo_credencial,
       empresa: empresa,
       area: area,
+      tipo_medio: tipo_medio || null,
       status: 'pendiente',
       motivo_rechazo: null,
       zona_id: acreditado.zona_id || null,
