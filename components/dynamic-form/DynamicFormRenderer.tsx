@@ -57,22 +57,29 @@ export default function DynamicFormRenderer({
   );
 
   // Inyectar opciones de áreas dinámicas en el campo "area" si existe
+  // Si hay áreas del tenant, inyectarlas como opciones del select.
+  // Si no hay áreas configuradas, ocultar el campo "area" (el tenant no usa restricciones).
   const solicitudFieldsWithAreas = useMemo(() => {
-    return solicitudFields.map((field) => {
-      if (field.key === 'area' && areas.length > 0) {
-        return {
-          ...field,
-          options: areas.map((a) => ({
-            value: a.codigo,
-            label:
-              a.codigo === 'H'
-                ? a.nombre
-                : `${a.nombre} (${a.cupos} ${a.cupos === 1 ? 'cupo' : 'cupos'})`,
-          })),
-        };
-      }
-      return field;
-    });
+    return solicitudFields
+      .filter((field) => {
+        // Si no hay áreas y el campo es "area", ocultarlo
+        if (field.key === 'area' && areas.length === 0) return false;
+        return true;
+      })
+      .map((field) => {
+        if (field.key === 'area' && areas.length > 0) {
+          return {
+            ...field,
+            options: areas.map((a) => ({
+              value: a.codigo,
+              label: a.cupos > 0
+                ? `${a.nombre} (${a.cupos} ${a.cupos === 1 ? 'cupo' : 'cupos'})`
+                : a.nombre,
+            })),
+          };
+        }
+        return field;
+      });
   }, [solicitudFields, areas]);
 
   // ---- Estado del formulario ----
@@ -111,9 +118,13 @@ export default function DynamicFormRenderer({
   }, [areas, values.solicitud]);
 
   const maxAcreditados = useMemo(() => {
-    return selectedArea?.cupos ?? config.max_acreditados_por_solicitud;
+    // Si el área tiene cupos > 0, usar ese límite
+    if (selectedArea && selectedArea.cupos > 0) return selectedArea.cupos;
+    // Si no, usar límite global del form config (0 = sin límite)
+    return config.max_acreditados_por_solicitud || 50;
   }, [selectedArea, config.max_acreditados_por_solicitud]);
 
+  const hasCupoLimit = selectedArea ? selectedArea.cupos > 0 : false;
   const canAddAcreditado = values.acreditados.length < maxAcreditados;
   const canRemoveAcreditado = values.acreditados.length > (config.min_acreditados || 1);
 
@@ -321,7 +332,7 @@ export default function DynamicFormRenderer({
                   ))}
               </div>
 
-              {selectedArea && (
+              {selectedArea && hasCupoLimit && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
                     Área seleccionada: {selectedArea.nombre} | Cupos disponibles:{' '}
@@ -343,8 +354,10 @@ export default function DynamicFormRenderer({
             >
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  Acreditaciones a registrar: {values.acreditados.length} de{' '}
-                  {maxAcreditados} disponibles.
+                  {hasCupoLimit
+                    ? `Acreditaciones a registrar: ${values.acreditados.length} de ${maxAcreditados} disponibles.`
+                    : `Acreditaciones a registrar: ${values.acreditados.length}`
+                  }
                 </p>
               </div>
 

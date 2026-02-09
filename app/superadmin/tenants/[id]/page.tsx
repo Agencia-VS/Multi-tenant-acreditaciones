@@ -222,19 +222,44 @@ export default function EditTenantPage({ params }: { params: Promise<{ id: strin
           Volver a Tenants
         </Link>
         
-        <div className="flex items-center gap-4">
-          {(formData.shield_url || formData.logo_url) && (
-            <img 
-              src={formData.shield_url || formData.logo_url} 
-              alt={formData.nombre}
-              className="w-16 h-16 object-contain"
-            />
-          )}
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{formData.nombre || 'Editar Tenant'}</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              /{formData.slug}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {(formData.shield_url || formData.logo_url) && (
+              <img 
+                src={formData.shield_url || formData.logo_url} 
+                alt={formData.nombre}
+                className="w-16 h-16 object-contain"
+              />
+            )}
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">{formData.nombre || 'Editar Tenant'}</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                /{formData.slug}
+              </p>
+            </div>
+          </div>
+
+          {/* Acciones rápidas */}
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/superadmin/tenants/${id}/formularios`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors text-sm font-medium"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Formularios
+            </Link>
+            <Link
+              href={`/${formData.slug}`}
+              target="_blank"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Ver sitio
+            </Link>
           </div>
         </div>
       </div>

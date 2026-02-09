@@ -29,21 +29,9 @@ interface AccreditacionRequest {
   form_config_id?: string;
 }
 
-// Fallback areas data in case Supabase table doesn't exist
-const FALLBACK_AREAS = [
-  { id: 1, codigo: "prensa", cupo_maximo: 50, evento_id: 1 },
-  { id: 2, codigo: "seguridad", cupo_maximo: 30, evento_id: 1 },
-  { id: 3, codigo: "produccion", cupo_maximo: 40, evento_id: 1 },
-  { id: 4, codigo: "catering", cupo_maximo: 20, evento_id: 1 },
-];
+
 
 export async function POST(req: Request) {
-  // Cliente anónimo para INSERT
-  const supabaseAnon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  // Cliente con service role para SELECT (sin restricciones RLS)
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -95,90 +83,80 @@ export async function POST(req: Request) {
     } = data;
 
     // Validaciones básicas
-    if (!responsable_email || !responsable_nombre || !responsable_rut || !empresa || !area || !acreditados.length) {
-      return NextResponse.json(
-        { error: "Datos incompletos" },
-        { status: 400 }
-      );
+    if (!responsable_email || !responsable_nombre || !responsable_rut || !empresa || !acreditados.length) {
+      return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
     }
 
-    // 1. Obtener información de áreas (multi-tenant)
+    // --- 3. Obtener evento activo del tenant ---
+    const { data: eventoActivo } = await supabaseAdmin
+      .from('mt_eventos')
+      .select('id')
+      .eq('tenant_id', tenant_id)
+      .eq('is_active', true)
+      .order('fecha', { ascending: true })
+      .limit(1)
+      .single();
+
+    const evento_id = eventoActivo?.id || null;
+
+    // --- 4. Validar cupos (solo si el tenant tiene áreas configuradas) ---
     type AreaPrensa = { id: number; nombre: string; cupo_maximo: number; evento_id: number };
-    let areasData: AreaPrensa[] = [];
-    try {
-      const { data, error: areasError } = await supabaseAdmin
-        .from('mt_areas_prensa')
-        .select('id, nombre, cupo_maximo, evento_id')
-        .eq('tenant_id', tenant_id);
-      if (areasError) {
-        console.warn('Error al acceder a mt_areas_prensa:', areasError.message);
-        areasData = [];
-      } else {
-        areasData = data || [];
+    let areaRecord: AreaPrensa | null = null;
+
+    if (area && evento_id) {
+      try {
+        const { data: areasData } = await supabaseAdmin
+          .from('mt_areas_prensa')
+          .select('id, nombre, cupo_maximo, evento_id')
+          .eq('tenant_id', tenant_id)
+          .eq('evento_id', evento_id);
+
+        areaRecord = (areasData || []).find((a: AreaPrensa) => a.nombre === area) || null;
+      } catch (err) {
+        console.warn('Error al consultar áreas:', err);
       }
-    } catch (err) {
-      console.warn('Error al consultar áreas:', err);
-      areasData = [];
     }
 
-    // 2. Validar cupos para CADA acreditado
-    // IMPORTANTE: Contar existentes PERO considerar que estamos insertando múltiples
-    const areaRecord = areasData?.find((a: AreaPrensa) => a.nombre === area);
-    
-    if (!areaRecord) {
-      return NextResponse.json(
-        { error: `Área ${area} no encontrada` },
-        { status: 400 }
-      );
-    }
+    // Solo validar cupos si hay un área con cupo_maximo > 0
+    if (areaRecord && areaRecord.cupo_maximo > 0) {
+      const { count: countAll, error: countError1 } = await supabaseAdmin
+        .from('mt_acreditados')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenant_id)
+        .eq('evento_id', areaRecord.evento_id)
+        .ilike('empresa', empresa)
+        .ilike('area', area);
+      if (countError1) throw countError1;
 
+      const { count: countRechazados, error: countError2 } = await supabaseAdmin
+        .from('mt_acreditados')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenant_id)
+        .eq('evento_id', areaRecord.evento_id)
+        .ilike('empresa', empresa)
+        .ilike('area', area)
+        .eq('status', 'rechazado');
+      if (countError2) throw countError2;
 
-    // Contar acreditados EXISTENTES para esta área + empresa + tenant
-    const { count: countAll, error: countError1 } = await supabaseAdmin
-      .from('mt_acreditados')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant_id)
-      .eq('evento_id', areaRecord?.evento_id)
-      .ilike('empresa', empresa)
-      .ilike('area', area);
-    if (countError1) throw countError1;
+      const currentCount = (countAll || 0) - (countRechazados || 0);
+      const totalAfterInsert = currentCount + acreditados.length;
 
-    // Contar acreditados RECHAZADOS para esta área + empresa + tenant
-    const { count: countRechazados, error: countError2 } = await supabaseAdmin
-      .from('mt_acreditados')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant_id)
-      .eq('evento_id', areaRecord?.evento_id)
-      .ilike('empresa', empresa)
-      .ilike('area', area)
-      .eq('status', 'rechazado');
-    if (countError2) throw countError2;
-
-    // Acreditados válidos = todos - rechazados
-    const currentCount = (countAll || 0) - (countRechazados || 0);
-    const totalAfterInsert = currentCount + acreditados.length;
-
-    if (totalAfterInsert > areaRecord.cupo_maximo) {
-      return NextResponse.json(
-        {
+      if (totalAfterInsert > areaRecord.cupo_maximo) {
+        return NextResponse.json({
           error: `No hay cupos disponibles para ${empresa} en el área ${area}. Máximo: ${areaRecord.cupo_maximo}, Acreditados existentes: ${currentCount}, Solicitados: ${acreditados.length}, Total: ${totalAfterInsert}`,
-          area: area,
-          empresa: empresa,
+          area, empresa,
           cupos_disponibles: Math.max(0, areaRecord.cupo_maximo - currentCount),
           cupo_maximo: areaRecord.cupo_maximo,
           acreditados_existentes: currentCount,
           acreditados_solicitados: acreditados.length,
-        },
-        { status: 400 }
-      );
+        }, { status: 400 });
+      }
     }
 
-    // 3. Insertar acreditados
-
-    // 3. Insertar acreditados en mt_acreditados
+    // --- 5. Insertar acreditados ---
     const acreditadosToInsert = acreditados.map((acreditado: any) => ({
       tenant_id,
-      evento_id: areaRecord?.evento_id,
+      evento_id: evento_id,
       nombre: acreditado.nombre,
       apellido: `${acreditado.primer_apellido || ''} ${acreditado.segundo_apellido || ''}`.trim(),
       rut: acreditado.rut,
@@ -201,7 +179,7 @@ export async function POST(req: Request) {
     }));
 
 
-    const { error: insertError } = await supabaseAnon
+    const { error: insertError } = await supabaseAdmin
       .from('mt_acreditados')
       .insert(acreditadosToInsert);
 

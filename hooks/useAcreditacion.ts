@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { useState, useEffect, useCallback } from "react";
 
-interface Area {
+/**
+ * Área de acreditación genérica — viene de mt_areas_prensa para el tenant/evento.
+ * cupos = 0 significa sin restricción de cupos.
+ */
+export interface Area {
   codigo: string;
   nombre: string;
   cupos: number;
@@ -18,32 +21,37 @@ interface Acreditado {
   cargo: string;
   tipo_credencial: string;
   numero_credencial: string;
+  datos_custom?: Record<string, string>;
 }
 
 interface FormData {
   responsable_nombre: string;
   responsable_primer_apellido: string;
-  responsable_segundo_apellido: string;
+  responsable_segundo_apellido?: string;
   responsable_rut: string;
   responsable_email: string;
-  responsable_telefono: string;
+  responsable_telefono?: string;
   empresa: string;
   area: string;
   acreditados: Acreditado[];
+  form_config_id?: string;
 }
 
-// Fallback areas in case Supabase table doesn't exist
-const FALLBACK_AREAS: Area[] = [
-  { codigo: "A", nombre: "Radiales con caseta", cupos: 5 },
-  { codigo: "B", nombre: "Radiales sin caseta", cupos: 3 },
-  { codigo: "C", nombre: "TV Nacionales", cupos: 2 },
-  { codigo: "D", nombre: "Sitios Web", cupos: 2 },
-  { codigo: "E", nombre: "Medios Escritos", cupos: 2 },
-  { codigo: "F", nombre: "Agencias", cupos: 1 },
-  { codigo: "G", nombre: "Reportero gráfico cancha", cupos: 1 },
-];
+interface UseAcreditacionOptions {
+  /** Slug del tenant actual */
+  tenantSlug: string;
+  /** ID del evento (opcional — el API detecta el activo) */
+  eventoId?: number;
+}
 
-export function useAcreditacion() {
+/**
+ * Hook para gestionar áreas y envío de acreditaciones de un tenant.
+ * Carga las áreas desde la BD del tenant/evento y envía el slug al API.
+ */
+export function useAcreditacion(options?: UseAcreditacionOptions) {
+  const tenantSlug = options?.tenantSlug || '';
+  const eventoIdProp = options?.eventoId;
+
   const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,53 +64,63 @@ export function useAcreditacion() {
     solicitados: number;
   } | null>(null);
 
-  useEffect(() => {
-    fetchAreas();
-  }, []);
+  /**
+   * Carga las áreas de acreditación desde el API.
+   * Si el tenant no tiene áreas configuradas, retorna array vacío.
+   */
+  const fetchAreas = useCallback(async () => {
+    if (!tenantSlug) {
+      setAreas([]);
+      setLoading(false);
+      return;
+    }
 
-  const fetchAreas = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Use fallback data directly
-      setAreas(FALLBACK_AREAS);
+      const params = new URLSearchParams({ tenant: tenantSlug });
+      if (eventoIdProp) params.set('evento_id', String(eventoIdProp));
+
+      const res = await fetch(`/api/acreditaciones/areas?${params}`);
+
+      if (!res.ok) {
+        console.warn('Error fetching areas, tenant may not have areas configured');
+        setAreas([]);
+        return;
+      }
+
+      const json = await res.json();
+      const fetchedAreas: Area[] = (json.data || []).map((a: { nombre: string; codigo?: string; cupo_maximo: number }) => ({
+        codigo: a.codigo || a.nombre,
+        nombre: a.nombre,
+        cupos: a.cupo_maximo ?? 0,
+      }));
+
+      setAreas(fetchedAreas);
     } catch (err) {
-      // If any error occurs, use fallback data
-      console.warn('Error fetching areas, using fallback data:', err);
-      setAreas(FALLBACK_AREAS);
+      console.warn('Error fetching areas:', err);
+      setAreas([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantSlug, eventoIdProp]);
+
+  useEffect(() => {
+    fetchAreas();
+  }, [fetchAreas]);
 
   const submitAcreditacion = async (formData: FormData): Promise<{ success: boolean; cuposError?: boolean }> => {
     try {
       setLoading(true);
       setError(null);
 
-      // Validar que todos los campos requeridos estén presentes
-      if (!formData.responsable_nombre?.trim()) {
-        throw new Error('El nombre del responsable es requerido');
-      }
-      if (!formData.responsable_primer_apellido?.trim()) {
-        throw new Error('El primer apellido del responsable es requerido');
-      }
-      if (!formData.responsable_email?.trim()) {
-        throw new Error('El email del responsable es requerido');
-      }
-      if (!formData.responsable_rut?.trim()) {
-        throw new Error('El RUT del responsable es requerido');
-      }
-      if (!formData.empresa?.trim()) {
-        throw new Error('El nombre de la empresa es requerido');
-      }
-      if (!formData.area?.trim()) {
-        throw new Error('El área es requerida');
-      }
-      if (!formData.acreditados?.length) {
-        throw new Error('Debe haber al menos un acreditado');
-      }
+      if (!tenantSlug) throw new Error('No se pudo identificar el tenant');
+      if (!formData.responsable_nombre?.trim()) throw new Error('El nombre del responsable es requerido');
+      if (!formData.responsable_email?.trim()) throw new Error('El email del responsable es requerido');
+      if (!formData.responsable_rut?.trim()) throw new Error('El RUT del responsable es requerido');
+      if (!formData.empresa?.trim()) throw new Error('La empresa es requerida');
+      if (!formData.acreditados?.length) throw new Error('Debe haber al menos un acreditado');
 
       const payload = {
         responsable_nombre: formData.responsable_nombre.trim(),
@@ -112,7 +130,7 @@ export function useAcreditacion() {
         responsable_email: formData.responsable_email.trim(),
         responsable_telefono: formData.responsable_telefono?.trim() || '',
         empresa: formData.empresa.trim(),
-        area: formData.area.trim(),
+        area: formData.area?.trim() || '',
         acreditados: formData.acreditados.map(a => ({
           nombre: a.nombre?.trim() || '',
           primer_apellido: a.primer_apellido?.trim() || '',
@@ -122,47 +140,39 @@ export function useAcreditacion() {
           cargo: a.cargo?.trim() || '',
           tipo_credencial: a.tipo_credencial?.trim() || '',
           numero_credencial: a.numero_credencial?.trim() || '',
+          datos_custom: a.datos_custom,
         })),
+        form_config_id: formData.form_config_id,
       };
 
-      const response = await fetch('/api/acreditaciones/prensa', {
+      const response = await fetch(`/api/acreditaciones/prensa?tenant=${encodeURIComponent(tenantSlug)}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        let errorData: { error?: string } = {};
         let errorMessage = `Error del servidor: ${response.status}`;
-        
+
         try {
-          // Get response as text first
           const responseText = await response.text();
-          
           if (responseText.trim()) {
-            // Try to parse as JSON
             try {
-              errorData = JSON.parse(responseText);
+              const errorData = JSON.parse(responseText);
               errorMessage = errorData.error || errorMessage;
-            } catch (jsonError) {
-              // If not JSON, use the text as error message
+            } catch {
               errorMessage = responseText;
             }
           }
-        } catch (textError) {
-          console.error('Failed to get response text:', textError);
+        } catch {
+          // ignore
         }
-        
-        // Log for debugging (remove in production)
-        // console.error('API Error Response:', errorData);
-        // console.error('Error Message:', errorMessage);
-        
-        // Check if it's a cupos error
+
+        // Check cupos error
         if (errorMessage.includes('No hay cupos disponibles')) {
-          // Extract cupos information from error message
-          const cuposMatch = errorMessage.match(/No hay cupos disponibles para (.+?) en el área (.+?)\. Máximo: (\d+), Acreditados existentes: (\d+), Solicitados: (\d+), Total: (\d+)/);
+          const cuposMatch = errorMessage.match(
+            /No hay cupos disponibles para (.+?) en el área (.+?)\. Máximo: (\d+), Acreditados existentes: (\d+), Solicitados: (\d+)/
+          );
           if (cuposMatch) {
             const [, empresa, area, maximo, existentes, solicitados] = cuposMatch;
             setCuposError({
@@ -173,14 +183,13 @@ export function useAcreditacion() {
               existentes: parseInt(existentes),
               solicitados: parseInt(solicitados),
             });
-            return { success: false, cuposError: true }; // Return instead of throwing
+            return { success: false, cuposError: true };
           }
         }
-        
+
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
       return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al enviar';

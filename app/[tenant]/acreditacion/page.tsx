@@ -33,7 +33,7 @@ export default function AcreditacionPage() {
     closeCuposError,
     submitAcreditacion,
     error: areasError,
-  } = useAcreditacion();
+  } = useAcreditacion({ tenantSlug: tenant.slug });
 
   // Cargar configuración del formulario dinámico
   const {

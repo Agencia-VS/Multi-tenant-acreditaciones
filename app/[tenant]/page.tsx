@@ -133,14 +133,14 @@ export default function LandingPage() {
                             <div className="flex flex-wrap items-center gap-3 sm:gap-6 mb-3 sm:mb-6">
                                 {/* Grupo de badge e info del evento */}
                                 <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 sm:gap-4 text-sm sm:text-base md:text-lg lg:text-xl">
-                                    {/* Badge Superior - Liga */}
+                                    {/* Badge Superior - Liga/Competencia */}
                                     {evento.league && (
                                         <div className="inline-block px-4 py-1.5 rounded-full font-bold uppercase tracking-widest shadow-lg border-2"
                                             style={{
                                                 background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
                                                 border: `2px solid ${colors.dark}`
                                             }}>
-                                            <i className="fas fa-futbol mr-3" style={{ color: 'white', fontSize: '1.4em' }}></i>
+                                            <i className="fas fa-trophy mr-3" style={{ color: 'white', fontSize: '1.4em' }}></i>
                                             {evento.league}
                                         </div>
                                     )}
