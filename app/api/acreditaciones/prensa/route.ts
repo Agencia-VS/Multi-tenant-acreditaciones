@@ -33,6 +33,64 @@ const FALLBACK_AREAS = [
   { id: 4, codigo: "catering", cupo_maximo: 20, evento_id: 1 },
 ];
 
+type CupoRuleScope = "evento-empresa" | "evento-general" | "global-empresa" | "global-general";
+type CupoRule = { cupo_maximo: number; scope: CupoRuleScope };
+
+function getTipoMedio(acreditado: Acreditado): string {
+  return (acreditado.tipo_credencial || acreditado.cargo || "").trim();
+}
+
+async function resolveCupoRule(params: {
+  supabaseAdmin: ReturnType<typeof createClient>;
+  tenantId: string;
+  eventoId: number;
+  area: string;
+  tipoMedio: string;
+  empresa: string;
+}): Promise<CupoRule | null> {
+  const { supabaseAdmin, tenantId, eventoId, area, tipoMedio, empresa } = params;
+  const searchOrder: Array<{ scope: CupoRuleScope; eventoId: number | null; empresa: string }> = [
+    { scope: "evento-empresa", eventoId, empresa },
+    { scope: "evento-general", eventoId, empresa: "*" },
+    { scope: "global-empresa", eventoId: null, empresa },
+    { scope: "global-general", eventoId: null, empresa: "*" },
+  ];
+
+  for (const candidate of searchOrder) {
+    let query = supabaseAdmin
+      .from("mt_reglas_cupo")
+      .select("cupo_maximo")
+      .eq("tenant_id", tenantId)
+      .eq("activo", true)
+      .ilike("area", area)
+      .ilike("tipo_medio", tipoMedio)
+      .order("prioridad", { ascending: true })
+      .limit(1);
+
+    query = candidate.eventoId === null
+      ? query.is("evento_id", null)
+      : query.eq("evento_id", candidate.eventoId);
+
+    query = candidate.empresa === "*"
+      ? query.eq("empresa", "*")
+      : query.ilike("empresa", empresa);
+
+    const { data, error } = await query.single();
+    if (error) {
+      if (error.code === "PGRST116") {
+        continue;
+      }
+      throw error;
+    }
+
+    if (data) {
+      return { cupo_maximo: data.cupo_maximo, scope: candidate.scope };
+    }
+  }
+
+  return null;
+}
+
 export async function POST(req: Request) {
   // Cliente anónimo para INSERT
   const supabaseAnon = createClient(
@@ -116,8 +174,8 @@ export async function POST(req: Request) {
       areasData = [];
     }
 
-    // 2. Validar cupos para CADA acreditado
-    // IMPORTANTE: Contar existentes PERO considerar que estamos insertando múltiples
+    // 2. Validar cupos por reglas (empresa + tipo medio + area)
+    // IMPORTANTE: Contar existentes y considerar que estamos insertando múltiples
     const areaRecord = areasData?.find((a: AreaPrensa) => a.nombre === area);
     
     if (!areaRecord) {
@@ -128,44 +186,67 @@ export async function POST(req: Request) {
     }
 
 
-    // Contar acreditados EXISTENTES para esta área + empresa + tenant
-    const { count: countAll, error: countError1 } = await supabaseAdmin
-      .from('mt_acreditados')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant_id)
-      .eq('evento_id', areaRecord?.evento_id)
-      .ilike('empresa', empresa)
-      .ilike('area', area);
-    if (countError1) throw countError1;
+    const requestedByTipoMedio = new Map<string, number>();
+    acreditados.forEach((acreditado) => {
+      const tipoMedio = getTipoMedio(acreditado);
+      const key = tipoMedio || "*";
+      requestedByTipoMedio.set(key, (requestedByTipoMedio.get(key) || 0) + 1);
+    });
 
-    // Contar acreditados RECHAZADOS para esta área + empresa + tenant
-    const { count: countRechazados, error: countError2 } = await supabaseAdmin
-      .from('mt_acreditados')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant_id)
-      .eq('evento_id', areaRecord?.evento_id)
-      .ilike('empresa', empresa)
-      .ilike('area', area)
-      .eq('status', 'rechazado');
-    if (countError2) throw countError2;
+    for (const [tipoMedio, requestedCount] of requestedByTipoMedio.entries()) {
+      const rule = await resolveCupoRule({
+        supabaseAdmin,
+        tenantId: tenant_id,
+        eventoId: areaRecord.evento_id,
+        area,
+        tipoMedio,
+        empresa,
+      });
 
-    // Acreditados válidos = todos - rechazados
-    const currentCount = (countAll || 0) - (countRechazados || 0);
-    const totalAfterInsert = currentCount + acreditados.length;
+      if (!rule) {
+        continue;
+      }
 
-    if (totalAfterInsert > areaRecord.cupo_maximo) {
-      return NextResponse.json(
-        {
-          error: `No hay cupos disponibles para ${empresa} en el área ${area}. Máximo: ${areaRecord.cupo_maximo}, Acreditados existentes: ${currentCount}, Solicitados: ${acreditados.length}, Total: ${totalAfterInsert}`,
-          area: area,
-          empresa: empresa,
-          cupos_disponibles: Math.max(0, areaRecord.cupo_maximo - currentCount),
-          cupo_maximo: areaRecord.cupo_maximo,
-          acreditados_existentes: currentCount,
-          acreditados_solicitados: acreditados.length,
-        },
-        { status: 400 }
-      );
+      const { count: countAll, error: countError1 } = await supabaseAdmin
+        .from("mt_acreditados")
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", tenant_id)
+        .eq("evento_id", areaRecord.evento_id)
+        .ilike("empresa", empresa)
+        .ilike("area", area)
+        .ilike("tipo_credencial", tipoMedio);
+      if (countError1) throw countError1;
+
+      const { count: countRechazados, error: countError2 } = await supabaseAdmin
+        .from("mt_acreditados")
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", tenant_id)
+        .eq("evento_id", areaRecord.evento_id)
+        .ilike("empresa", empresa)
+        .ilike("area", area)
+        .ilike("tipo_credencial", tipoMedio)
+        .eq("status", "rechazado");
+      if (countError2) throw countError2;
+
+      const currentCount = (countAll || 0) - (countRechazados || 0);
+      const totalAfterInsert = currentCount + requestedCount;
+
+      if (totalAfterInsert > rule.cupo_maximo) {
+        return NextResponse.json(
+          {
+            error: `No hay cupos disponibles para ${empresa} en el área ${area} (${tipoMedio}). Máximo: ${rule.cupo_maximo}, Acreditados existentes: ${currentCount}, Solicitados: ${requestedCount}, Total: ${totalAfterInsert}`,
+            area,
+            empresa,
+            tipo_medio: tipoMedio,
+            cupos_disponibles: Math.max(0, rule.cupo_maximo - currentCount),
+            cupo_maximo: rule.cupo_maximo,
+            acreditados_existentes: currentCount,
+            acreditados_solicitados: requestedCount,
+            regla_scope: rule.scope,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // 3. Insertar acreditados
