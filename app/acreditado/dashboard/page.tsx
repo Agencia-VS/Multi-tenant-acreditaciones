@@ -1,438 +1,231 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { supabase } from '../../../lib/supabase';
-import type { User } from '@supabase/supabase-js';
-import type { 
-  PerfilAcreditado, 
-  AcreditacionConRelaciones, 
-  TenantBasico,
-  PersonaFrecuente,
-  PerfilConEquipo
-} from '../../../types/acreditado';
+/**
+ * Mis Acreditaciones — Lista de solicitudes del acreditado
+ * Muestra tanto las acreditaciones propias (profile_id) como las
+ * enviadas por el usuario como manager (submitted_by).
+ * Consume /api/acreditado/registrations (server-side, bypasea RLS).
+ */
+import { useState, useEffect } from 'react';
+import { LoadingSpinner } from '@/components/shared/ui';
 
-export default function DashboardAcreditado() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [perfil, setPerfil] = useState<PerfilConEquipo | null>(null);
-  const [acreditaciones, setAcreditaciones] = useState<AcreditacionConRelaciones[]>([]);
-  const [tenants, setTenants] = useState<TenantBasico[]>([]);
-  const [frecuentes, setFrecuentes] = useState<PersonaFrecuente[]>([]);
+interface Registration {
+  id: string;
+  status: string;
+  organizacion: string | null;
+  tipo_medio: string | null;
+  cargo: string | null;
+  qr_token: string | null;
+  created_at: string;
+  profile_id: string;
+  submitted_by: string | null;
+  profile_nombre: string;
+  profile_apellido: string;
+  rut: string;
+  event: { nombre: string; fecha: string | null; venue: string | null };
+  tenant: { nombre: string; slug: string; color_primario: string };
+  /** true si es del propio usuario, false si fue enviada por él para otro */
+  isSelf: boolean;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const mapReg = (r: any, isSelf: boolean): Registration => ({
+  id: r.id,
+  status: r.status,
+  organizacion: r.organizacion ?? null,
+  tipo_medio: r.tipo_medio ?? null,
+  cargo: r.cargo ?? null,
+  qr_token: r.qr_token ?? null,
+  created_at: r.created_at,
+  profile_id: r.profile_id,
+  submitted_by: r.submitted_by ?? null,
+  profile_nombre: r.profile_nombre,
+  profile_apellido: r.profile_apellido,
+  rut: r.rut,
+  event: {
+    nombre: r.event_nombre,
+    fecha: r.event_fecha ?? null,
+    venue: r.event_venue ?? null,
+  },
+  tenant: {
+    nombre: r.tenant_nombre,
+    slug: r.tenant_slug,
+    color_primario: r.tenant_color_primario || '#3b82f6',
+  },
+  isSelf,
+});
+
+export default function DashboardPage() {
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'solicitudes' | 'nueva' | 'frecuentes'>('solicitudes');
+  const [filter, setFilter] = useState<'all' | 'self' | 'team'>('all');
 
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        router.push('/auth/acreditado');
+    loadRegistrations();
+  }, []);
+
+  const loadRegistrations = async () => {
+    try {
+      const res = await fetch('/api/acreditado/registrations');
+      if (!res.ok) {
+        console.error('Error cargando acreditaciones:', res.status);
+        setLoading(false);
         return;
       }
 
-      setUser(session.user);
+      const data = await res.json();
 
-      // Cargar perfil con equipo frecuente
-      let { data: perfilData, error: perfilError } = await supabase
-        .from('mt_perfiles_acreditados')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-
-      // Si no tiene perfil, intentar crearlo con datos del usuario
-      if (!perfilData && session.user.user_metadata) {
-        const meta = session.user.user_metadata;
-        // Generar RUT temporal si no existe (la BD lo requiere)
-        const rutValue = meta.rut || `TEMP-${session.user.id.substring(0, 8)}`;
-        
-        const { data: newPerfil, error: createError } = await supabase
-          .from('mt_perfiles_acreditados')
-          .insert({
-            user_id: session.user.id,
-            nombre: meta.nombre || session.user.email?.split('@')[0] || 'Usuario',
-            apellido: meta.apellido || '',
-            email: session.user.email || '',
-            empresa: meta.empresa || null,
-            telefono: meta.telefono || null,
-            rut: rutValue,
-            nacionalidad: 'Chile',
-          })
-          .select()
-          .single();
-
-        if (!createError && newPerfil) {
-          perfilData = newPerfil;
-        } else if (createError) {
-          console.warn('Error creando perfil:', createError.message);
-        }
+      if (!data.profile) {
+        // Usuario sin perfil
+        setLoading(false);
+        return;
       }
 
-      if (perfilData) {
-        setPerfil(perfilData);
-        // Cargar frecuentes desde el campo JSONB (si existe)
-        setFrecuentes(perfilData.equipo_frecuente || []);
-      }
+      const own: Registration[] = (data.registrations.own || []).map((r: any) => mapReg(r, true));
+      const managed: Registration[] = (data.registrations.managed || []).map((r: any) => mapReg(r, false));
 
-      // Cargar acreditaciones del usuario (por email)
-      const userEmail = session.user.email;
-      if (userEmail) {
-        const { data: acreditacionesData, error: acreditacionesError } = await supabase
-          .from('mt_acreditados')
-          .select(`
-            id, nombre, apellido, email, cargo, empresa, status, created_at,
-            tenant:tenant_id(nombre, slug, shield_url),
-            evento:evento_id(nombre, fecha)
-          `)
-          .eq('email', userEmail)
-          .order('created_at', { ascending: false });
+      const all = [...own, ...managed]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-        if (acreditacionesError) {
-          console.warn('Error cargando acreditaciones:', acreditacionesError.message);
-        } else if (acreditacionesData) {
-          setAcreditaciones(acreditacionesData as unknown as AcreditacionConRelaciones[]);
-        }
-      }
+      // Deduplicar por id
+      const seen = new Set<string>();
+      const deduped = all.filter(r => {
+        if (seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      });
 
-      // Cargar tenants disponibles (sin filtro de activo ya que puede no existir la columna)
-      const { data: tenantsData, error: tenantsError } = await supabase
-        .from('mt_tenants')
-        .select('id, nombre, slug, shield_url, color_primario');
-
-      if (tenantsError) {
-        console.warn('Error cargando tenants:', tenantsError.message);
-      } else if (tenantsData) {
-        setTenants(tenantsData);
-      }
-
+      setRegistrations(deduped);
+    } catch (err) {
+      console.error('Error cargando acreditaciones:', err);
+    } finally {
       setLoading(false);
-    };
-
-    loadData();
-  }, [router]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/auth/acreditado');
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      pendiente: 'bg-yellow-100 text-yellow-800',
-      aprobado: 'bg-green-100 text-green-800',
-      rechazado: 'bg-red-100 text-red-800',
-    };
-    const labels = {
-      pendiente: '⏳ Pendiente',
-      aprobado: '✅ Aprobado',
-      rechazado: '❌ Rechazado',
-    };
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
-        {labels[status as keyof typeof labels]}
-      </span>
-    );
+  const statusConfig: Record<string, { bg: string; text: string; icon: string }> = {
+    pendiente: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: 'fas fa-clock' },
+    aprobado: { bg: 'bg-green-100', text: 'text-green-700', icon: 'fas fa-check-circle' },
+    rechazado: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fas fa-times-circle' },
+    revision: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'fas fa-search' },
   };
 
-  const stats = {
-    total: acreditaciones.length,
-    pendientes: acreditaciones.filter(a => a.status === 'pendiente').length,
-    aprobadas: acreditaciones.filter(a => a.status === 'aprobado').length,
-    rechazadas: acreditaciones.filter(a => a.status === 'rechazado').length,
-  };
+  const filtered = filter === 'all'
+    ? registrations
+    : filter === 'self'
+      ? registrations.filter(r => r.isSelf)
+      : registrations.filter(r => !r.isSelf);
+
+  const selfCount = registrations.filter(r => r.isSelf).length;
+  const teamCount = registrations.filter(r => !r.isSelf).length;
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Cargando dashboard...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner fullPage />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              {/* Botón volver */}
-              <Link
-                href="/"
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Volver al inicio"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </Link>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center text-white font-bold">
-                {perfil?.nombre?.charAt(0) || user?.email?.charAt(0) || 'A'}
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">
-                  {perfil ? `${perfil.nombre} ${perfil.apellido}` : user?.email}
-                </h1>
-                <p className="text-sm text-gray-500">{perfil?.empresa || 'Sin empresa registrada'}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link 
-                href="/acreditado/perfil"
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Mi Perfil
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Mis Acreditaciones</h1>
+        <p className="text-gray-500 mt-1">{registrations.length} solicitudes en total</p>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border">
-            <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-            <p className="text-sm text-gray-500">Total Solicitudes</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border">
-            <p className="text-3xl font-bold text-yellow-600">{stats.pendientes}</p>
-            <p className="text-sm text-gray-500">Pendientes</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border">
-            <p className="text-3xl font-bold text-green-600">{stats.aprobadas}</p>
-            <p className="text-sm text-gray-500">Aprobadas</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border">
-            <p className="text-3xl font-bold text-red-600">{stats.rechazadas}</p>
-            <p className="text-sm text-gray-500">Rechazadas</p>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 flex-wrap">
+      {/* Filtros rápidos */}
+      {teamCount > 0 && (
+        <div className="flex gap-2 mb-6">
           <button
-            onClick={() => setActiveTab('solicitudes')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
-              activeTab === 'solicitudes'
-                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border'
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            📋 Mis Solicitudes
+            Todas ({registrations.length})
           </button>
           <button
-            onClick={() => setActiveTab('nueva')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
-              activeTab === 'nueva'
-                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border'
+            onClick={() => setFilter('self')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              filter === 'self' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
             }`}
           >
-            ➕ Nueva Acreditación
+            <i className="fas fa-user mr-1" /> Propias ({selfCount})
           </button>
           <button
-            onClick={() => setActiveTab('frecuentes')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
-              activeTab === 'frecuentes'
-                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border'
+            onClick={() => setFilter('team')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              filter === 'team' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
             }`}
           >
-            ⭐ Mi Equipo ({frecuentes.length})
+            <i className="fas fa-users mr-1" /> Equipo ({teamCount})
           </button>
         </div>
+      )}
 
-        {/* Content */}
-        {activeTab === 'solicitudes' ? (
-          <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-            {acreditaciones.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">📭</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes solicitudes aún</h3>
-                <p className="text-gray-500 mb-6">Comienza solicitando acreditación para un evento</p>
-                <button
-                  onClick={() => setActiveTab('nueva')}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors"
-                >
-                  Crear primera solicitud
-                </button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Acreditado</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Evento</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {acreditaciones.map((acreditacion) => (
-                      <tr key={acreditacion.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {acreditacion.tenant?.shield_url && (
-                              <img 
-                                src={acreditacion.tenant.shield_url} 
-                                alt="" 
-                                className="w-8 h-8 object-contain"
-                              />
-                            )}
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {acreditacion.nombre} {acreditacion.apellido}
-                              </p>
-                              <p className="text-sm text-gray-500">{acreditacion.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-gray-900">{acreditacion.tenant?.nombre || '-'}</p>
-                          <p className="text-sm text-gray-500">{acreditacion.evento?.nombre || '-'}</p>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">{acreditacion.cargo}</td>
-                        <td className="px-6 py-4">{getStatusBadge(acreditacion.status)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {acreditacion.created_at 
-                            ? new Date(acreditacion.created_at).toLocaleDateString('es-CL')
-                            : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        ) : activeTab === 'nueva' ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Selecciona un evento</h2>
-            <p className="text-gray-500 mb-6">Elige la organización donde deseas solicitar acreditación</p>
-            
-            {tenants.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4">🏟️</div>
-                <p className="text-gray-500">No hay eventos disponibles actualmente</p>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {tenants.map((tenant) => (
-                  <Link
-                    key={tenant.id}
-                    href={`/acreditado/nueva/${tenant.slug}`}
-                    className="group flex items-center gap-4 p-5 border-2 border-gray-100 rounded-2xl hover:border-blue-200 hover:bg-blue-50/50 transition-all"
-                  >
-                    {tenant.shield_url ? (
-                      <img 
-                        src={tenant.shield_url} 
-                        alt={tenant.nombre}
-                        className="w-14 h-14 object-contain"
-                      />
-                    ) : (
-                      <div 
-                        className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold"
-                        style={{ backgroundColor: tenant.color_primario || '#3b82f6' }}
-                      >
-                        {tenant.nombre.charAt(0)}
-                      </div>
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-xl border">
+          <i className="fas fa-ticket-alt text-4xl text-gray-300 mb-4" />
+          <p className="text-gray-400 text-lg">
+            {filter === 'all' ? 'No tienes acreditaciones aún' : `No hay acreditaciones de ${filter === 'self' ? 'tipo propio' : 'equipo'}`}
+          </p>
+          <a href="/acreditado" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+            Ver eventos disponibles
+          </a>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((reg) => {
+            const statusCfg = statusConfig[reg.status] || statusConfig.pendiente;
+            return (
+              <div key={reg.id} className="bg-white rounded-xl border p-6 hover:shadow-md transition">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-gray-900 text-lg">{reg.event.nombre}</h3>
+                      {!reg.isSelf && (
+                        <span className="px-2 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full font-medium">
+                          <i className="fas fa-users mr-1" />Equipo
+                        </span>
+                      )}
+                    </div>
+                    {!reg.isSelf && (
+                      <p className="text-sm text-purple-600 mt-0.5">
+                        <i className="fas fa-user mr-1" />
+                        {reg.profile_nombre} {reg.profile_apellido} — {reg.rut}
+                      </p>
                     )}
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {tenant.nombre}
-                      </h3>
-                      <p className="text-sm text-gray-500">Solicitar acreditación →</p>
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                      <span>{reg.tenant.nombre}</span>
+                      {reg.event.fecha && (
+                        <span><i className="fas fa-calendar mr-1" />{new Date(reg.event.fecha).toLocaleDateString('es-CL')}</span>
+                      )}
+                      {reg.organizacion && <span><i className="fas fa-building mr-1" />{reg.organizacion}</span>}
                     </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : activeTab === 'frecuentes' ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Mi Equipo de Prensa</h2>
-                <p className="text-gray-500 text-sm mt-1">Personas que acreditas frecuentemente</p>
-              </div>
-            </div>
-            
-            {frecuentes.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">👥</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes personas guardadas</h3>
-                <p className="text-gray-500 mb-6">Al solicitar acreditaciones, puedes guardar personas para reutilizar sus datos</p>
-                <button
-                  onClick={() => setActiveTab('nueva')}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors"
-                >
-                  Crear acreditación
-                </button>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {frecuentes.map((frecuente) => (
-                  <div 
-                    key={frecuente.id}
-                    className="p-4 border-2 border-gray-100 rounded-2xl hover:border-blue-200 transition-all"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center text-white font-semibold">
-                        {frecuente.nombre.charAt(0)}{frecuente.apellido.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">
-                          {frecuente.nombre} {frecuente.apellido}
-                        </p>
-                        <p className="text-sm text-gray-500 truncate">
-                          {frecuente.cargo || frecuente.tipo_medio || 'Sin cargo'}
-                        </p>
-                        {frecuente.email && (
-                          <p className="text-xs text-gray-400 truncate mt-1">{frecuente.email}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-gray-400">
-                      <span>Usado {frecuente.veces_usado || 0} {frecuente.veces_usado === 1 ? 'vez' : 'veces'}</span>
-                      <button
-                        onClick={async () => {
-                          if (confirm('¿Eliminar esta persona de tu equipo?')) {
-                            const nuevoEquipo = frecuentes.filter(f => f.id !== frecuente.id);
-                            // Actualizar en BD
-                            if (perfil) {
-                              await supabase
-                                .from('mt_perfiles_acreditados')
-                                .update({ equipo_frecuente: nuevoEquipo })
-                                .eq('id', perfil.id);
-                            }
-                            setFrecuentes(nuevoEquipo);
-                          }
-                        }}
-                        className="text-red-400 hover:text-red-600 transition-colors"
-                      >
-                        Eliminar
-                      </button>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                      {reg.tipo_medio && <span className="px-2 py-0.5 bg-gray-100 rounded-full">{reg.tipo_medio}</span>}
+                      {reg.cargo && <span className="px-2 py-0.5 bg-gray-100 rounded-full">{reg.cargo}</span>}
                     </div>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-4">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusCfg.bg} ${statusCfg.text}`}>
+                      <i className={`${statusCfg.icon} mr-1`} />
+                      {reg.status.charAt(0).toUpperCase() + reg.status.slice(1)}
+                    </span>
+
+                    {reg.status === 'aprobado' && reg.qr_token && (
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <i className="fas fa-qrcode text-2xl text-gray-600" />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">QR</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        ) : null}
-      </main>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

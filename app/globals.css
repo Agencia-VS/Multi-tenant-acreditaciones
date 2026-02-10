@@ -30,9 +30,9 @@ body {
 
 .hero-overlay {
   background: linear-gradient(135deg, 
-      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.45) 0%, 
-      rgba(var(--tenant-secundario-rgb, 107, 114, 128), 0.35) 50%,
-      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.50) 100%);
+      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.10) 0%, 
+      rgba(var(--tenant-secundario-rgb, 107, 114, 128), 0.08) 50%,
+      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.15) 100%);
 }
 
 .animate-float {
@@ -45,7 +45,8 @@ body {
 }
 
 .btn-glow:hover {
-  box-shadow: 0 0 30px rgba(var(--tenant-secundario-rgb, 107, 114, 128), 0.6);
+  box-shadow: 0 0 30px var(--tenant-light, rgba(107, 114, 128, 0.6)),
+              0 0 60px var(--tenant-primario, rgba(55, 65, 81, 0.3));
 }
 
 .minimal-line {
@@ -90,4 +91,20 @@ body {
 
 .animate-fade-in-delay-5 {
   animation: fadeIn 0.8s ease-out 1s forwards;
+}
+
+/* Pulse suave para CTA */
+@keyframes subtlePulse {
+  0%, 100% { box-shadow: 0 0 20px var(--tenant-light, rgba(107, 114, 128, 0.3)); }
+  50% { box-shadow: 0 0 40px var(--tenant-light, rgba(107, 114, 128, 0.5)); }
+}
+
+.btn-glow {
+  animation: subtlePulse 3s ease-in-out infinite;
+}
+
+/* Slide-up para highlight interno */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }

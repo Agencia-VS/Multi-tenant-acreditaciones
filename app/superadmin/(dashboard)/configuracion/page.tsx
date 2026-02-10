@@ -1,0 +1,146 @@
+'use client';
+
+/**
+ * SuperAdmin — Configuración general de la plataforma
+ */
+import { useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+
+export default function ConfiguracionPage() {
+  const [newEmail, setNewEmail] = useState('');
+  const [newNombre, setNewNombre] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleCreateSuperadmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setMessage('');
+
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // Create user via auth admin (this requires service role)
+      const res = await fetch('/api/superadmin/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create-superadmin',
+          email: newEmail,
+          nombre: newNombre,
+          password: newPassword,
+        }),
+      });
+
+      if (res.ok) {
+        setMessage('SuperAdmin creado exitosamente');
+        setNewEmail('');
+        setNewNombre('');
+        setNewPassword('');
+      } else {
+        const data = await res.json();
+        setMessage(`Error: ${data.error}`);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
+        <p className="text-gray-500 mt-1">Configuración global de la plataforma</p>
+      </div>
+
+      <div className="grid gap-6">
+        {/* Crear SuperAdmin */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            <i className="fas fa-user-shield mr-2 text-blue-600" />
+            Crear Super Administrador
+          </h2>
+
+          {message && (
+            <div className={`p-3 rounded-lg text-sm mb-4 ${
+              message.startsWith('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+            }`}>
+              {message}
+            </div>
+          )}
+
+          <form onSubmit={handleCreateSuperadmin} className="space-y-4 max-w-lg">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+              <input
+                type="text"
+                required
+                value={newNombre}
+                onChange={(e) => setNewNombre(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+            >
+              {saving ? 'Creando...' : 'Crear SuperAdmin'}
+            </button>
+          </form>
+        </div>
+
+        {/* Info */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            <i className="fas fa-info-circle mr-2 text-gray-400" />
+            Información del Sistema
+          </h2>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-gray-500">Plataforma</p>
+              <p className="font-bold text-gray-900">Accredia v2.0</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-gray-500">Base de Datos</p>
+              <p className="font-bold text-gray-900">Supabase PostgreSQL</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-gray-500">Auth</p>
+              <p className="font-bold text-gray-900">Supabase Auth (email/pwd)</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-gray-500">Emails</p>
+              <p className="font-bold text-gray-900">Resend</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,22 +1,12 @@
 /**
- * Layout para el panel de SuperAdmin
- * 
- * Proporciona la estructura base con sidebar y verificación de permisos
- * para todas las páginas de superadmin.
+ * SuperAdmin Root Layout — Pass-through
+ * La protección de auth está en (dashboard)/layout.tsx
+ * para que /superadmin/login quede fuera del guard.
  */
-
-import { Metadata } from "next";
-import { SuperAdminLayoutClient } from "./layout-client";
-
-export const metadata: Metadata = {
-  title: "Super Admin - Accredia",
-  description: "Panel de administración global del sistema de acreditaciones",
-};
-
-export default function SuperAdminLayout({
+export default function SuperAdminRootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <SuperAdminLayoutClient>{children}</SuperAdminLayoutClient>;
+  return <>{children}</>;
 }

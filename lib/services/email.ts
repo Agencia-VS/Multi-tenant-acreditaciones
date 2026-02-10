@@ -1,373 +1,179 @@
 /**
- * Servicios de envío de emails
+ * Servicio de Email — Envío de notificaciones
  * 
- * Centraliza la lógica de envío de correos de aprobación y rechazo.
- * Llama a las APIs internas y maneja errores de forma consistente.
+ * Usa Resend para enviar emails con plantillas dinámicas.
+ * Los colores y branding se toman del tenant.
  */
 
-import type { Acreditacion } from "../../types/acreditacion";
+import { Resend } from 'resend';
+import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import type { RegistrationFull, Tenant } from '@/types';
 
-// ============================================================================
-// TIPOS
-// ============================================================================
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-/** Datos del acreditado necesarios para enviar email */
-export interface EmailAcreditadoData {
-  nombre: string;
-  apellido: string;
-  correo: string;
-}
-
-/** Datos preparados para el envío de email */
-export interface EmailPayload {
-  nombre: string;
-  apellido: string;
-  correo: string;
-  zona?: string;
-  area?: string;
-}
-
-/** Resultado del envío de email */
-export interface EmailResult {
-  success: boolean;
-  error?: string;
-  emailId?: string;
-}
-
-/** Opciones de logging */
-export interface EmailLoggingOptions {
-  /** Si debe loguear en consola */
-  enableLogging?: boolean;
-  /** Prefijo para los logs */
-  logPrefix?: string;
-}
-
-// ============================================================================
-// CONSTANTES
-// ============================================================================
-
-/** Endpoints de las APIs de email */
-const EMAIL_ENDPOINTS = {
-  approval: "/api/send-approval",
-  rejection: "/api/send-rejection",
-} as const;
-
-/** Configuración por defecto de logging */
-const DEFAULT_LOGGING: EmailLoggingOptions = {
-  enableLogging: true,
-  logPrefix: "[EmailService]",
-};
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/**
- * Prepara los datos del acreditado para el envío de email.
- * Extrae y formatea los campos necesarios de forma consistente.
- * 
- * @param acreditado - Datos del acreditado (puede ser Acreditacion o datos parciales)
- * @param zona - Nombre de la zona asignada
- * @param area - Nombre del área asignada
- * @returns Payload listo para enviar a la API
- * 
- * @example
- * ```ts
- * const payload = prepareEmailData(acreditacion, "Zona 1", "TV Nacionales");
- * // { nombre: "Juan", apellido: "Pérez González", correo: "juan@mail.com", zona: "Zona 1", area: "TV Nacionales" }
- * ```
- */
-export function prepareEmailData(
-  acreditado: Acreditacion | EmailAcreditadoData,
-  zona?: string,
-  area?: string
-): EmailPayload {
-  // Determinar el apellido según el tipo de datos
-  let apellido: string;
-  
-  if ("primer_apellido" in acreditado) {
-    // Es tipo Acreditacion con apellidos separados
-    apellido = `${acreditado.primer_apellido} ${acreditado.segundo_apellido || ""}`.trim();
-  } else {
-    // Es tipo EmailAcreditadoData con apellido ya concatenado
-    apellido = acreditado.apellido;
-  }
-
-  // Obtener el correo (puede venir como "email" o "correo")
-  const correo = "email" in acreditado ? acreditado.email : acreditado.correo;
-
-  return {
-    nombre: acreditado.nombre,
-    apellido,
-    correo,
-    ...(zona && { zona }),
-    ...(area && { area }),
-  };
+// Dirección de envío segura
+function getFromEmail(): string {
+  return process.env.RESEND_FROM_EMAIL || 'Accredia <onboarding@resend.dev>';
 }
 
 /**
- * Logger interno para el servicio de email.
- */
-function logEmail(
-  level: "info" | "error" | "warn",
-  message: string,
-  data?: unknown,
-  options: EmailLoggingOptions = DEFAULT_LOGGING
-): void {
-  if (!options.enableLogging) return;
-
-  const prefix = options.logPrefix || DEFAULT_LOGGING.logPrefix;
-  const timestamp = new Date().toISOString();
-  const logMessage = `${prefix} [${timestamp}] ${message}`;
-
-  switch (level) {
-    case "error":
-      console.error(logMessage, data ?? "");
-      break;
-    case "warn":
-      console.warn(logMessage, data ?? "");
-      break;
-    default:
-      console.log(logMessage, data ?? "");
-  }
-}
-
-/**
- * Realiza la llamada HTTP a la API de email.
- */
-async function callEmailApi(
-  endpoint: string,
-  payload: EmailPayload,
-  loggingOptions?: EmailLoggingOptions
-): Promise<EmailResult> {
-  const options = { ...DEFAULT_LOGGING, ...loggingOptions };
-
-  try {
-    logEmail("info", `Enviando email a ${payload.correo}`, { endpoint }, options);
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error || `Error HTTP ${response.status}`;
-      
-      logEmail("error", `Fallo al enviar email: ${errorMessage}`, { 
-        status: response.status, 
-        endpoint,
-        correo: payload.correo,
-      }, options);
-
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-
-    const data = await response.json().catch(() => ({}));
-    
-    logEmail("info", `Email enviado exitosamente a ${payload.correo}`, {
-      emailId: data.id,
-    }, options);
-
-    return {
-      success: true,
-      emailId: data.id,
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Error de red desconocido";
-    
-    logEmail("error", `Error de red al enviar email: ${errorMessage}`, {
-      endpoint,
-      correo: payload.correo,
-      error,
-    }, options);
-
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
-}
-
-// ============================================================================
-// SERVICIOS PRINCIPALES
-// ============================================================================
-
-/**
- * Envía un email de aprobación al acreditado.
- * 
- * @param acreditado - Datos del acreditado
- * @param zona - Nombre de la zona asignada
- * @param area - Nombre del área de prensa
- * @param loggingOptions - Opciones de logging
- * @returns Resultado del envío
- * 
- * @example
- * ```ts
- * const result = await sendApprovalEmail(
- *   selectedAcreditacion,
- *   "Zona 1 - Tribuna Central",
- *   "TV Nacionales"
- * );
- * 
- * if (!result.success) {
- *   console.error("Error enviando email:", result.error);
- * }
- * ```
+ * Enviar email de aprobación con QR (si aplica)
  */
 export async function sendApprovalEmail(
-  acreditado: Acreditacion | EmailAcreditadoData,
-  zona: string,
-  area: string,
-  loggingOptions?: EmailLoggingOptions
-): Promise<EmailResult> {
-  const payload = prepareEmailData(acreditado, zona, area);
-  
-  // Validar que tenemos correo
-  if (!payload.correo) {
-    return {
-      success: false,
-      error: "El acreditado no tiene correo electrónico",
-    };
-  }
+  registration: RegistrationFull,
+  tenant: Tenant
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const qrSection = registration.event_qr_enabled && registration.qr_token
+      ? `
+        <div style="text-align: center; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+          <p style="font-size: 14px; color: #666;">Tu código QR de acceso:</p>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(registration.qr_token)}" 
+               alt="QR de acceso" style="width: 200px; height: 200px;" />
+          <p style="font-size: 12px; color: #999; margin-top: 10px;">Presenta este QR en la entrada del evento</p>
+        </div>
+      `
+      : '';
 
-  return callEmailApi(EMAIL_ENDPOINTS.approval, payload, loggingOptions);
-}
+    const html = `
+      <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+        <div style="background: ${tenant.color_primario}; padding: 30px; text-align: center;">
+          ${tenant.logo_url ? `<img src="${tenant.logo_url}" alt="${tenant.nombre}" style="height: 60px;" />` : ''}
+          <h1 style="color: ${tenant.color_secundario}; margin: 10px 0 0;">Acreditación Aprobada</h1>
+        </div>
+        <div style="padding: 30px; background: #ffffff;">
+          <p>Estimado/a <strong>${registration.profile_nombre} ${registration.profile_apellido}</strong>,</p>
+          <p>Tu acreditación para el evento <strong>${registration.event_nombre}</strong> ha sido <span style="color: #22c55e; font-weight: bold;">APROBADA</span>.</p>
+          
+          <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Evento:</strong> ${registration.event_nombre}</p>
+            ${registration.event_fecha ? `<p style="margin: 5px 0 0;"><strong>Fecha:</strong> ${new Date(registration.event_fecha).toLocaleDateString('es-CL')}</p>` : ''}
+            ${registration.event_venue ? `<p style="margin: 5px 0 0;"><strong>Lugar:</strong> ${registration.event_venue}</p>` : ''}
+            <p style="margin: 5px 0 0;"><strong>Organización:</strong> ${registration.organizacion || '-'}</p>
+            <p style="margin: 5px 0 0;"><strong>Cargo:</strong> ${registration.cargo || '-'}</p>
+          </div>
 
-/**
- * Envía un email de rechazo al acreditado.
- * 
- * @param acreditado - Datos del acreditado
- * @param zona - Nombre de la zona (opcional, para contexto)
- * @param area - Nombre del área de prensa (opcional, para contexto)
- * @param loggingOptions - Opciones de logging
- * @returns Resultado del envío
- * 
- * @example
- * ```ts
- * const result = await sendRejectionEmail(
- *   selectedAcreditacion,
- *   undefined, // zona no es relevante para rechazo
- *   "TV Nacionales"
- * );
- * 
- * if (!result.success) {
- *   console.error("Error enviando email:", result.error);
- * }
- * ```
- */
-export async function sendRejectionEmail(
-  acreditado: Acreditacion | EmailAcreditadoData,
-  zona?: string,
-  area?: string,
-  loggingOptions?: EmailLoggingOptions
-): Promise<EmailResult> {
-  const payload = prepareEmailData(acreditado, zona, area);
-  
-  // Validar que tenemos correo
-  if (!payload.correo) {
-    return {
-      success: false,
-      error: "El acreditado no tiene correo electrónico",
-    };
-  }
+          ${qrSection}
+          
+          <p style="color: #666; font-size: 13px;">Este es un correo automático del sistema de acreditaciones.</p>
+        </div>
+        <div style="background: ${tenant.color_dark || '#1a1a2e'}; padding: 15px; text-align: center;">
+          <p style="color: #999; font-size: 12px; margin: 0;">${tenant.nombre} — Sistema de Acreditaciones</p>
+        </div>
+      </div>
+    `;
 
-  return callEmailApi(EMAIL_ENDPOINTS.rejection, payload, loggingOptions);
-}
-
-/**
- * Envía email según el estado de la acreditación.
- * Wrapper conveniente que determina qué tipo de email enviar.
- * 
- * @param acreditado - Datos del acreditado
- * @param estado - Estado de la acreditación ("aprobado" | "rechazado")
- * @param zona - Nombre de la zona
- * @param area - Nombre del área
- * @param loggingOptions - Opciones de logging
- * @returns Resultado del envío
- * 
- * @example
- * ```ts
- * const result = await sendStatusEmail(
- *   acreditacion,
- *   "aprobado",
- *   zonaNombre,
- *   areaNombre
- * );
- * ```
- */
-export async function sendStatusEmail(
-  acreditado: Acreditacion | EmailAcreditadoData,
-  estado: "aprobado" | "rechazado",
-  zona?: string,
-  area?: string,
-  loggingOptions?: EmailLoggingOptions
-): Promise<EmailResult> {
-  if (estado === "aprobado") {
-    if (!zona || !area) {
-      return {
-        success: false,
-        error: "Zona y área son requeridas para emails de aprobación",
-      };
-    }
-    return sendApprovalEmail(acreditado, zona, area, loggingOptions);
-  }
-
-  return sendRejectionEmail(acreditado, zona, area, loggingOptions);
-}
-
-/**
- * Envía emails masivos a múltiples acreditados.
- * Útil para operaciones de aprobación/rechazo en lote.
- * 
- * @param acreditados - Lista de acreditados
- * @param estado - Estado a notificar
- * @param getZona - Función para obtener el nombre de la zona
- * @param getArea - Función para obtener el nombre del área
- * @returns Resultados de cada envío
- * 
- * @example
- * ```ts
- * const results = await sendBulkStatusEmails(
- *   selectedAcreditados,
- *   "aprobado",
- *   (a) => zonas.find(z => z.id === a.zona_id)?.nombre || "Sin zona",
- *   (a) => AREA_NAMES[a.area] || a.area
- * );
- * 
- * const failed = results.filter(r => !r.success);
- * console.log(`${results.length - failed.length} emails enviados, ${failed.length} fallidos`);
- * ```
- */
-export async function sendBulkStatusEmails(
-  acreditados: Acreditacion[],
-  estado: "aprobado" | "rechazado",
-  getZona: (acreditado: Acreditacion) => string,
-  getArea: (acreditado: Acreditacion) => string,
-  loggingOptions?: EmailLoggingOptions
-): Promise<Array<EmailResult & { acreditadoId: number }>> {
-  const results: Array<EmailResult & { acreditadoId: number }> = [];
-
-  for (const acreditado of acreditados) {
-    const zona = getZona(acreditado);
-    const area = getArea(acreditado);
-    
-    const result = await sendStatusEmail(acreditado, estado, zona, area, loggingOptions);
-    
-    results.push({
-      ...result,
-      acreditadoId: acreditado.id,
+    const { error } = await resend.emails.send({
+      from: getFromEmail(),
+      to: registration.profile_email || '',
+      subject: `✅ Acreditación Aprobada — ${registration.event_nombre}`,
+      html,
     });
 
-    // Pequeño delay entre emails para evitar rate limiting
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (error) return { success: false, error: error.message };
+
+    // Log del email
+    await logEmail(registration.id, registration.tenant_id, registration.profile_email || '', 'aprobacion', `Acreditación Aprobada — ${registration.event_nombre}`);
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' };
+  }
+}
+
+/**
+ * Enviar email de rechazo
+ */
+export async function sendRejectionEmail(
+  registration: RegistrationFull,
+  tenant: Tenant,
+  motivo?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const html = `
+      <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+        <div style="background: ${tenant.color_primario}; padding: 30px; text-align: center;">
+          ${tenant.logo_url ? `<img src="${tenant.logo_url}" alt="${tenant.nombre}" style="height: 60px;" />` : ''}
+          <h1 style="color: ${tenant.color_secundario}; margin: 10px 0 0;">Acreditación No Aprobada</h1>
+        </div>
+        <div style="padding: 30px; background: #ffffff;">
+          <p>Estimado/a <strong>${registration.profile_nombre} ${registration.profile_apellido}</strong>,</p>
+          <p>Lamentamos informarle que su solicitud de acreditación para el evento <strong>${registration.event_nombre}</strong> no ha sido aprobada.</p>
+          
+          ${motivo ? `
+          <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Motivo:</strong> ${motivo}</p>
+          </div>
+          ` : ''}
+          
+          <p>Si tiene consultas, por favor contacte al organizador del evento.</p>
+          <p style="color: #666; font-size: 13px;">Este es un correo automático del sistema de acreditaciones.</p>
+        </div>
+        <div style="background: ${tenant.color_dark || '#1a1a2e'}; padding: 15px; text-align: center;">
+          <p style="color: #999; font-size: 12px; margin: 0;">${tenant.nombre} — Sistema de Acreditaciones</p>
+        </div>
+      </div>
+    `;
+
+    const { error } = await resend.emails.send({
+      from: getFromEmail(),
+      to: registration.profile_email || '',
+      subject: `Acreditación — ${registration.event_nombre}`,
+      html,
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    await logEmail(registration.id, registration.tenant_id, registration.profile_email || '', 'rechazo', `Acreditación — ${registration.event_nombre}`);
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' };
+  }
+}
+
+/**
+ * Enviar emails masivos (bulk approval)
+ */
+export async function sendBulkApprovalEmails(
+  registrations: RegistrationFull[],
+  tenant: Tenant
+): Promise<{ sent: number; errors: number }> {
+  let sent = 0;
+  let errors = 0;
+
+  for (const reg of registrations) {
+    if (!reg.profile_email) { errors++; continue; }
+    
+    const result = await sendApprovalEmail(reg, tenant);
+    if (result.success) sent++;
+    else errors++;
+    
+    // Rate limiting: 2 emails por segundo
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
-  return results;
+  return { sent, errors };
+}
+
+/** Log interno de emails enviados */
+async function logEmail(
+  registrationId: string,
+  tenantId: string,
+  toEmail: string,
+  tipo: string,
+  subject: string
+) {
+  try {
+    const supabase = createSupabaseAdminClient();
+    await supabase.from('email_logs').insert({
+      registration_id: registrationId,
+      tenant_id: tenantId,
+      to_email: toEmail,
+      tipo,
+      subject,
+    });
+  } catch {
+    // No bloquear por error de log
+  }
 }
