@@ -11,14 +11,14 @@ export default function AdminFilters() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge p-4">
       <div className="flex flex-wrap gap-3 items-center">
         {/* Event selector */}
         {events.length > 1 && (
           <select
             value={filters.event_id}
             onChange={e => updateFilter('event_id', e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            className="px-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
           >
             <option value="">Seleccionar evento</option>
             {events.map(ev => (
@@ -31,18 +31,18 @@ export default function AdminFilters() {
 
         {/* Search */}
         <div className="flex-1 min-w-[220px] relative">
-          <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+          <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted text-base" />
           <input
             type="text"
             placeholder="Buscar por nombre, RUT, organización..."
             value={filters.search}
             onChange={e => updateFilter('search', e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
           />
           {filters.search && (
             <button
               onClick={() => updateFilter('search', '')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-body"
             >
               <i className="fas fa-times text-xs" />
             </button>
@@ -53,7 +53,7 @@ export default function AdminFilters() {
         <select
           value={filters.status}
           onChange={e => updateFilter('status', e.target.value)}
-          className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+          className="px-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
         >
           <option value="">Todos los estados</option>
           <option value="pendiente">⏳ Pendientes</option>
@@ -66,7 +66,7 @@ export default function AdminFilters() {
         <select
           value={filters.tipo_medio}
           onChange={e => updateFilter('tipo_medio', e.target.value)}
-          className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+          className="px-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
         >
           <option value="">Todos los medios</option>
           {TIPOS_MEDIO.map(tm => (
@@ -77,7 +77,7 @@ export default function AdminFilters() {
         {/* Refresh */}
         <button
           onClick={fetchData}
-          className="px-3 py-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"
+          className="px-3 py-2.5 text-body hover:text-brand hover:bg-accent-light rounded-xl transition"
           title="Actualizar datos"
         >
           <i className="fas fa-sync-alt" />
@@ -86,29 +86,29 @@ export default function AdminFilters() {
 
       {/* Active filter pills */}
       {(filters.status || filters.tipo_medio || filters.search) && (
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-          <span className="text-xs text-gray-400">Filtros activos:</span>
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-edge">
+          <span className="text-sm text-muted">Filtros activos:</span>
           {filters.search && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent-light text-brand text-sm rounded-full">
               Búsqueda: &quot;{filters.search}&quot;
-              <button onClick={() => updateFilter('search', '')} className="hover:text-blue-900"><i className="fas fa-times text-[10px]" /></button>
+              <button onClick={() => updateFilter('search', '')} className="hover:text-brand"><i className="fas fa-times text-[10px]" /></button>
             </span>
           )}
           {filters.status && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-full">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-sm rounded-full">
               Estado: {filters.status}
               <button onClick={() => updateFilter('status', '')} className="hover:text-purple-900"><i className="fas fa-times text-[10px]" /></button>
             </span>
           )}
           {filters.tipo_medio && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-success-light text-success-dark text-sm rounded-full">
               Medio: {filters.tipo_medio}
-              <button onClick={() => updateFilter('tipo_medio', '')} className="hover:text-green-900"><i className="fas fa-times text-[10px]" /></button>
+              <button onClick={() => updateFilter('tipo_medio', '')} className="hover:text-success-dark"><i className="fas fa-times text-[10px]" /></button>
             </span>
           )}
           <button
             onClick={() => setFilters({ ...filters, search: '', status: '', tipo_medio: '' })}
-            className="text-xs text-red-500 hover:text-red-700 underline"
+            className="text-sm text-danger hover:text-danger-dark underline"
           >
             Limpiar todos
           </button>
@@ -116,10 +116,10 @@ export default function AdminFilters() {
       )}
 
       {/* Results count */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-edge text-sm text-muted">
         <span>{registrations.length} registros encontrados</span>
         {selectedIds.size > 0 && (
-          <span className="text-blue-600 font-medium">{selectedIds.size} seleccionados</span>
+          <span className="text-brand font-medium">{selectedIds.size} seleccionados</span>
         )}
       </div>
     </div>

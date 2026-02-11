@@ -1,10 +1,12 @@
 'use client';
 
 /**
- * SuperAdmin Login Page
+ * SuperAdmin Login Page — Wise Design Foundations
  */
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import Link from 'next/link';
+import { BackButton } from '@/components/shared/ui';
 
 export default function SuperAdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -33,7 +35,6 @@ export default function SuperAdminLoginPage() {
         return;
       }
 
-      // Verificar que es superadmin
       const { data: sa } = await supabase
         .from('superadmins')
         .select('id')
@@ -46,7 +47,6 @@ export default function SuperAdminLoginPage() {
         return;
       }
 
-      // Full navigation to trigger server-side auth check in the dashboard layout
       window.location.href = '/superadmin';
     } catch {
       setError('Error de conexión');
@@ -55,65 +55,95 @@ export default function SuperAdminLoginPage() {
     }
   };
 
+  const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-black text-white">
-            ACCR<span className="text-blue-400">EDIA</span>
-          </h1>
-          <p className="text-gray-400 mt-2">Super Administración</p>
+    <div className="min-h-screen bg-[#0c1117] flex items-center justify-center p-6 relative dark-surface">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-brand/6 blur-[120px]" />
+      </div>
+
+      <BackButton href="/" />
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Brand */}
+        <Link href="/" className="flex items-center justify-center gap-3 mb-10 group opacity-0 animate-fade-in">
+          <div className="w-10 h-10 bg-brand/20 rounded-xl flex items-center justify-center group-hover:bg-brand/30 transition-snappy">
+            <i className="fas fa-shield-halved text-accent text-lg" />
+          </div>
+          <span className="text-2xl font-bold text-white tracking-tight">Accredia</span>
+        </Link>
+
+        {/* Card */}
+        <div className="bg-surface rounded-2xl shadow-2xl shadow-black/20 overflow-hidden opacity-0 animate-fade-in-delay-1">
+          {/* Header */}
+          <div className="px-8 pt-8 pb-0">
+            <div className="text-center mb-6">
+              <h1 className="text-xl font-bold text-heading">Super Administración</h1>
+              <p className="text-sm text-muted mt-1">Acceso restringido</p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="px-8 pb-8">
+            {error && (
+              <div className="flex items-start gap-2.5 bg-danger-light border border-danger/15 rounded-xl px-4 py-3 mb-5 animate-fade-in">
+                <i className="fas fa-circle-exclamation text-danger mt-0.5 text-sm" />
+                <p className="text-sm text-danger-dark">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="field-label">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="admin@accredia.cl"
+                  className={inputClass}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Contraseña</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className={inputClass}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-brand text-on-brand rounded-xl font-semibold hover:bg-brand-hover disabled:opacity-50 transition-snappy flex items-center justify-center gap-2 shadow-lg shadow-brand/15"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-lock text-sm" />
+                    Ingresar
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-2xl p-8 space-y-5">
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-3 text-red-800 text-sm rounded">
-              <i className="fas fa-exclamation-triangle mr-2" />
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="admin@accredia.cl"
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Verificando...
-              </>
-            ) : (
-              <>
-                <i className="fas fa-lock" />
-                Ingresar
-              </>
-            )}
-          </button>
-        </form>
+        <p className="text-center text-xs text-white/25 mt-6 opacity-0 animate-fade-in-delay-2">
+          Solo usuarios con rol de super administrador.
+        </p>
       </div>
     </div>
   );

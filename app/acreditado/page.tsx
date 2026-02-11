@@ -64,58 +64,51 @@ export default function AcreditadoHomePage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-heading">
           Hola, {profile?.nombre || 'Acreditado'} 👋
         </h1>
-        <p className="text-gray-500 mt-1">Bienvenido a tu portal de acreditaciones</p>
+        <p className="text-body mt-1">Bienvenido a tu portal de acreditaciones</p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Link href="/acreditado/dashboard" className="p-6 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition">
-          <i className="fas fa-ticket-alt text-2xl text-blue-600 mb-2" />
-          <h3 className="font-bold text-gray-900">Mis Acreditaciones</h3>
-          <p className="text-sm text-gray-500 mt-1">Ver estado de mis solicitudes</p>
+        <Link href="/acreditado/dashboard" className="p-6 bg-accent-light rounded-xl border border-accent-light hover:bg-accent-light/80 transition">
+          <i className="fas fa-ticket-alt text-2xl text-brand mb-2" />
+          <h3 className="font-bold text-heading">Mis Acreditaciones</h3>
+          <p className="text-sm text-body mt-1">Ver estado de mis solicitudes</p>
         </Link>
-        <Link href="/acreditado/nueva" className="p-6 bg-green-50 rounded-xl border border-green-100 hover:bg-green-100 transition">
-          <i className="fas fa-plus-circle text-2xl text-green-600 mb-2" />
-          <h3 className="font-bold text-gray-900">Nueva Solicitud</h3>
-          <p className="text-sm text-gray-500 mt-1">Solicitar acreditación para un evento</p>
+        <Link href="/acreditado/nueva" className="p-6 bg-success-light rounded-xl border border-success-light hover:bg-success-light/80 transition">
+          <i className="fas fa-plus-circle text-2xl text-success mb-2" />
+          <h3 className="font-bold text-heading">Nueva Solicitud</h3>
+          <p className="text-sm text-body mt-1">Solicitar acreditación para un evento</p>
         </Link>
         <Link href="/acreditado/perfil" className="p-6 bg-purple-50 rounded-xl border border-purple-100 hover:bg-purple-100 transition">
           <i className="fas fa-user-edit text-2xl text-purple-600 mb-2" />
-          <h3 className="font-bold text-gray-900">Mi Perfil</h3>
-          <p className="text-sm text-gray-500 mt-1">Actualizar mis datos personales</p>
+          <h3 className="font-bold text-heading">Mi Perfil</h3>
+          <p className="text-sm text-body mt-1">Actualizar mis datos personales</p>
         </Link>
       </div>
 
       {/* Active Events */}
-      <h2 className="text-xl font-bold text-gray-900 mb-4">
-        <i className="fas fa-calendar mr-2 text-gray-400" />
+      <h2 className="text-xl font-bold text-heading mb-4">
+        <i className="fas fa-calendar mr-2 text-muted" />
         Eventos con Acreditación Abierta
       </h2>
 
-      {events.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border">
-          <i className="fas fa-calendar-times text-3xl text-gray-300 mb-3" />
-          <p className="text-gray-400">No hay eventos activos en este momento</p>
+      {events.filter(e => !isDeadlinePast(e.fecha_limite_acreditacion)).length === 0 ? (
+        <div className="text-center py-12 bg-surface rounded-xl border border-edge">
+          <i className="fas fa-calendar-times text-3xl text-muted mb-3" />
+          <p className="text-muted">No hay eventos con acreditación abierta en este momento</p>
         </div>
       ) : (
         <div className="grid gap-4">
-          {/* Primero los eventos con plazo abierto, luego los cerrados */}
           {events
-            .sort((a, b) => {
-              const aClosed = isDeadlinePast(a.fecha_limite_acreditacion);
-              const bClosed = isDeadlinePast(b.fecha_limite_acreditacion);
-              if (aClosed !== bClosed) return aClosed ? 1 : -1; // abiertos primero
-              return 0;
-            })
+            .filter((event) => !isDeadlinePast(event.fecha_limite_acreditacion))
             .map((event) => {
             const tenant = Array.isArray(event.tenant) ? event.tenant[0] : event.tenant;
-            const deadlinePassed = isDeadlinePast(event.fecha_limite_acreditacion);
 
             return (
-              <div key={event.id} className={`bg-white rounded-xl border p-6 transition ${deadlinePassed ? 'opacity-60' : 'hover:shadow-md'}`}>
+              <div key={event.id} className="bg-surface rounded-xl border border-edge p-6 transition hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     {tenant?.shield_url ? (
@@ -129,35 +122,26 @@ export default function AcreditadoHomePage() {
                       </div>
                     )}
                     <div>
-                      <h3 className="font-bold text-gray-900">{event.nombre}</h3>
-                      <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                      <h3 className="font-bold text-heading">{event.nombre}</h3>
+                      <div className="flex items-center gap-3 text-sm text-body mt-1">
                         <span>{tenant?.nombre}</span>
                         {event.fecha && <span><i className="fas fa-calendar mr-1" />{new Date(event.fecha).toLocaleDateString('es-CL')}</span>}
                         {event.venue && <span><i className="fas fa-map-marker-alt mr-1" />{event.venue}</span>}
                       </div>
                       {event.fecha_limite_acreditacion && (
-                        <p className={`text-xs mt-1 ${deadlinePassed ? 'text-red-500' : 'text-gray-400'}`}>
-                          <i className={`fas ${deadlinePassed ? 'fa-lock' : 'fa-clock'} mr-1`} />
-                          {deadlinePassed
-                            ? `Plazo cerrado: ${formatDeadlineChile(event.fecha_limite_acreditacion)}`
-                            : `Plazo hasta: ${formatDeadlineChile(event.fecha_limite_acreditacion)}`
-                          }
+                        <p className="text-xs mt-1 text-amber-600">
+                          <i className="fas fa-clock mr-1" />
+                          Plazo hasta: {formatDeadlineChile(event.fecha_limite_acreditacion)}
                         </p>
                       )}
                     </div>
                   </div>
-                  {deadlinePassed ? (
-                    <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm font-medium cursor-not-allowed">
-                      <i className="fas fa-lock mr-1" /> Cerrado
-                    </span>
-                  ) : (
-                    <Link
-                      href={`/${tenant?.slug}/acreditacion`}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
-                    >
-                      Acreditarme
-                    </Link>
-                  )}
+                  <Link
+                    href={`/${tenant?.slug}/acreditacion`}
+                    className="px-4 py-2 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-brand-hover transition"
+                  >
+                    Acreditarme
+                  </Link>
                 </div>
               </div>
             );

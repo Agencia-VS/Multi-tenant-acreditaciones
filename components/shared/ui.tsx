@@ -8,10 +8,10 @@ import type { UIMessage } from '@/types';
 
 export function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    pendiente: 'bg-yellow-100 text-yellow-800',
-    aprobado: 'bg-green-100 text-green-800',
-    rechazado: 'bg-red-100 text-red-800',
-    revision: 'bg-blue-100 text-blue-800',
+    pendiente: 'bg-warn-light text-warn-dark',
+    aprobado: 'bg-success-light text-success-dark',
+    rechazado: 'bg-danger-light text-danger-dark',
+    revision: 'bg-info-light text-info-dark',
   };
 
   const labels: Record<string, string> = {
@@ -22,7 +22,7 @@ export function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${colors[status] || 'bg-subtle text-body'}`}>
       {labels[status] || status}
     </span>
   );
@@ -32,16 +32,16 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function Alert({ message, onClose }: { message: UIMessage; onClose?: () => void }) {
   const colors: Record<string, string> = {
-    success: 'bg-green-50 border-green-500 text-green-800',
-    error: 'bg-red-50 border-red-500 text-red-800',
-    warning: 'bg-yellow-50 border-yellow-500 text-yellow-800',
-    info: 'bg-blue-50 border-blue-500 text-blue-800',
+    success: 'bg-success-light border-success text-success-dark',
+    error: 'bg-danger-light border-danger text-danger-dark',
+    warning: 'bg-warn-light border-warn text-warn-dark',
+    info: 'bg-accent-light border-brand text-info-dark',
   };
 
   return (
-    <div className={`border-l-4 p-4 rounded ${colors[message.type]}`}>
+    <div className={`border-l-4 p-3 rounded ${colors[message.type]}`}>
       <div className="flex justify-between items-center">
-        <p className="text-sm">{message.text}</p>
+        <p className="text-base">{message.text}</p>
         {onClose && (
           <button onClick={onClose} className="ml-4 text-lg font-bold opacity-50 hover:opacity-100">&times;</button>
         )}
@@ -63,10 +63,10 @@ export function LoadingSpinner({
 }) {
   const sizes = { sm: 'w-4 h-4 border-2', md: 'w-8 h-8 border-4', lg: 'w-12 h-12 border-4' };
   const colors = {
-    blue: 'border-blue-500 border-t-transparent',
+    blue: 'border-brand border-t-transparent',
     white: 'border-white border-t-transparent',
-    red: 'border-red-500 border-t-transparent',
-    gray: 'border-gray-300 border-t-gray-600',
+    red: 'border-danger border-t-transparent',
+    gray: 'border-edge border-t-body',
   };
   const wrapper = fullPage
     ? 'flex items-center justify-center min-h-[16rem]'
@@ -112,19 +112,19 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: ()
   if (!toast) return null;
   return (
     <div
-      className={`fixed top-4 right-4 z-[100] max-w-md px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-3 transition-all ${
+      className={`fixed top-4 right-4 z-[100] max-w-md px-4 py-3 rounded-xl shadow-lg border text-base font-medium flex items-center gap-3 transition-all ${
         toast.type === 'success'
-          ? 'bg-green-50 text-green-800 border-green-200'
-          : 'bg-red-50 text-red-800 border-red-200'
+          ? 'bg-success-light text-success-dark border-success-light'
+          : 'bg-danger-light text-danger-dark border-danger-light'
       }`}
     >
       <i
         className={`fas ${
-          toast.type === 'success' ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500'
+          toast.type === 'success' ? 'fa-check-circle text-success' : 'fa-exclamation-circle text-danger'
         }`}
       />
       <span className="flex-1">{toast.text}</span>
-      <button onClick={onDismiss} className="text-gray-400 hover:text-gray-600">
+      <button onClick={onDismiss} className="text-muted hover:text-body">
         <i className="fas fa-times" />
       </button>
     </div>
@@ -145,13 +145,13 @@ export function PageHeader({
   return (
     <div className="flex justify-between items-center mb-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-        {subtitle && <p className="text-gray-500 mt-1">{subtitle}</p>}
+        <h1 className="text-3xl font-bold text-heading">{title}</h1>
+        {subtitle && <p className="text-body mt-1">{subtitle}</p>}
       </div>
       {action && (
         <button
           onClick={action.onClick}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
+          className="px-4 py-2 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2"
         >
           {action.icon && <i className={`fas ${action.icon}`} />}
           {action.label}
@@ -179,14 +179,14 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className={`bg-white rounded-2xl ${maxWidth} w-full max-h-[90vh] overflow-y-auto`}>
-        <div className="sticky top-0 bg-white border-b px-8 py-4 flex justify-between items-center z-10 rounded-t-2xl">
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+      <div className={`bg-surface rounded-2xl ${maxWidth} w-full max-h-[90vh] overflow-y-auto`}>
+        <div className="sticky top-0 bg-surface border-b border-edge px-5 py-3 flex justify-between items-center z-10 rounded-t-2xl">
+          <h2 className="text-xl font-bold text-heading">{title}</h2>
+          <button onClick={onClose} className="text-muted hover:text-body transition">
             <i className="fas fa-times text-xl" />
           </button>
         </div>
-        <div className="p-8">{children}</div>
+        <div className="p-5 md:p-6">{children}</div>
       </div>
     </div>
   );
@@ -215,15 +215,15 @@ export function ConfirmDialog({
 }) {
   if (!open) return null;
   const btnColor = {
-    danger: 'bg-red-600 hover:bg-red-700',
-    warning: 'bg-yellow-600 hover:bg-yellow-700',
-    info: 'bg-blue-600 hover:bg-blue-700',
+    danger: 'bg-danger hover:bg-danger/90',
+    warning: 'bg-warn hover:bg-warn/90',
+    info: 'bg-brand hover:bg-brand-hover',
   };
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-sm w-full p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-        <p className="text-sm text-gray-600 mb-6">{message}</p>
+      <div className="bg-surface rounded-2xl max-w-sm w-full p-5">
+        <h3 className="text-lg font-bold text-heading mb-2">{title}</h3>
+        <p className="text-base text-body mb-5">{message}</p>
         <div className="flex gap-3">
           <button
             onClick={onConfirm}
@@ -233,7 +233,7 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200 transition"
+            className="flex-1 py-2.5 bg-subtle text-body rounded-lg font-medium hover:bg-edge transition"
           >
             {cancelLabel}
           </button>
@@ -245,23 +245,39 @@ export function ConfirmDialog({
 
 /* ─────────────────────────── BackButton ──────────────────────────── */
 
+/**
+ * BackButton — Botón glassmorphism consistente en toda la app.
+ * Variantes:
+ *  - glass (default): fondo blanco/10 con backdrop-blur, para fondos oscuros/coloreados
+ *  - dark: fondo gris sólido, para fondos claros
+ *  - ghost: texto sutil sin fondo
+ *
+ * `absolute` (default true): posición absoluta top-left con z-20
+ */
 export function BackButton({
   href,
   label = 'Volver',
-  variant = 'light',
+  variant = 'glass',
+  absolute = true,
 }: {
   href: string;
   label?: string;
-  variant?: 'light' | 'dark' | 'ghost';
+  variant?: 'glass' | 'dark' | 'ghost';
+  absolute?: boolean;
 }) {
+  const base = 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all';
   const styles = {
-    light: 'text-white/40 hover:text-white/60',
-    dark: 'text-gray-500 hover:text-gray-700',
-    ghost: 'text-gray-400 hover:text-gray-600',
+    glass: 'bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 hover:bg-white/20 hover:text-white',
+    dark: 'bg-subtle border border-edge text-body hover:bg-edge hover:text-heading',
+    ghost: 'text-muted hover:text-body',
   };
+  const position = absolute ? 'absolute top-6 left-6 z-20' : '';
+
   return (
-    <Link href={href} className={`text-sm transition flex items-center gap-1 ${styles[variant]}`}>
-      <i className="fas fa-arrow-left" />
+    <Link href={href} className={`${base} ${styles[variant]} ${position}`}>
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
       {label}
     </Link>
   );
@@ -271,7 +287,7 @@ export function BackButton({
 
 export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${className}`}>
+    <div className={`bg-surface rounded-xl shadow-sm border border-edge overflow-hidden ${className}`}>
       {children}
     </div>
   );
@@ -281,20 +297,20 @@ export function Card({ children, className = '' }: { children: React.ReactNode; 
 
 export function StatCard({ label, value, icon, color = 'blue' }: { label: string; value: number | string; icon?: string; color?: string }) {
   const colors: Record<string, string> = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
-    yellow: 'from-yellow-500 to-yellow-600',
-    red: 'from-red-500 to-red-600',
+    blue: 'from-brand to-brand-hover',
+    green: 'from-success to-success-dark',
+    yellow: 'from-warn to-warn-dark',
+    red: 'from-danger to-danger-dark',
     purple: 'from-purple-500 to-purple-600',
-    gray: 'from-gray-500 to-gray-600',
+    gray: 'from-body to-heading',
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-surface rounded-xl shadow-sm border border-edge p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+          <p className="text-base text-body uppercase tracking-wide">{label}</p>
+          <p className="text-3xl font-bold text-heading mt-1">{value}</p>
         </div>
         {icon && (
           <div className={`w-12 h-12 bg-gradient-to-r ${colors[color]} rounded-lg flex items-center justify-center`}>
@@ -314,13 +330,13 @@ export function EmptyState({ message, icon = 'fa-inbox', action }: {
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="text-center py-12 text-gray-400">
+    <div className="text-center py-8 text-muted">
       <i className={`fas ${icon} text-4xl mb-3`} />
       <p className="text-lg">{message}</p>
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+          className="mt-4 px-4 py-2 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-brand-hover transition"
         >
           {action.label}
         </button>
@@ -347,14 +363,14 @@ export function FormActions({
       <button
         type="submit"
         disabled={saving}
-        className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+        className="flex-1 py-3 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
       >
         {saving ? <><ButtonSpinner /> {savingLabel}</> : submitLabel}
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200 transition"
+        className="px-6 py-3 bg-subtle text-body rounded-lg font-semibold hover:bg-edge transition"
       >
         Cancelar
       </button>

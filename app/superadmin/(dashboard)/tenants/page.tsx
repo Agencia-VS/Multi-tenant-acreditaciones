@@ -19,6 +19,7 @@ interface Tenant {
   color_light: string;
   color_dark: string;
   activo: boolean;
+  config: Record<string, unknown>;
   created_at: string;
   stats?: { events: number; registrations: number };
 }
@@ -33,6 +34,7 @@ const emptyTenant = {
   color_secundario: '#e94560',
   color_light: '#f5f5f5',
   color_dark: '#0f0f1a',
+  config: {} as Record<string, unknown>,
 };
 
 export default function TenantsPage() {
@@ -67,6 +69,7 @@ export default function TenantsPage() {
       color_secundario: tenant.color_secundario,
       color_light: tenant.color_light || '#f5f5f5',
       color_dark: tenant.color_dark || '#0f0f1a',
+      config: tenant.config || {},
     });
     setShowForm(true);
   };
@@ -130,7 +133,7 @@ export default function TenantsPage() {
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                  <label className="block text-sm font-medium text-label mb-1">Nombre</label>
                   <input
                     type="text"
                     required
@@ -143,57 +146,57 @@ export default function TenantsPage() {
                         slug: !editing ? generateSlug(nombre) : prev.slug,
                       }));
                     }}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Slug (URL)</label>
+                  <label className="block text-sm font-medium text-label mb-1">Slug (URL)</label>
                   <input
                     type="text"
                     required
                     value={form.slug}
                     onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
                     disabled={!!editing}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading disabled:bg-subtle"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
+                  <label className="block text-sm font-medium text-label mb-1">Logo URL</label>
                   <input
                     type="url"
                     value={form.logo_url}
                     onChange={(e) => setForm(prev => ({ ...prev, logo_url: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Escudo URL</label>
+                  <label className="block text-sm font-medium text-label mb-1">Escudo URL</label>
                   <input
                     type="url"
                     value={form.shield_url}
                     onChange={(e) => setForm(prev => ({ ...prev, shield_url: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Background URL</label>
+                <label className="block text-sm font-medium text-label mb-1">Background URL</label>
                 <input
                   type="url"
                   value={form.background_url}
                   onChange={(e) => setForm(prev => ({ ...prev, background_url: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                 />
               </div>
 
               <div className="grid grid-cols-4 gap-4">
                 {(['color_primario', 'color_secundario', 'color_light', 'color_dark'] as const).map((key) => (
                   <div key={key}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
+                    <label className="block text-sm font-medium text-label mb-1 capitalize">
                       {key.replace('color_', '')}
                     </label>
                     <div className="flex items-center gap-2">
@@ -207,7 +210,7 @@ export default function TenantsPage() {
                         type="text"
                         value={form[key]}
                         onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.value }))}
-                        className="flex-1 px-2 py-1 rounded border border-gray-300 text-xs font-mono text-gray-700"
+                        className="flex-1 px-2 py-1 rounded border border-field-border text-xs font-mono text-label"
                       />
                     </div>
                   </div>
@@ -224,6 +227,38 @@ export default function TenantsPage() {
                 </div>
               </div>
 
+              {/* Feature Toggles */}
+              <div className="mt-4 p-4 bg-canvas rounded-xl">
+                <h4 className="text-sm font-semibold text-label mb-3">
+                  <i className="fas fa-sliders-h mr-2 text-muted" />
+                  Funcionalidades opcionales
+                </h4>
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-label">Acreditación masiva (CSV)</p>
+                    <p className="text-xs text-muted">Permite subir archivos CSV con cientos de personas para acreditar en lote</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!!form.config?.acreditacion_masiva_enabled}
+                    onClick={() => setForm(prev => ({
+                      ...prev,
+                      config: { ...prev.config, acreditacion_masiva_enabled: !prev.config?.acreditacion_masiva_enabled }
+                    }))}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                      form.config?.acreditacion_masiva_enabled ? 'bg-success' : 'bg-edge'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${
+                        form.config?.acreditacion_masiva_enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </label>
+              </div>
+
               <FormActions
                 saving={saving}
                 onCancel={() => setShowForm(false)}
@@ -238,7 +273,7 @@ export default function TenantsPage() {
       ) : (
         <div className="grid gap-4">
           {tenants.map((tenant) => (
-            <div key={tenant.id} className="bg-white rounded-xl border p-6 hover:shadow-md transition">
+            <div key={tenant.id} className="bg-surface rounded-xl border p-6 hover:shadow-md transition">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div
@@ -252,20 +287,20 @@ export default function TenantsPage() {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{tenant.nombre}</h3>
-                    <p className="text-gray-500 text-sm">/{tenant.slug}</p>
+                    <h3 className="font-bold text-heading text-lg">{tenant.nombre}</h3>
+                    <p className="text-body text-sm">/{tenant.slug}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-6">
-                  <div className="text-right text-sm text-gray-500">
+                  <div className="text-right text-sm text-body">
                     <p>{tenant.stats?.events || 0} eventos</p>
                     <p>{tenant.stats?.registrations || 0} acreditaciones</p>
                   </div>
 
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      tenant.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      tenant.activo ? 'bg-success-light text-success-dark' : 'bg-subtle text-body'
                     }`}
                   >
                     {tenant.activo ? 'Activo' : 'Inactivo'}
@@ -275,13 +310,13 @@ export default function TenantsPage() {
                     <a
                       href={`/${tenant.slug}`}
                       target="_blank"
-                      className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition"
+                      className="px-3 py-1.5 bg-subtle text-body rounded-lg text-sm hover:bg-edge transition"
                     >
                       <i className="fas fa-external-link-alt" />
                     </a>
                     <button
                       onClick={() => handleEdit(tenant)}
-                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition"
+                      className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition"
                     >
                       <i className="fas fa-edit" />
                     </button>

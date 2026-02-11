@@ -259,12 +259,12 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       {toast && (
         <div
           className={`fixed top-4 right-4 z-[100] max-w-md px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-3 transition-all ${
-            toast.type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200'
+            toast.type === 'success' ? 'bg-success-light text-success-dark border-green-200' : 'bg-danger-light text-danger-dark border-red-200'
           }`}
         >
-          <i className={`fas ${toast.type === 'success' ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500'}`} />
+          <i className={`fas ${toast.type === 'success' ? 'fa-check-circle text-success' : 'fa-exclamation-circle text-danger'}`} />
           <span className="flex-1">{toast.text}</span>
-          <button onClick={dismiss} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times" /></button>
+          <button onClick={dismiss} className="text-muted hover:text-body"><i className="fas fa-times" /></button>
         </div>
       )}
     </AdminCtx.Provider>

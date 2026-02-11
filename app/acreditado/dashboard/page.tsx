@@ -104,10 +104,10 @@ export default function DashboardPage() {
   };
 
   const statusConfig: Record<string, { bg: string; text: string; icon: string }> = {
-    pendiente: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: 'fas fa-clock' },
-    aprobado: { bg: 'bg-green-100', text: 'text-green-700', icon: 'fas fa-check-circle' },
-    rechazado: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fas fa-times-circle' },
-    revision: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'fas fa-search' },
+    pendiente: { bg: 'bg-warn-light', text: 'text-warn-dark', icon: 'fas fa-clock' },
+    aprobado: { bg: 'bg-success-light', text: 'text-success-dark', icon: 'fas fa-check-circle' },
+    rechazado: { bg: 'bg-danger-light', text: 'text-danger-dark', icon: 'fas fa-times-circle' },
+    revision: { bg: 'bg-info-light', text: 'text-info-dark', icon: 'fas fa-search' },
   };
 
   const filtered = filter === 'all'
@@ -126,8 +126,8 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Mis Acreditaciones</h1>
-        <p className="text-gray-500 mt-1">{registrations.length} solicitudes en total</p>
+        <h1 className="text-3xl font-bold text-heading">Mis Acreditaciones</h1>
+        <p className="text-body mt-1">{registrations.length} solicitudes en total</p>
       </div>
 
       {/* Filtros rápidos */}
@@ -136,7 +136,7 @@ export default function DashboardPage() {
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              filter === 'all' ? 'bg-heading text-on-brand' : 'bg-subtle text-body hover:bg-edge'
             }`}
           >
             Todas ({registrations.length})
@@ -144,7 +144,7 @@ export default function DashboardPage() {
           <button
             onClick={() => setFilter('self')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === 'self' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+              filter === 'self' ? 'bg-brand text-on-brand' : 'bg-accent-light text-brand hover:bg-accent-light/80'
             }`}
           >
             <i className="fas fa-user mr-1" /> Propias ({selfCount})
@@ -161,12 +161,12 @@ export default function DashboardPage() {
       )}
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border">
-          <i className="fas fa-ticket-alt text-4xl text-gray-300 mb-4" />
-          <p className="text-gray-400 text-lg">
+        <div className="text-center py-16 bg-surface rounded-xl border border-edge">
+          <i className="fas fa-ticket-alt text-4xl text-muted mb-4" />
+          <p className="text-muted text-lg">
             {filter === 'all' ? 'No tienes acreditaciones aún' : `No hay acreditaciones de ${filter === 'self' ? 'tipo propio' : 'equipo'}`}
           </p>
-          <a href="/acreditado" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+          <a href="/acreditado" className="text-brand hover:underline text-sm mt-2 inline-block">
             Ver eventos disponibles
           </a>
         </div>
@@ -175,11 +175,11 @@ export default function DashboardPage() {
           {filtered.map((reg) => {
             const statusCfg = statusConfig[reg.status] || statusConfig.pendiente;
             return (
-              <div key={reg.id} className="bg-white rounded-xl border p-6 hover:shadow-md transition">
+              <div key={reg.id} className="bg-surface rounded-xl border border-edge p-6 hover:shadow-md transition">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-gray-900 text-lg">{reg.event.nombre}</h3>
+                      <h3 className="font-bold text-heading text-lg">{reg.event.nombre}</h3>
                       {!reg.isSelf && (
                         <span className="px-2 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full font-medium">
                           <i className="fas fa-users mr-1" />Equipo
@@ -192,16 +192,16 @@ export default function DashboardPage() {
                         {reg.profile_nombre} {reg.profile_apellido} — {reg.rut}
                       </p>
                     )}
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                    <div className="flex items-center gap-4 text-sm text-body mt-1">
                       <span>{reg.tenant.nombre}</span>
                       {reg.event.fecha && (
                         <span><i className="fas fa-calendar mr-1" />{new Date(reg.event.fecha).toLocaleDateString('es-CL')}</span>
                       )}
                       {reg.organizacion && <span><i className="fas fa-building mr-1" />{reg.organizacion}</span>}
                     </div>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                      {reg.tipo_medio && <span className="px-2 py-0.5 bg-gray-100 rounded-full">{reg.tipo_medio}</span>}
-                      {reg.cargo && <span className="px-2 py-0.5 bg-gray-100 rounded-full">{reg.cargo}</span>}
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted">
+                      {reg.tipo_medio && <span className="px-2 py-0.5 bg-subtle rounded-full">{reg.tipo_medio}</span>}
+                      {reg.cargo && <span className="px-2 py-0.5 bg-subtle rounded-full">{reg.cargo}</span>}
                     </div>
                   </div>
 
@@ -213,10 +213,10 @@ export default function DashboardPage() {
 
                     {reg.status === 'aprobado' && reg.qr_token && (
                       <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <i className="fas fa-qrcode text-2xl text-gray-600" />
+                        <div className="w-16 h-16 bg-subtle rounded-lg flex items-center justify-center">
+                          <i className="fas fa-qrcode text-2xl text-body" />
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">QR</p>
+                        <p className="text-xs text-muted mt-1">QR</p>
                       </div>
                     )}
                   </div>

@@ -34,12 +34,12 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   if (loading) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden">
       {/* Bulk action bar */}
       {hasSel && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-3">
+        <div className="bg-accent-light border-b border-blue-100 px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-blue-800">
+            <span className="text-sm font-medium text-info-dark">
               <i className="fas fa-check-square mr-1" />
               {selectedIds.size} seleccionados
             </span>
@@ -48,7 +48,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               <button
                 onClick={() => handleBulkAction({ action: 'approve', registration_ids: ids })}
                 disabled={processing === 'bulk'}
-                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50 transition flex items-center gap-1"
+                className="px-3 py-1.5 bg-success text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition flex items-center gap-1"
               >
                 <i className="fas fa-check" /> Aprobar
               </button>
@@ -57,7 +57,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 <button
                   onClick={() => setShowBulkRejectInput(true)}
                   disabled={processing === 'bulk'}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition flex items-center gap-1"
+                  className="px-3 py-1.5 bg-danger text-white rounded-lg text-sm font-medium hover:bg-danger/90 disabled:opacity-50 transition flex items-center gap-1"
                 >
                   <i className="fas fa-times" /> Rechazar
                 </button>
@@ -68,19 +68,19 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                     value={bulkRejectMotivo}
                     onChange={e => setBulkRejectMotivo(e.target.value)}
                     placeholder="Motivo del rechazo..."
-                    className="px-3 py-1.5 text-xs border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-900 w-64"
+                    className="px-3 py-1.5 text-sm border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 text-heading w-64"
                     autoFocus
                   />
                   <button
                     onClick={handleBulkReject}
                     disabled={!bulkRejectMotivo.trim()}
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition"
+                    className="px-3 py-1.5 bg-danger text-white rounded-lg text-sm font-medium hover:bg-danger/90 disabled:opacity-50 transition"
                   >
                     Confirmar
                   </button>
                   <button
                     onClick={() => { setShowBulkRejectInput(false); setBulkRejectMotivo(''); }}
-                    className="px-2 py-1.5 text-gray-500 hover:text-gray-700 text-xs"
+                    className="px-2 py-1.5 text-body hover:text-label text-sm"
                   >
                     Cancelar
                   </button>
@@ -90,7 +90,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               <button
                 onClick={() => handleBulkAction({ action: 'email', registration_ids: ids })}
                 disabled={processing === 'bulk'}
-                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 disabled:opacity-50 transition flex items-center gap-1"
+                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition flex items-center gap-1"
               >
                 <i className="fas fa-envelope" /> Email
               </button>
@@ -102,14 +102,14 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                   }
                 }}
                 disabled={processing === 'bulk'}
-                className="px-3 py-1.5 bg-gray-700 text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50 transition flex items-center gap-1"
+                className="px-3 py-1.5 bg-heading text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition flex items-center gap-1"
               >
                 <i className="fas fa-trash" /> Eliminar
               </button>
             </div>
 
             {processing === 'bulk' && (
-              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
             )}
           </div>
         </div>
@@ -120,28 +120,28 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
         <EmptyState message="No hay registros para este evento" icon="fa-inbox" />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-100">
+              <tr className="bg-canvas/80 border-b border-edge">
                 <th className="p-3 pl-4 text-left w-10">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={toggleSelectAll}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-field-border text-brand"
                   />
                 </th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">RUT</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nombre</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Organización</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo Medio</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Check-in</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider pr-4">Acciones</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">RUT</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Nombre</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Organización</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Cargo</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Estado</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Check-in</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-edge">
               {registrations.map(reg => (
                 <AdminRow
                   key={reg.id}
@@ -157,9 +157,9 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
 
       {/* Footer with count */}
       {registrations.length > 0 && (
-        <div className="px-4 py-3 bg-gray-50/50 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
+        <div className="px-4 py-3 bg-canvas/50 border-t border-edge text-sm text-muted flex justify-between">
           <span>Mostrando {registrations.length} registros</span>
-          {hasSel && <span className="text-blue-600">{selectedIds.size} seleccionados</span>}
+          {hasSel && <span className="text-brand">{selectedIds.size} seleccionados</span>}
         </div>
       )}
     </div>

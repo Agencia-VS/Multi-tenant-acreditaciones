@@ -131,12 +131,12 @@ export default function AdminConfigTab() {
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Nombre del evento *</label>
+          <label className="text-xs text-body mb-1 block">Nombre del evento *</label>
           <input
             value={form.nombre}
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
             placeholder="Ej: UC vs Colo-Colo"
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
         <div>
@@ -145,7 +145,7 @@ export default function AdminConfigTab() {
             value={form.league}
             onChange={e => setForm(f => ({ ...f, league: e.target.value }))}
             placeholder="Ej: Copa Libertadores"
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function AdminConfigTab() {
             type="date"
             value={form.fecha}
             onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
         <div>
@@ -166,7 +166,7 @@ export default function AdminConfigTab() {
             type="time"
             value={form.hora}
             onChange={e => setForm(f => ({ ...f, hora: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
         <div>
@@ -175,7 +175,7 @@ export default function AdminConfigTab() {
             value={form.venue}
             onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
             placeholder="Ej: Estadio San Carlos de Apoquindo"
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
       </div>
@@ -187,7 +187,7 @@ export default function AdminConfigTab() {
             value={form.opponent_name}
             onChange={e => setForm(f => ({ ...f, opponent_name: e.target.value }))}
             placeholder="Ej: Colo-Colo"
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
         <div>
@@ -196,43 +196,43 @@ export default function AdminConfigTab() {
             value={form.opponent_logo_url}
             onChange={e => setForm(f => ({ ...f, opponent_logo_url: e.target.value }))}
             placeholder="https://..."
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Descripción</label>
+        <label className="text-xs text-body mb-1 block">Descripción</label>
         <textarea
           value={form.descripcion}
           onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
           rows={2}
           placeholder="Descripción del evento..."
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading resize-none"
         />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha límite acreditación</label>
+          <label className="text-xs text-body mb-1 block">Fecha límite acreditación</label>
           <input
             type="datetime-local"
             value={form.fecha_limite_acreditacion}
             onChange={e => setForm(f => ({ ...f, fecha_limite_acreditacion: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
         <div className="flex items-end">
-          <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer w-full">
+          <label className="flex items-center gap-3 p-3 bg-canvas rounded-xl cursor-pointer w-full">
             <input
               type="checkbox"
               checked={form.qr_enabled}
               onChange={e => setForm(f => ({ ...f, qr_enabled: e.target.checked }))}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-field-border text-brand"
             />
             <div>
-              <p className="text-sm font-medium text-gray-700">Habilitar QR</p>
-              <p className="text-xs text-gray-400">Generar códigos QR al aprobar</p>
+              <p className="text-sm font-medium text-label">Habilitar QR</p>
+              <p className="text-xs text-muted">Generar códigos QR al aprobar</p>
             </div>
           </label>
         </div>
@@ -243,15 +243,15 @@ export default function AdminConfigTab() {
   return (
     <div className="space-y-6">
       {/* Events list */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-surface rounded-2xl shadow-sm border border-edge">
+        <div className="px-6 py-4 border-b border-edge flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Eventos</h2>
-            <p className="text-sm text-gray-500">Gestiona los eventos de {tenant?.nombre}</p>
+            <h2 className="text-lg font-bold text-heading">Eventos</h2>
+            <p className="text-sm text-body">Gestiona los eventos de {tenant?.nombre}</p>
           </div>
           <button
             onClick={() => { resetForm(); setShowCreateModal(true); }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
+            className="px-4 py-2 bg-brand text-on-brand rounded-xl text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2"
           >
             <i className="fas fa-plus" /> Nuevo evento
           </button>
@@ -264,19 +264,19 @@ export default function AdminConfigTab() {
             action={{ label: 'Crear primer evento', onClick: () => { resetForm(); setShowCreateModal(true); } }}
           />
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-edge/50">
             {events.map(ev => (
               <div
                 key={ev.id}
-                className={`px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition ${
-                  selectedEvent?.id === ev.id ? 'bg-blue-50/30 border-l-4 border-l-blue-500' : ''
+                className={`px-6 py-4 flex items-center justify-between hover:bg-canvas/50 transition ${
+                  selectedEvent?.id === ev.id ? 'bg-accent-light/30 border-l-4 border-l-brand' : ''
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${ev.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <div className={`w-3 h-3 rounded-full ${ev.is_active ? 'bg-success' : 'bg-edge'}`} />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{ev.nombre}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-heading">{ev.nombre}</p>
+                    <p className="text-xs text-body">
                       {ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-CL') : 'Sin fecha'}
                       {ev.venue && ` · ${ev.venue}`}
                       {ev.opponent_name && ` · vs ${ev.opponent_name}`}
@@ -290,8 +290,8 @@ export default function AdminConfigTab() {
                     onClick={() => handleToggleActive(ev)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                       ev.is_active
-                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        ? 'bg-success-light text-success-dark hover:bg-success-light/80'
+                        : 'bg-subtle text-body hover:bg-edge'
                     }`}
                   >
                     {ev.is_active ? 'Activo' : 'Inactivo'}
@@ -300,7 +300,7 @@ export default function AdminConfigTab() {
                   {/* Select for dashboard */}
                   <button
                     onClick={() => selectEvent(ev.id)}
-                    className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition"
+                    className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-xs font-medium hover:bg-accent-light/80 transition"
                   >
                     <i className="fas fa-eye mr-1" /> Ver registros
                   </button>
@@ -308,7 +308,7 @@ export default function AdminConfigTab() {
                   {/* Edit */}
                   <button
                     onClick={() => setEditEvent(ev)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                    className="p-1.5 text-muted hover:text-brand hover:bg-accent-light rounded-lg transition"
                   >
                     <i className="fas fa-pen text-sm" />
                   </button>
@@ -321,27 +321,27 @@ export default function AdminConfigTab() {
 
       {/* Tenant config info */}
       {tenant && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Configuración del Tenant</h2>
+        <div className="bg-surface rounded-2xl shadow-sm border border-edge p-6">
+          <h2 className="text-lg font-bold text-heading mb-4">Configuración del Tenant</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-400">Slug</p>
-              <p className="text-sm font-mono text-gray-700 mt-1">{tenant.slug}</p>
+            <div className="p-3 bg-canvas rounded-xl">
+              <p className="text-xs text-muted">Slug</p>
+              <p className="text-sm font-mono text-label mt-1">{tenant.slug}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-400">Color primario</p>
+            <div className="p-3 bg-canvas rounded-xl">
+              <p className="text-xs text-muted">Color primario</p>
               <div className="flex items-center gap-2 mt-1">
                 <div className="w-5 h-5 rounded-md" style={{ backgroundColor: tenant.color_primario }} />
-                <span className="text-sm font-mono text-gray-700">{tenant.color_primario}</span>
+                <span className="text-sm font-mono text-label">{tenant.color_primario}</span>
               </div>
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-400">Estado</p>
-              <p className="text-sm text-gray-700 mt-1">{tenant.activo ? '✅ Activo' : '❌ Inactivo'}</p>
+            <div className="p-3 bg-canvas rounded-xl">
+              <p className="text-xs text-muted">Estado</p>
+              <p className="text-sm text-label mt-1">{tenant.activo ? '✅ Activo' : '❌ Inactivo'}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-400">Total eventos</p>
-              <p className="text-sm font-bold text-gray-700 mt-1">{events.length}</p>
+            <div className="p-3 bg-canvas rounded-xl">
+              <p className="text-xs text-muted">Total eventos</p>
+              <p className="text-sm font-bold text-label mt-1">{events.length}</p>
             </div>
           </div>
         </div>
@@ -350,16 +350,16 @@ export default function AdminConfigTab() {
       {/* Create Event Modal */}
       <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Crear Nuevo Evento" maxWidth="max-w-2xl">
         {renderFormFields()}
-        <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
+        <div className="flex gap-3 mt-6 pt-4 border-t border-edge">
           <button
             onClick={handleCreateEvent}
             disabled={!form.nombre.trim() || saving}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="fas fa-plus" />}
             Crear evento
           </button>
-          <button onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition">
+          <button onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">
             Cancelar
           </button>
         </div>
@@ -368,16 +368,16 @@ export default function AdminConfigTab() {
       {/* Edit Event Modal */}
       <Modal open={!!editEvent} onClose={() => setEditEvent(null)} title={`Editar: ${editEvent?.nombre || ''}`} maxWidth="max-w-2xl">
         {renderFormFields()}
-        <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
+        <div className="flex gap-3 mt-6 pt-4 border-t border-edge">
           <button
             onClick={handleUpdateEvent}
             disabled={!form.nombre.trim() || saving}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="fas fa-save" />}
             Guardar cambios
           </button>
-          <button onClick={() => setEditEvent(null)} className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition">
+          <button onClick={() => setEditEvent(null)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">
             Cancelar
           </button>
         </div>

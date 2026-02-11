@@ -1,8 +1,11 @@
 /**
  * Tenant Layout — Carga datos del tenant y aplica branding
+ * Sets CSS custom properties from the palette generator so all
+ * design-system tokens (text-heading, bg-brand, etc.) are brand-tinted.
  */
 import { notFound } from 'next/navigation';
 import { getTenantBySlug } from '@/lib/services/tenants';
+import { generateTenantPalette, paletteToCSS } from '@/lib/colors';
 
 export default async function TenantLayout({
   children,
@@ -16,15 +19,22 @@ export default async function TenantLayout({
 
   if (!tenant) notFound();
 
+  const palette = generateTenantPalette(
+    tenant.color_primario,
+    tenant.color_secundario,
+    tenant.color_light,
+    tenant.color_dark,
+  );
+
+  const cssVars = paletteToCSS(palette, {
+    primario: tenant.color_primario,
+    secundario: tenant.color_secundario,
+    light: tenant.color_light,
+    dark: tenant.color_dark,
+  });
+
   return (
-    <div
-      style={{
-        '--tenant-primario': tenant.color_primario,
-        '--tenant-secundario': tenant.color_secundario,
-        '--tenant-light': tenant.color_light,
-        '--tenant-dark': tenant.color_dark,
-      } as React.CSSProperties}
-    >
+    <div style={cssVars as React.CSSProperties}>
       {children}
     </div>
   );

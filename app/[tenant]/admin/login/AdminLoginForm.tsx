@@ -6,8 +6,8 @@
  */
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import Link from 'next/link';
 import Image from 'next/image';
+import { BackButton } from '@/components/shared/ui';
 
 interface AdminLoginFormProps {
   tenantSlug: string;
@@ -87,19 +87,11 @@ export default function AdminLoginForm({
       />
 
       {/* Back button */}
-      <Link
-        href={`/${tenantSlug}`}
-        className="absolute top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-sm font-medium hover:bg-white/20 hover:text-white transition-all"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Volver
-      </Link>
+      <BackButton href={`/${tenantSlug}`} />
 
       {/* Login card */}
       <div className="w-full max-w-md relative z-10">
-        <div className="bg-white shadow-2xl rounded-3xl border border-blue-100 backdrop-blur-xl p-8 sm:p-10">
+        <div className="bg-white shadow-2xl rounded-3xl border border-edge backdrop-blur-xl p-8 sm:p-10">
           {/* Header */}
           <div className="text-center mb-8">
             {/* Logo */}
@@ -115,17 +107,17 @@ export default function AdminLoginForm({
                 />
               </div>
             )}
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+            <h1 className="text-2xl sm:text-3xl font-bold text-heading">
               Panel de Administración
             </h1>
-            <p className="text-gray-500 text-sm mt-1">{tenantName}</p>
+            <p className="text-body text-sm mt-1">{tenantName}</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email */}
             <div>
-              <label htmlFor="admin-email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="admin-email" className="block text-sm font-medium text-label mb-1.5">
                 Correo Electrónico
               </label>
               <div className="relative">
@@ -142,19 +134,19 @@ export default function AdminLoginForm({
                   placeholder="admin@ejemplo.com"
                   required
                   disabled={loading}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 bg-gray-50/50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white disabled:opacity-60 transition-all text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-edge text-heading placeholder-muted bg-canvas focus:bg-white disabled:opacity-60 transition-all text-sm"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="admin-password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="admin-password" className="block text-sm font-medium text-label mb-1.5">
                 Contraseña
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="h-5 w-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                 </div>
@@ -166,13 +158,13 @@ export default function AdminLoginForm({
                   placeholder="••••••••"
                   required
                   disabled={loading}
-                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 bg-gray-50/50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white disabled:opacity-60 transition-all text-sm"
+                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-edge text-heading placeholder-muted bg-canvas focus:bg-white disabled:opacity-60 transition-all text-sm"
                 />
                 {/* Toggle password visibility */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-body transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -193,11 +185,11 @@ export default function AdminLoginForm({
 
             {/* Error message */}
             {error && (
-              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                <svg className="h-5 w-5 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="flex items-start gap-3 bg-danger-light border border-danger/20 rounded-xl px-4 py-3">
+                <svg className="h-5 w-5 text-danger mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                 </svg>
-                <p className="text-sm text-red-700">{error}</p>
+                <p className="text-sm text-danger-dark">{error}</p>
               </div>
             )}
 
@@ -230,8 +222,8 @@ export default function AdminLoginForm({
           </form>
 
           {/* Footer */}
-          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-            <p className="text-xs text-gray-500">
+          <div className="mt-6 pt-6 border-t border-edge text-center">
+            <p className="text-xs text-body">
               Acceso exclusivo para administradores de {tenantName}
             </p>
           </div>

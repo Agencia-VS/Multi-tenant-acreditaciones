@@ -1,15 +1,116 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Wise Design Foundations
+
+   Color Token Architecture:
+   - @theme registers semantic tokens → Tailwind generates utility classes
+   - :root sets fallback values (blue-accent neutral theme)
+   - Tenant layouts override --color-* for brand-specific theming
+
+   Utility mapping (old → new):
+   text-gray-900  → text-heading    |  bg-blue-600  → bg-brand
+   text-gray-600  → text-body       |  text-blue-600 → text-brand
+   text-gray-400  → text-muted      |  bg-white     → bg-surface
+   text-gray-700  → text-label      |  bg-gray-50   → bg-canvas
+   border-gray-200 → border-edge    |  bg-gray-100  → bg-subtle
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* Content / Text hierarchy */
+  --color-heading: #111827;
+  --color-body: #4b5563;
+  --color-muted: #9ca3af;
+  --color-label: #374151;
+
+  /* Interactive / Brand */
+  --color-brand: #2563eb;
+  --color-brand-hover: #1d4ed8;
+  --color-on-brand: #ffffff;
+  --color-accent: #3b82f6;
+  --color-accent-light: #dbeafe;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-canvas: #f9fafb;
+  --color-subtle: #f3f4f6;
+
+  /* Borders */
+  --color-edge: #e5e7eb;
+  --color-field-border: #d1d5db;
+
+  /* Status / Sentiment */
+  --color-success: #059669;
+  --color-success-light: #d1fae5;
+  --color-success-dark: #065f46;
+  --color-warn: #d97706;
+  --color-warn-light: #fef3c7;
+  --color-warn-dark: #92400e;
+  --color-danger: #dc2626;
+  --color-danger-light: #fee2e2;
+  --color-danger-dark: #991b1b;
+  --color-info-light: #dbeafe;
+  --color-info-dark: #1e40af;
+
+  /* ── Motion / Transitions (Wise: Snappy 60%, Fluid 30%, Intuitive 10%) ── */
+  --duration-snappy: 200ms;
+  --duration-fluid: 400ms;
+  --duration-intuitive: 300ms;
+  --ease-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-fluid: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-intuitive: cubic-bezier(0.2, 0, 0.4, 1);
+
+  /* ── Radius (Wise: none / small / medium / large / full) ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Spacing semantic tokens ── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-section: 32px;
+
+  /* ── Component sizing ── */
+  --size-icon: 24px;
+  --size-btn-sm: 32px;
+  --size-btn-md: 48px;
+  --size-btn-lg: 56px;
+  --size-avatar-sm: 40px;
+  --size-avatar-md: 48px;
+  --size-avatar-lg: 56px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  /* Colores del tenant - se sobrescriben dinámicamente con los colores de la DB */
-  --tenant-primario: #374151;
+  --background: var(--color-surface);
+  --foreground: var(--color-heading);
+
+  /* Legacy tenant vars (landing page, glassmorphism, hero) */
+  /* --tenant-primario: #374151;
   --tenant-secundario: #6b7280;
   --tenant-light: #9ca3af;
   --tenant-dark: #1f2937;
   --blanco: #ffffff;
-  --font-barlow-condensed: 'Barlow Condensed', sans-serif;
+  --font-barlow-condensed: 'Barlow Condensed', sans-serif; */
+
+  /* Focus State System — Wise Design Foundations
+     Branded, accessible, keyboard-only (:focus-visible)
+     Buttons: 2px border + 2px offset | Inputs: 3px border
+     Links: 2px border, 4px radius    | Color: brand token */
+  --focus-color: var(--color-brand, #2563eb);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-input-width: 3px;
+}
+
+/* ─── Accesibilidad: base más grande para legibilidad ─── */
+html {
+  font-size: 22px; /* Default 16px → 18px = +12.5% en todo lo rem-based */
 }
 
 body {
@@ -17,7 +118,110 @@ body {
   color: var(--foreground);
   font-family: var(--font-barlow-condensed);
   overflow-x: hidden;
-  font-size: 20px;
+  font-size: 1.1rem; /* ~20px — body text ligeramente más grande */
+}
+
+/* ─── Paddings más compactos para compensar el font-size mayor ─── */
+.compact-card { padding: 1rem !important; }
+.compact-form { padding: 1.25rem !important; }
+
+@media (min-width: 768px) {
+  .compact-card { padding: 1.25rem !important; }
+  .compact-form { padding: 1.5rem !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOCUS STATE SYSTEM — Wise Design Foundations
+   
+   Principles:
+   1. Highly visible — above WCAG 2 focus appearance criteria
+   2. Branded — uses tenant's interactive-primary (forest/dark)
+   3. Never distracting — :focus-visible only (keyboard, not click)
+   
+   Specs:
+   - Buttons: 2px border + 2px transparent offset
+   - Inputs/selects/textareas: 3px border (no offset, replaces ring)
+   - Links: 2px border, 4px radius, 2px padding
+   - Icons: 2px border, 4px radius
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Remove ALL default browser outlines ── */
+*:focus {
+  outline: none;
+}
+
+/* ── Only show focus states on keyboard nav ── */
+
+/* Buttons — 2px border + 2px transparent offset */
+button:focus-visible,
+[role="button"]:focus-visible,
+summary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: inherit;
+}
+
+/* Form inputs — 3px border, high contrast, no offset */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--focus-color) !important;
+  box-shadow: 0 0 0 var(--focus-input-width) var(--focus-color) !important;
+  /* Reset any Tailwind ring */
+  --tw-ring-color: transparent;
+}
+
+/* Links — 2px border, 4px radius, 2px inner padding */
+a:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Interactive icons in circular containers — rounded focus */
+.focus-round:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: 9999px;
+}
+
+/* Tabs/navigation — focus around label, not whole tab */
+[role="tab"]:focus-visible,
+.nav-tab:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* ── Dark/inverted surfaces — bright accent focus ── */
+/* On dark backgrounds (landing, modals), use bright accent instead of forest */
+.dark-surface button:focus-visible,
+.dark-surface a:focus-visible,
+.dark-surface input:focus-visible,
+.dark-surface select:focus-visible,
+.dark-surface [role="button"]:focus-visible {
+  --focus-color: var(--color-accent, #3b82f6);
+}
+
+/* ── Skip-to-content link (a11y best practice) ── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: var(--focus-color);
+  color: white;
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  transition: top 0.2s;
+}
+.skip-link:focus-visible {
+  top: 0;
+  outline: 2px solid var(--tenant-light, #9ca3af);
+  outline-offset: 2px;
 }
 
 /* Estilos del diseño */
@@ -57,7 +261,7 @@ body {
       transparent 100%);
 }
 
-/* Animaciones para landing page */
+/* Animaciones para landing page — Wise motion: fluid (400ms ease-in-out) */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -70,27 +274,27 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.8s ease-out forwards;
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) forwards;
 }
 
 .animate-fade-in-delay-1 {
-  animation: fadeIn 0.8s ease-out 0.2s forwards;
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.15s forwards;
 }
 
 .animate-fade-in-delay-2 {
-  animation: fadeIn 0.8s ease-out 0.4s forwards;
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.3s forwards;
 }
 
 .animate-fade-in-delay-3 {
-  animation: fadeIn 0.8s ease-out 0.6s forwards;
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.45s forwards;
 }
 
 .animate-fade-in-delay-4 {
-  animation: fadeIn 0.8s ease-out 0.8s forwards;
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.6s forwards;
 }
 
 .animate-fade-in-delay-5 {
-  animation: fadeIn 0.8s ease-out 1s forwards;
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.75s forwards;
 }
 
 /* Pulse suave para CTA */
@@ -107,4 +311,76 @@ body {
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MARKUP SYSTEM — Wise Design Foundations
+
+   Semantic text emphasis (use sparingly — only 1-2 key words per line).
+   Components: <Markup.Important>, <Markup.Positive>, etc.
+   Or CSS classes: .markup-important, .markup-positive, etc.
+   ═══════════════════════════════════════════════════════════════════════ */
+.markup-important { color: var(--color-heading); font-weight: 600; }
+.markup-positive  { color: var(--color-success); font-weight: 600; }
+.markup-negative  { color: var(--color-danger); font-weight: 600; }
+.markup-strike    { text-decoration: line-through; }
+.markup-link      { color: var(--color-brand); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOTION UTILITIES — Wise: "snappy, fluid, intuitive"
+   Use via: transition-[snappy|fluid|intuitive] classes or CSS vars
+   ═══════════════════════════════════════════════════════════════════════ */
+.transition-snappy {
+  transition-duration: var(--duration-snappy);
+  transition-timing-function: var(--ease-snappy);
+}
+.transition-fluid {
+  transition-duration: var(--duration-fluid);
+  transition-timing-function: var(--ease-fluid);
+}
+.transition-intuitive {
+  transition-duration: var(--duration-intuitive);
+  transition-timing-function: var(--ease-intuitive);
+}
+
+/* ── Default interactive transitions: snappy for buttons, fluid for layout ── */
+button, a, [role="button"] {
+  transition-duration: var(--duration-snappy);
+  transition-timing-function: var(--ease-snappy);
+}
+input, select, textarea {
+  transition-duration: var(--duration-snappy);
+  transition-timing-function: var(--ease-snappy);
+}
+
+/* ── Shared input field styling (token-based) ── */
+.field-input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-field-border);
+  color: var(--color-heading);
+  background: var(--color-surface);
+  transition: border-color var(--duration-snappy) var(--ease-snappy),
+              box-shadow var(--duration-snappy) var(--ease-snappy);
+}
+.field-input:focus-visible {
+  border-color: var(--focus-color) !important;
+  box-shadow: 0 0 0 var(--focus-input-width) var(--focus-color) !important;
+  outline: none;
+}
+.field-input::placeholder {
+  color: var(--color-muted);
+}
+.field-input-error {
+  border-color: var(--color-danger) !important;
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-label);
+  margin-bottom: 0.25rem;
 }

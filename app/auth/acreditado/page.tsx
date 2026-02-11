@@ -2,18 +2,20 @@
 
 /**
  * Login / Registro de Acreditado (Manager/User)
- * Se autentica con email+password, linkea a un perfil por RUT
+ * Se autentica con email+password, linkea a un perfil por RUT.
+ * Smooth animated tab transition between Login ↔ Register.
  */
-import { useState, Suspense } from 'react';
+import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
+import { BackButton } from '@/components/shared/ui';
 
 export default function AcreditadoAuthPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0c1117] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <AcreditadoAuthContent />
@@ -30,11 +32,25 @@ function AcreditadoAuthContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [transitioning, setTransitioning] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const switchMode = (newMode: 'login' | 'register') => {
+    if (newMode === mode) return;
+    setError('');
+    setSuccess('');
+    setTransitioning(true);
+    // Fade out → switch → fade in
+    setTimeout(() => {
+      setMode(newMode);
+      setTimeout(() => setTransitioning(false), 20);
+    }, 150);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +63,7 @@ function AcreditadoAuthContent() {
     });
 
     if (authError) {
-      setError('Credenciales inválidas');
+      setError('Credenciales inválidas. Verifica tu email y contraseña.');
       setLoading(false);
       return;
     }
@@ -60,7 +76,6 @@ function AcreditadoAuthContent() {
     setLoading(true);
     setError('');
 
-    // 1. Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -75,7 +90,6 @@ function AcreditadoAuthContent() {
       return;
     }
 
-    // 2. Create or link profile
     if (authData.user) {
       await fetch('/api/profiles/lookup', {
         method: 'POST',
@@ -93,150 +107,229 @@ function AcreditadoAuthContent() {
     if (authData.session) {
       router.push(returnTo || '/acreditado');
     } else {
-      setSuccess('Cuenta creada. Revisa tu email para confirmar tu cuenta.');
+      setSuccess('Cuenta creada. Revisa tu email para confirmarla.');
     }
 
     setLoading(false);
   };
 
+  const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <Link href="/" className="text-center block mb-8">
-          <h1 className="text-4xl font-black text-white">
-            ACCR<span className="text-blue-400">EDIA</span>
-          </h1>
-          <p className="text-gray-400 mt-1">Portal de Acreditados</p>
+    <div className="min-h-screen bg-[#0c1117] flex items-center justify-center p-6 relative dark-surface">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-brand/8 blur-[120px]" />
+      </div>
+
+      <BackButton href="/" />
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Brand */}
+        <Link href="/" className="flex items-center justify-center gap-3 mb-10 group opacity-0 animate-fade-in">
+          <div className="w-10 h-10 bg-brand/20 rounded-xl flex items-center justify-center group-hover:bg-brand/30 transition-snappy">
+            <i className="fas fa-id-badge text-accent text-lg" />
+          </div>
+          <span className="text-2xl font-bold text-white tracking-tight">Accredia</span>
         </Link>
 
-        {/* Toggle */}
-        <div className="flex bg-white/10 rounded-xl p-1 mb-6">
-          <button
-            onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
-              mode === 'login' ? 'bg-white text-gray-900' : 'text-white/70 hover:text-white'
-            }`}
-          >
-            Iniciar Sesión
-          </button>
-          <button
-            onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
-              mode === 'register' ? 'bg-white text-gray-900' : 'text-white/70 hover:text-white'
-            }`}
-          >
-            Registrarse
-          </button>
+        {/* Card */}
+        <div className="bg-surface rounded-2xl shadow-2xl shadow-black/20 overflow-hidden opacity-0 animate-fade-in-delay-1">
+          {/* Tab switcher — pill style */}
+          <div className="px-8 pt-8 pb-0">
+            <div className="flex bg-subtle rounded-xl p-1 relative">
+              {/* Sliding indicator */}
+              <div
+                className="absolute top-1 bottom-1 rounded-lg bg-surface shadow-sm transition-all"
+                style={{
+                  width: 'calc(50% - 4px)',
+                  left: mode === 'login' ? '4px' : 'calc(50% + 0px)',
+                  transitionDuration: 'var(--duration-intuitive)',
+                  transitionTimingFunction: 'var(--ease-intuitive)',
+                }}
+              />
+              <button
+                onClick={() => switchMode('login')}
+                className={`relative z-10 flex-1 py-2.5 rounded-lg text-sm font-semibold transition-snappy ${
+                  mode === 'login' ? 'text-heading' : 'text-muted hover:text-body'
+                }`}
+              >
+                Iniciar sesión
+              </button>
+              <button
+                onClick={() => switchMode('register')}
+                className={`relative z-10 flex-1 py-2.5 rounded-lg text-sm font-semibold transition-snappy ${
+                  mode === 'register' ? 'text-heading' : 'text-muted hover:text-body'
+                }`}
+              >
+                Crear cuenta
+              </button>
+            </div>
+          </div>
+
+          {/* Form area with smooth transition */}
+          <div className="px-8 pt-6 pb-8">
+            {/* Alerts */}
+            {error && (
+              <div className="flex items-start gap-2.5 bg-danger-light border border-danger/15 rounded-xl px-4 py-3 mb-5 animate-fade-in">
+                <i className="fas fa-circle-exclamation text-danger mt-0.5 text-sm" />
+                <p className="text-sm text-danger-dark">{error}</p>
+              </div>
+            )}
+            {success && (
+              <div className="flex items-start gap-2.5 bg-success-light border border-success/15 rounded-xl px-4 py-3 mb-5 animate-fade-in">
+                <i className="fas fa-circle-check text-success mt-0.5 text-sm" />
+                <p className="text-sm text-success-dark">{success}</p>
+              </div>
+            )}
+
+            {/* Form content — crossfade */}
+            <div
+              ref={formRef}
+              className="transition-all"
+              style={{
+                opacity: transitioning ? 0 : 1,
+                transform: transitioning ? 'translateY(8px)' : 'translateY(0)',
+                transitionDuration: '150ms',
+                transitionTimingFunction: 'var(--ease-fluid)',
+              }}
+            >
+              {mode === 'login' ? (
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div>
+                    <label className="field-label">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={form.email}
+                      onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="tu@email.com"
+                      className={inputClass}
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">Contraseña</label>
+                    <input
+                      type="password"
+                      required
+                      value={form.password}
+                      onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="••••••••"
+                      className={inputClass}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 bg-brand text-on-brand rounded-xl font-semibold hover:bg-brand-hover disabled:opacity-50 transition-snappy flex items-center justify-center gap-2 shadow-lg shadow-brand/15"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Ingresando...
+                      </>
+                    ) : 'Ingresar'}
+                  </button>
+
+                  {/* Hint */}
+                  <p className="text-center text-xs text-muted pt-1">
+                    ¿No tienes cuenta?{' '}
+                    <button type="button" onClick={() => switchMode('register')} className="text-brand font-semibold hover:underline">
+                      Regístrate
+                    </button>
+                  </p>
+                </form>
+              ) : (
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="field-label">Nombre</label>
+                      <input
+                        type="text"
+                        required
+                        value={form.nombre}
+                        onChange={(e) => setForm(prev => ({ ...prev, nombre: e.target.value }))}
+                        placeholder="Juan"
+                        className={inputClass}
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">Apellido</label>
+                      <input
+                        type="text"
+                        required
+                        value={form.apellido}
+                        onChange={(e) => setForm(prev => ({ ...prev, apellido: e.target.value }))}
+                        placeholder="Pérez"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="field-label">RUT</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="12.345.678-9"
+                      value={form.rut}
+                      onChange={(e) => setForm(prev => ({ ...prev, rut: e.target.value }))}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={form.email}
+                      onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="tu@email.com"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">Contraseña</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={form.password}
+                      onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="Mínimo 6 caracteres"
+                      className={inputClass}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 bg-brand text-on-brand rounded-xl font-semibold hover:bg-brand-hover disabled:opacity-50 transition-snappy flex items-center justify-center gap-2 shadow-lg shadow-brand/15"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Creando cuenta...
+                      </>
+                    ) : 'Crear cuenta'}
+                  </button>
+
+                  <p className="text-center text-xs text-muted pt-1">
+                    ¿Ya tienes cuenta?{' '}
+                    <button type="button" onClick={() => switchMode('login')} className="text-brand font-semibold hover:underline">
+                      Inicia sesión
+                    </button>
+                  </p>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-3 text-red-800 text-sm rounded mb-4">
-              <i className="fas fa-exclamation-triangle mr-2" />{error}
-            </div>
-          )}
-          {success && (
-            <div className="bg-green-50 border-l-4 border-green-500 p-3 text-green-800 text-sm rounded mb-4">
-              <i className="fas fa-check-circle mr-2" />{success}
-            </div>
-          )}
-
-          {mode === 'login' ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                <input
-                  type="password"
-                  required
-                  value={form.password}
-                  onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {loading ? 'Ingresando...' : 'Ingresar'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.nombre}
-                    onChange={(e) => setForm(prev => ({ ...prev, nombre: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.apellido}
-                    onChange={(e) => setForm(prev => ({ ...prev, apellido: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">RUT</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="12.345.678-9"
-                  value={form.rut}
-                  onChange={(e) => setForm(prev => ({ ...prev, rut: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={form.password}
-                  onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {loading ? 'Registrando...' : 'Crear Cuenta'}
-              </button>
-            </form>
-          )}
-        </div>
+        {/* Footer note */}
+        <p className="text-center text-xs text-white/25 mt-6 opacity-0 animate-fade-in-delay-2">
+          Tu cuenta te permite guardar tu perfil, equipo y ver el historial de tus acreditaciones.
+        </p>
       </div>
     </div>
   );

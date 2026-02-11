@@ -33,16 +33,16 @@ export default function AcreditadoLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-canvas flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r flex flex-col fixed h-full">
-        <div className="p-6 border-b">
+      <aside className="w-64 bg-surface border-r border-edge flex flex-col fixed h-full">
+        <div className="p-6 border-b border-edge">
           <Link href="/">
-            <h1 className="text-xl font-bold text-gray-900">
-              ACCR<span className="text-blue-600">EDIA</span>
+            <h1 className="text-xl font-bold text-heading">
+              ACCR<span className="text-brand">EDIA</span>
             </h1>
           </Link>
-          <p className="text-gray-400 text-xs mt-1">Portal de Acreditados</p>
+          <p className="text-muted text-xs mt-1">Portal de Acreditados</p>
         </div>
 
         <nav className="flex-1 py-4">
@@ -54,8 +54,8 @@ export default function AcreditadoLayout({
                 href={item.href}
                 className={`flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                    ? 'bg-accent-light text-brand border-r-4 border-brand'
+                    : 'text-body hover:bg-canvas hover:text-heading'
                 }`}
               >
                 <i className={`${item.icon} w-5 text-center`} />
@@ -65,10 +65,10 @@ export default function AcreditadoLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t">
+        <div className="p-4 border-t border-edge">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 text-gray-400 hover:text-red-500 text-sm transition w-full"
+            className="flex items-center gap-3 text-muted hover:text-danger text-sm transition w-full"
           >
             <i className="fas fa-sign-out-alt w-5 text-center" />
             Cerrar sesión

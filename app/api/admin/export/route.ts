@@ -32,54 +32,58 @@ export async function GET(request: NextRequest) {
       limit: 10000,
     });
 
-    // PuntoTicket CSV format — only approved registrations
+    // PuntoTicket XLSX format — only approved registrations
     if (format === 'puntoticket') {
       const approved = registrations.filter(r => r.status === 'aprobado');
-      const headers = ['RUT', 'Nombre Completo', 'Email', 'Tipo Medio', 'Organización', 'Cargo', 'Evento', 'Fecha'];
-      const rows = approved.map(r => [
-        r.rut,
-        `${r.profile_nombre} ${r.profile_apellido}`,
-        r.profile_email || '',
-        r.tipo_medio || '',
-        r.organizacion || '',
-        r.cargo || '',
-        r.event_nombre || '',
-        r.event_fecha ? new Date(r.event_fecha).toLocaleDateString('es-CL') : '',
-      ]);
 
-      const csv = [headers.join(';'), ...rows.map(r => r.map(c => `"${c}"`).join(';'))].join('\n');
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Accredia';
+      const sheet = workbook.addWorksheet('PuntoTicket');
 
-      return new NextResponse(csv, {
+      sheet.columns = [
+        { header: 'RUT', key: 'rut', width: 16 },
+        { header: 'Nombre Completo', key: 'nombre_completo', width: 30 },
+        { header: 'Email', key: 'email', width: 28 },
+        { header: 'Tipo Medio', key: 'tipo_medio', width: 16 },
+        { header: 'Organización', key: 'organizacion', width: 25 },
+        { header: 'Cargo', key: 'cargo', width: 18 },
+        { header: 'Evento', key: 'evento', width: 30 },
+        { header: 'Fecha', key: 'fecha', width: 14 },
+      ];
+
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6b21a8' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      headerRow.height = 22;
+
+      approved.forEach(r => {
+        sheet.addRow({
+          rut: r.rut,
+          nombre_completo: `${r.profile_nombre} ${r.profile_apellido}`,
+          email: r.profile_email || '',
+          tipo_medio: r.tipo_medio || '',
+          organizacion: r.organizacion || '',
+          cargo: r.cargo || '',
+          evento: r.event_nombre || '',
+          fecha: r.event_fecha ? new Date(r.event_fecha).toLocaleDateString('es-CL') : '',
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      return new NextResponse(buffer as unknown as BodyInit, {
         headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="puntoticket-${Date.now()}.csv"`,
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="puntoticket-${Date.now()}.xlsx"`,
         },
       });
     }
 
     if (format === 'csv') {
-      const headers = ['RUT', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Organización', 'Tipo Medio', 'Cargo', 'Estado', 'Fecha Registro'];
-      const rows = registrations.map((r) => [
-        r.rut,
-        r.profile_nombre,
-        r.profile_apellido,
-        r.profile_email || '',
-        r.profile_telefono || '',
-        r.organizacion || '',
-        r.tipo_medio || '',
-        r.cargo || '',
-        r.status,
-        new Date(r.created_at).toLocaleDateString('es-CL'),
-      ]);
-
-      const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
-
-      return new NextResponse(csv, {
-        headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="acreditaciones-${Date.now()}.csv"`,
-        },
-      });
+      // Fallback CSV — redirigir a XLSX
+      // Se mantiene compatibilidad pero genera XLSX
     }
 
     // Excel
@@ -105,7 +109,9 @@ export async function GET(request: NextRequest) {
     sheet.getRow(1).eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a1a2e' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
     });
+    sheet.getRow(1).height = 22;
 
     registrations.forEach((r) => {
       sheet.addRow({

@@ -21,5 +21,5 @@ export default async function ScannerPage({
   const hasAccess = await hasAccessToTenant(user.id, tenant.id);
   if (!hasAccess) redirect(`/${slug}/admin/login`);
 
-  return <QRScanner />;
+  return <QRScanner backHref={`/${slug}/admin`} />;
 }

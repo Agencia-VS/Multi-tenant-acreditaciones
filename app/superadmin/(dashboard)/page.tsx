@@ -56,18 +56,17 @@ export default function SuperAdminDashboardPage() {
   const statCards = [
     { label: 'Tenants', value: stats?.total_tenants || 0, icon: 'fas fa-building', color: 'blue', href: '/superadmin/tenants' },
     { label: 'Eventos', value: stats?.total_events || 0, icon: 'fas fa-calendar', color: 'purple', href: '/superadmin/eventos' },
-    { label: 'Perfiles', value: stats?.total_profiles || 0, icon: 'fas fa-id-card', color: 'green', href: '/superadmin/acreditados' },
-    { label: 'Acreditaciones', value: stats?.total_registrations || 0, icon: 'fas fa-ticket-alt', color: 'indigo', href: '#' },
+    { label: 'Perfiles', value: stats?.total_profiles || 0, icon: 'fas fa-id-card', color: 'green', href: '#' },
     { label: 'Pendientes', value: stats?.pending_registrations || 0, icon: 'fas fa-clock', color: 'yellow', href: '#' },
     { label: 'Aprobadas', value: stats?.approved_registrations || 0, icon: 'fas fa-check-circle', color: 'emerald', href: '#' },
   ];
 
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    blue: 'bg-accent-light text-brand border-edge',
     purple: 'bg-purple-50 text-purple-600 border-purple-200',
-    green: 'bg-green-50 text-green-600 border-green-200',
+    green: 'bg-success-light text-success border-edge',
     indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200',
-    yellow: 'bg-yellow-50 text-yellow-600 border-yellow-200',
+    yellow: 'bg-warn-light text-warn border-edge',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200',
   };
 
@@ -75,14 +74,14 @@ export default function SuperAdminDashboardPage() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Vista general de la plataforma</p>
+          <h1 className="text-3xl font-bold text-heading">Dashboard</h1>
+          <p className="text-body mt-1">Vista general de la plataforma</p>
         </div>
         <div className="flex gap-3">
-          <Link href="/superadmin/tenants" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+          <Link href="/superadmin/tenants" className="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-hover transition">
             <i className="fas fa-plus mr-2" />Nuevo Tenant
           </Link>
-          <Link href="/superadmin/eventos" className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+          <Link href="/superadmin/eventos" className="px-4 py-2 bg-surface border rounded-lg text-sm font-medium text-label hover:bg-canvas transition">
             <i className="fas fa-calendar-plus mr-2" />Nuevo Evento
           </Link>
         </div>
@@ -108,16 +107,16 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       {/* Recent Registrations */}
-      <div className="bg-white rounded-xl border p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          <i className="fas fa-history mr-2 text-gray-400" />
+      <div className="bg-surface rounded-xl border p-6">
+        <h2 className="text-lg font-bold text-heading mb-4">
+          <i className="fas fa-history mr-2 text-muted" />
           Acreditaciones Recientes
         </h2>
         {stats?.recent_registrations && stats.recent_registrations.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-gray-500">
+                <tr className="border-b text-left text-body">
                   <th className="py-2 font-medium">Nombre</th>
                   <th className="py-2 font-medium">Evento</th>
                   <th className="py-2 font-medium">Tenant</th>
@@ -127,26 +126,26 @@ export default function SuperAdminDashboardPage() {
               </thead>
               <tbody className="divide-y">
                 {stats.recent_registrations.map((reg) => (
-                  <tr key={reg.id} className="hover:bg-gray-50">
-                    <td className="py-3 font-medium text-gray-900">
+                  <tr key={reg.id} className="hover:bg-canvas">
+                    <td className="py-3 font-medium text-heading">
                       {reg.profile_nombre} {reg.profile_apellido}
                     </td>
-                    <td className="py-3 text-gray-600">{reg.event_nombre}</td>
-                    <td className="py-3 text-gray-600">{reg.tenant_nombre}</td>
+                    <td className="py-3 text-body">{reg.event_nombre}</td>
+                    <td className="py-3 text-body">{reg.tenant_nombre}</td>
                     <td className="py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
                           reg.status === 'aprobado'
-                            ? 'bg-green-100 text-green-700'
+                            ? 'bg-success-light text-success-dark'
                             : reg.status === 'rechazado'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-danger-light text-danger-dark'
+                            : 'bg-warn-light text-warn-dark'
                         }`}
                       >
                         {reg.status}
                       </span>
                     </td>
-                    <td className="py-3 text-gray-500">
+                    <td className="py-3 text-body">
                       {new Date(reg.created_at).toLocaleDateString('es-CL')}
                     </td>
                   </tr>
@@ -155,7 +154,7 @@ export default function SuperAdminDashboardPage() {
             </table>
           </div>
         ) : (
-          <p className="text-gray-400 text-center py-8">No hay acreditaciones recientes</p>
+          <p className="text-muted text-center py-8">No hay acreditaciones recientes</p>
         )}
       </div>
     </div>

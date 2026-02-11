@@ -246,8 +246,8 @@ export default function EventosPage() {
                   onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition ${
                     activeTab === tab
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      ? 'border-brand text-brand'
+                      : 'border-transparent text-body hover:text-label'
                   }`}
                 >
                   {tab === 'general' && <><i className="fas fa-info-circle mr-2" />General</>}
@@ -262,12 +262,12 @@ export default function EventosPage() {
               {activeTab === 'general' && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
+                    <label className="block text-sm font-medium text-label mb-1">Tenant</label>
                     <select
                       required
                       value={eventForm.tenant_id}
                       onChange={(e) => setEventForm(prev => ({ ...prev, tenant_id: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                      className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                     >
                       <option value="">Seleccionar...</option>
                       {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
@@ -276,96 +276,96 @@ export default function EventosPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Evento</label>
+                      <label className="block text-sm font-medium text-label mb-1">Nombre del Evento</label>
                       <input
                         type="text"
                         required
                         value={eventForm.nombre}
                         onChange={(e) => setEventForm(prev => ({ ...prev, nombre: e.target.value }))}
                         placeholder="ej: UC vs Colo-Colo"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
+                      <label className="block text-sm font-medium text-label mb-1">Venue</label>
                       <input
                         type="text"
                         value={eventForm.venue}
                         onChange={(e) => setEventForm(prev => ({ ...prev, venue: e.target.value }))}
                         placeholder="ej: Estadio San Carlos de Apoquindo"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                    <label className="block text-sm font-medium text-label mb-1">Descripción</label>
                     <textarea
                       value={eventForm.descripcion}
                       onChange={(e) => setEventForm(prev => ({ ...prev, descripcion: e.target.value }))}
                       rows={2}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                      className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                      <label className="block text-sm font-medium text-label mb-1">Fecha</label>
                       <input
                         type="date"
                         value={eventForm.fecha}
                         onChange={(e) => setEventForm(prev => ({ ...prev, fecha: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                      <label className="block text-sm font-medium text-label mb-1">Hora</label>
                       <input
                         type="time"
                         value={eventForm.hora}
                         onChange={(e) => setEventForm(prev => ({ ...prev, hora: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Límite Acreditación</label>
+                      <label className="block text-sm font-medium text-label mb-1">Fecha Límite Acreditación</label>
                       <input
                         type="datetime-local"
                         value={eventForm.fecha_limite_acreditacion}
                         onChange={(e) => setEventForm(prev => ({ ...prev, fecha_limite_acreditacion: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Liga/Competición</label>
+                      <label className="block text-sm font-medium text-label mb-1">Liga/Competición</label>
                       <input
                         type="text"
                         value={eventForm.league}
                         onChange={(e) => setEventForm(prev => ({ ...prev, league: e.target.value }))}
                         placeholder="ej: Primera División"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rival</label>
+                      <label className="block text-sm font-medium text-label mb-1">Rival</label>
                       <input
                         type="text"
                         value={eventForm.opponent_name}
                         onChange={(e) => setEventForm(prev => ({ ...prev, opponent_name: e.target.value }))}
                         placeholder="ej: Colo-Colo"
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Logo Rival URL</label>
+                      <label className="block text-sm font-medium text-label mb-1">Logo Rival URL</label>
                       <input
                         type="url"
                         value={eventForm.opponent_logo_url}
                         onChange={(e) => setEventForm(prev => ({ ...prev, opponent_logo_url: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
                   </div>
@@ -375,9 +375,9 @@ export default function EventosPage() {
                       type="checkbox"
                       checked={eventForm.qr_enabled}
                       onChange={(e) => setEventForm(prev => ({ ...prev, qr_enabled: e.target.checked }))}
-                      className="w-5 h-5 rounded text-blue-600"
+                      className="w-5 h-5 rounded text-brand"
                     />
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium text-label">
                       <i className="fas fa-qrcode mr-2" />
                       Habilitar QR para control de acceso
                     </span>
@@ -389,8 +389,8 @@ export default function EventosPage() {
               {activeTab === 'form' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-500">
-                      Define los campos que debe llenar el acreditado. Los campos con <code className="bg-gray-100 px-1 rounded">profile_field</code> se auto-rellenan.
+                    <p className="text-sm text-body">
+                      Define los campos que debe llenar el acreditado. Los campos con <code className="bg-subtle px-1 rounded">profile_field</code> se auto-rellenan.
                     </p>
                     <button type="button" onClick={addField} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
                       <i className="fas fa-plus mr-1" /> Campo
@@ -399,26 +399,26 @@ export default function EventosPage() {
 
                   <div className="space-y-2">
                     {formFields.map((field, i) => (
-                      <div key={i} className="bg-gray-50 rounded-lg p-4 border">
+                      <div key={i} className="bg-canvas rounded-lg p-4 border">
                         <div className="grid grid-cols-12 gap-3 items-center">
                           <input
                             type="text"
                             value={field.key}
                             onChange={(e) => updateField(i, { key: e.target.value })}
                             placeholder="key"
-                            className="col-span-2 px-2 py-1 rounded border text-xs font-mono text-gray-700"
+                            className="col-span-2 px-2 py-1 rounded border text-xs font-mono text-label"
                           />
                           <input
                             type="text"
                             value={field.label}
                             onChange={(e) => updateField(i, { label: e.target.value })}
                             placeholder="Label"
-                            className="col-span-3 px-2 py-1 rounded border text-sm text-gray-700"
+                            className="col-span-3 px-2 py-1 rounded border text-sm text-label"
                           />
                           <select
                             value={field.type}
                             onChange={(e) => updateField(i, { type: e.target.value as FormFieldDefinition['type'] })}
-                            className="col-span-2 px-2 py-1 rounded border text-sm text-gray-700"
+                            className="col-span-2 px-2 py-1 rounded border text-sm text-label"
                           >
                             {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
@@ -427,9 +427,9 @@ export default function EventosPage() {
                             value={field.profile_field || ''}
                             onChange={(e) => updateField(i, { profile_field: e.target.value || undefined })}
                             placeholder="profile_field"
-                            className="col-span-2 px-2 py-1 rounded border text-xs font-mono text-gray-500"
+                            className="col-span-2 px-2 py-1 rounded border text-xs font-mono text-body"
                           />
-                          <label className="col-span-2 flex items-center gap-1 text-xs text-gray-600">
+                          <label className="col-span-2 flex items-center gap-1 text-xs text-body">
                             <input
                               type="checkbox"
                               checked={field.required}
@@ -453,7 +453,7 @@ export default function EventosPage() {
                               value={field.options?.join(', ') || ''}
                               onChange={(e) => updateField(i, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                               placeholder="Opciones separadas por coma"
-                              className="w-full px-2 py-1 rounded border text-sm text-gray-600"
+                              className="w-full px-2 py-1 rounded border text-sm text-body"
                             />
                           </div>
                         )}
@@ -467,7 +467,7 @@ export default function EventosPage() {
               {activeTab === 'cupos' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-body">
                       Limitar acreditaciones por tipo de medio y organización.
                     </p>
                     <button type="button" onClick={addQuotaRule} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
@@ -476,39 +476,39 @@ export default function EventosPage() {
                   </div>
 
                   {quotaRules.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-muted">
                       <i className="fas fa-infinity text-3xl mb-2" />
                       <p>Sin restricciones de cupo. Se permiten acreditaciones ilimitadas.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {quotaRules.map((rule, i) => (
-                        <div key={i} className="bg-gray-50 rounded-lg p-4 border flex items-center gap-4">
+                        <div key={i} className="bg-canvas rounded-lg p-4 border flex items-center gap-4">
                           <select
                             value={rule.tipo_medio}
                             onChange={(e) => updateQuotaRule(i, { tipo_medio: e.target.value })}
-                            className="px-3 py-2 rounded-lg border text-sm text-gray-700 flex-1"
+                            className="px-3 py-2 rounded-lg border text-sm text-label flex-1"
                           >
                             {TIPOS_MEDIO.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                           <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-500 whitespace-nowrap">Max/Org:</label>
+                            <label className="text-xs text-body whitespace-nowrap">Max/Org:</label>
                             <input
                               type="number"
                               min="0"
                               value={rule.max_per_organization}
                               onChange={(e) => updateQuotaRule(i, { max_per_organization: parseInt(e.target.value) || 0 })}
-                              className="w-20 px-2 py-2 rounded-lg border text-sm text-gray-700"
+                              className="w-20 px-2 py-2 rounded-lg border text-sm text-label"
                             />
                           </div>
                           <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-500 whitespace-nowrap">Max Global:</label>
+                            <label className="text-xs text-body whitespace-nowrap">Max Global:</label>
                             <input
                               type="number"
                               min="0"
                               value={rule.max_global}
                               onChange={(e) => updateQuotaRule(i, { max_global: parseInt(e.target.value) || 0 })}
-                              className="w-20 px-2 py-2 rounded-lg border text-sm text-gray-700"
+                              className="w-20 px-2 py-2 rounded-lg border text-sm text-label"
                             />
                           </div>
                           <button
@@ -541,13 +541,13 @@ export default function EventosPage() {
       ) : (
         <div className="grid gap-4">
           {events.map((event) => (
-            <div key={event.id} className="bg-white rounded-xl border p-6 hover:shadow-md transition">
+            <div key={event.id} className="bg-surface rounded-xl border p-6 hover:shadow-md transition">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <div className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-success' : 'bg-edge'}`} />
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{event.nombre}</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                    <h3 className="font-bold text-heading text-lg">{event.nombre}</h3>
+                    <div className="flex items-center gap-4 text-sm text-body mt-1">
                       {event.tenant && <span><i className="fas fa-building mr-1" />{event.tenant.nombre}</span>}
                       {event.fecha && <span><i className="fas fa-calendar mr-1" />{new Date(event.fecha).toLocaleDateString('es-CL')}</span>}
                       {event.venue && <span><i className="fas fa-map-marker-alt mr-1" />{event.venue}</span>}
@@ -561,13 +561,13 @@ export default function EventosPage() {
                         <i className="fas fa-qrcode mr-1" />QR
                       </span>
                     )}
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                    <span className="px-2 py-1 bg-info-light text-brand rounded-full">
                       {event.form_fields?.length || 0} campos
                     </span>
                   </div>
                   <button
                     onClick={() => handleEdit(event)}
-                    className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition"
+                    className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition"
                   >
                     <i className="fas fa-edit mr-1" /> Editar
                   </button>

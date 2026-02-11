@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { QRValidationResult } from '@/types';
+import { BackButton } from '@/components/shared/ui';
 
 /**
  * Scanner QR para control de acceso en puerta.
@@ -10,7 +11,7 @@ import type { QRValidationResult } from '@/types';
  * Pantalla Verde = Aprobado + Foto
  * Pantalla Roja = Ya ingresó o No autorizado
  */
-export default function QRScanner() {
+export default function QRScanner({ backHref }: { backHref?: string }) {
   const [qrInput, setQrInput] = useState('');
   const [result, setResult] = useState<QRValidationResult | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -101,7 +102,8 @@ export default function QRScanner() {
 
   // ─── Pantalla de escaneo ───
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-8 text-white">
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-8 text-white relative">
+      {backHref && <BackButton href={backHref} label="Volver al panel" />}
       <div className="text-center max-w-md">
         <div className="w-24 h-24 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <i className="fas fa-qrcode text-5xl" />

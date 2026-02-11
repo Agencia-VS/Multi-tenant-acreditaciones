@@ -9,7 +9,6 @@ const navItems = [
   { href: '/superadmin', label: 'Dashboard', icon: 'fas fa-chart-line' },
   { href: '/superadmin/tenants', label: 'Tenants', icon: 'fas fa-building' },
   { href: '/superadmin/eventos', label: 'Eventos', icon: 'fas fa-calendar' },
-  { href: '/superadmin/acreditados', label: 'Acreditados', icon: 'fas fa-users' },
   { href: '/superadmin/admins', label: 'Admins', icon: 'fas fa-user-shield' },
   { href: '/superadmin/configuracion', label: 'Configuración', icon: 'fas fa-cog' },
 ];
@@ -32,12 +31,12 @@ export default function SuperAdminLayoutClient({
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-canvas flex">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white flex flex-col fixed h-full">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-xl font-bold">
-            <span className="text-blue-400">ACCR</span>EDIA
+            <span className="text-accent">ACCR</span>EDIA
           </h1>
           <p className="text-gray-500 text-xs mt-1">Super Administración</p>
         </div>
@@ -51,7 +50,7 @@ export default function SuperAdminLayoutClient({
                 href={item.href}
                 className={`flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
                   isActive
-                    ? 'bg-blue-600 text-white border-r-4 border-blue-400'
+                    ? 'bg-brand text-white border-r-4 border-accent'
                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}
               >

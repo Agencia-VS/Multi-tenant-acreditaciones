@@ -99,40 +99,40 @@ export default function AdminsPage() {
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Nuevo Administrador" maxWidth="max-w-lg">
 
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-3 text-red-800 text-sm rounded mb-4">
+              <div className="bg-danger-light border-l-4 border-danger p-3 text-danger-dark text-sm rounded mb-4">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
+                <label className="block text-sm font-medium text-label mb-1">Tenant</label>
                 <select
                   required
                   value={form.tenant_id}
                   onChange={(e) => setForm(prev => ({ ...prev, tenant_id: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                  className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                 >
                   {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                  <label className="block text-sm font-medium text-label mb-1">Nombre</label>
                   <input
                     type="text"
                     required
                     value={form.nombre}
                     onChange={(e) => setForm(prev => ({ ...prev, nombre: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                  <label className="block text-sm font-medium text-label mb-1">Rol</label>
                   <select
                     value={form.rol}
                     onChange={(e) => setForm(prev => ({ ...prev, rol: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                   >
                     <option value="admin">Admin</option>
                     <option value="editor">Editor</option>
@@ -141,24 +141,24 @@ export default function AdminsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-label mb-1">Email</label>
                 <input
                   type="email"
                   required
                   value={form.email}
                   onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                  className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                <label className="block text-sm font-medium text-label mb-1">Contraseña</label>
                 <input
                   type="password"
                   required
                   minLength={6}
                   value={form.password}
                   onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                  className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                 />
               </div>
               <FormActions saving={saving} onCancel={() => setShowForm(false)} submitLabel="Crear Admin" />
@@ -171,10 +171,10 @@ export default function AdminsPage() {
       ) : admins.length === 0 ? (
         <EmptyState message="No hay administradores asignados" icon="fa-user-shield" />
       ) : (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-surface rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b text-left text-gray-500">
+              <tr className="bg-canvas border-b text-left text-body">
                 <th className="p-4 font-medium">Nombre</th>
                 <th className="p-4 font-medium">Email</th>
                 <th className="p-4 font-medium">Tenant</th>
@@ -184,16 +184,16 @@ export default function AdminsPage() {
             </thead>
             <tbody className="divide-y">
               {admins.map((admin) => (
-                <tr key={admin.id} className="hover:bg-gray-50">
-                  <td className="p-4 font-medium text-gray-900">{admin.nombre || '—'}</td>
-                  <td className="p-4 text-gray-600">{admin.email}</td>
-                  <td className="p-4 text-gray-600">{admin.tenant?.nombre || admin.tenant_id}</td>
+                <tr key={admin.id} className="hover:bg-canvas">
+                  <td className="p-4 font-medium text-heading">{admin.nombre || '—'}</td>
+                  <td className="p-4 text-body">{admin.email}</td>
+                  <td className="p-4 text-body">{admin.tenant?.nombre || admin.tenant_id}</td>
                   <td className="p-4">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-info-light text-brand">
                       {admin.rol}
                     </span>
                   </td>
-                  <td className="p-4 text-gray-500">{new Date(admin.created_at).toLocaleDateString('es-CL')}</td>
+                  <td className="p-4 text-body">{new Date(admin.created_at).toLocaleDateString('es-CL')}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAdmin } from './AdminContext';
 import { createBrowserClient } from '@supabase/ssr';
 import type { AdminTab } from '@/types';
@@ -31,20 +32,31 @@ export default function AdminHeader() {
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-30">
+    <div className="bg-surface/95 backdrop-blur-sm border-b border-edge sticky top-0 z-30">
       <div className="max-w-[1600px] mx-auto px-6">
         {/* Top bar */}
         <div className="flex items-center justify-between py-4">
           <div className="flex items-center gap-4">
+            {/* Back to tenant landing */}
+            <Link
+              href={`/${tenant?.slug || ''}`}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-subtle border border-edge text-body text-sm font-medium hover:bg-edge hover:text-heading transition-all"
+              title="Volver al sitio"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="hidden md:inline">Sitio</span>
+            </Link>
             {tenant?.logo_url && (
               <img src={tenant.logo_url} alt={tenant.nombre} className="h-10 w-10 rounded-lg object-contain" />
             )}
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{tenant?.nombre || 'Panel Admin'}</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-xl font-bold text-heading">{tenant?.nombre || 'Panel Admin'}</h1>
+              <p className="text-base text-body">
                 {selectedEvent ? selectedEvent.nombre : 'Sin evento seleccionado'}
                 {selectedEvent?.fecha && (
-                  <span className="ml-2 text-gray-400">
+                  <span className="ml-2 text-muted">
                     · {new Date(selectedEvent.fecha).toLocaleDateString('es-CL')}
                   </span>
                 )}
@@ -55,7 +67,7 @@ export default function AdminHeader() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.location.reload()}
-              className="px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              className="px-3 py-2 text-body hover:text-heading hover:bg-subtle rounded-lg transition"
               title="Recargar"
             >
               <i className="fas fa-sync-alt" />
@@ -63,7 +75,7 @@ export default function AdminHeader() {
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="px-3 py-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+              className="px-3 py-2 text-body hover:text-danger hover:bg-danger-light rounded-lg transition flex items-center gap-2 disabled:opacity-50"
               title="Cerrar sesión"
             >
               {loggingOut ? (
@@ -71,7 +83,7 @@ export default function AdminHeader() {
               ) : (
                 <i className="fas fa-sign-out-alt" />
               )}
-              <span className="hidden sm:inline text-sm font-medium">Salir</span>
+              <span className="hidden sm:inline text-base font-medium">Salir</span>
             </button>
           </div>
         </div>
@@ -82,10 +94,10 @@ export default function AdminHeader() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-3 text-sm font-medium rounded-t-lg transition-all flex items-center gap-2 ${
+              className={`px-5 py-3 text-base font-medium rounded-t-lg transition-all flex items-center gap-2 ${
                 activeTab === tab.key
-                  ? 'bg-gray-50 text-blue-700 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  ? 'bg-canvas text-brand border-b-2 border-brand'
+                  : 'text-body hover:text-heading hover:bg-canvas'
               }`}
             >
               <i className={`fas ${tab.icon}`} />

@@ -1,16 +1,17 @@
 /**
  * Formulario de Acreditación del Tenant
- * REQUIERE AUTENTICACIÓN — redirige a login si no hay sesión.
- * Carga evento activo y renderiza el formulario dinámico con 3 opciones.
+ * NO requiere autenticación — cualquier persona puede registrarse.
+ * Si el usuario está logueado, se pre-llenan sus datos.
  */
 import { getTenantBySlug } from '@/lib/services/tenants';
 import { getActiveEvent } from '@/lib/services/events';
 import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import DynamicRegistrationForm from '@/components/forms/DynamicRegistrationForm';
 import Link from 'next/link';
 import { isDeadlinePast, formatDeadlineChile } from '@/lib/dates';
+import { BackButton } from '@/components/shared/ui';
 
 export default async function AcreditacionPage({
   params,
@@ -21,25 +22,20 @@ export default async function AcreditacionPage({
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
 
-  // ─── Auth Gate: redirige a login si no autenticado ───
+  // ─── Auth opcional: si hay sesión, pre-llena datos ───
   const user = await getCurrentUser();
-  if (!user) {
-    redirect(`/auth/acreditado?returnTo=/${slug}/acreditacion`);
-  }
-
-  // Cargar perfil del usuario
-  const userProfile = await getProfileByUserId(user.id);
+  const userProfile = user ? await getProfileByUserId(user.id) : null;
 
   const event = await getActiveEvent(tenant.id);
 
   if (!event) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center">
-          <i className="fas fa-calendar-times text-5xl text-gray-300 mb-4" />
-          <h1 className="text-2xl font-bold text-gray-700">No hay eventos activos</h1>
-          <p className="text-gray-500 mt-2">No hay acreditación disponible en este momento.</p>
-          <Link href={`/${slug}`} className="mt-4 inline-block text-blue-600 hover:underline">
+          <i className="fas fa-calendar-times text-5xl text-edge mb-4" />
+          <h1 className="text-2xl font-bold text-label">No hay eventos activos</h1>
+          <p className="text-body mt-2">No hay acreditación disponible en este momento.</p>
+          <Link href={`/${slug}`} className="mt-4 inline-block text-brand hover:underline">
             Volver al inicio
           </Link>
         </div>
@@ -51,30 +47,30 @@ export default async function AcreditacionPage({
   const pastDeadline = isDeadlinePast(event.fecha_limite_acreditacion);
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-canvas">
       {/* Header con branding del tenant */}
       <div
-        className="py-6 px-6 text-center"
+        className="py-6 px-6 text-center relative"
         style={{ backgroundColor: tenant.color_primario }}
       >
-        <div className="flex items-center justify-center gap-4">
+        <BackButton href={`/${slug}`} />
+        <div className="flex flex-col items-center justify-center gap-4">
           {tenant.logo_url && (
             <img src={tenant.logo_url} alt={tenant.nombre} className="h-12 object-contain" />
           )}
           <h1 className="text-2xl font-bold" style={{ color: tenant.color_secundario }}>
-            Acreditación de Prensa
+            Acreditación
           </h1>
         </div>
-        <p className="text-white/70 text-sm mt-1">{event.nombre}</p>
       </div>
 
       {/* Contenido */}
       <div className="max-w-4xl mx-auto py-8 px-6">
         {pastDeadline ? (
           <div className="text-center py-12">
-            <i className="fas fa-lock text-5xl text-red-300 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-700">Plazo Cerrado</h2>
-            <p className="text-gray-500 mt-2">
+            <i className="fas fa-lock text-5xl text-danger/40 mb-4" />
+            <h2 className="text-2xl font-bold text-label">Plazo Cerrado</h2>
+            <p className="text-body mt-2">
               El plazo para solicitar acreditación cerró el{' '}
               {formatDeadlineChile(event.fecha_limite_acreditacion!)}.
             </p>
@@ -89,6 +85,11 @@ export default async function AcreditacionPage({
               secundario: tenant.color_secundario,
             }}
             tenantSlug={slug}
+            tenantName={tenant.nombre}
+            eventFecha={event.fecha}
+            eventVenue={event.venue}
+            fechaLimite={event.fecha_limite_acreditacion}
+            bulkEnabled={!!(tenant.config as Record<string, unknown>)?.acreditacion_masiva_enabled}
             userProfile={userProfile ? {
               id: userProfile.id,
               rut: userProfile.rut,

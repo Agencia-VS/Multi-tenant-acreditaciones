@@ -88,3 +88,51 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+/**
+ * PATCH — Actualiza el perfil del usuario autenticado.
+ * Solo permite editar campos seguros (no rut, no user_id).
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const profile = await getProfileByUserId(user.id);
+    if (!profile) {
+      return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const allowedFields = ['nombre', 'apellido', 'email', 'telefono', 'medio', 'tipo_medio', 'cargo', 'nacionalidad'];
+    const updates: Record<string, unknown> = {};
+    for (const key of allowedFields) {
+      if (key in body) updates[key] = body[key];
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No hay campos para actualizar' }, { status: 400 });
+    }
+
+    const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
+    const supabase = createSupabaseAdminClient();
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', profile.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Error interno' },
+      { status: 500 }
+    );
+  }
+}

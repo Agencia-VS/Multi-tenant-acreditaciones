@@ -2,10 +2,13 @@
 
 /**
  * Mi Perfil — Ver y editar datos personales del acreditado
+ * El campo "Medio / Empresa" se usa para auto-rellenar al agregar miembros de equipo.
+ * Usa la API /api/profiles/lookup (admin client) para evitar problemas de RLS.
  */
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import { LoadingSpinner } from '@/components/shared/ui';
+import { TIPOS_MEDIO, CARGOS } from '@/types';
+import { formatRut, cleanRut, validateEmail, validatePhone, sanitize } from '@/lib/validation';
 
 interface Profile {
   id: string;
@@ -22,64 +25,101 @@ interface Profile {
   datos_base: Record<string, unknown>;
 }
 
+interface FieldErrors {
+  email?: string;
+  telefono?: string;
+}
+
 export default function PerfilPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    try {
+      const res = await fetch('/api/profiles/lookup');
+      const data = await res.json();
+      if (data.found && data.profile) {
+        setProfile(data.profile);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const handleBlur = (field: 'email' | 'telefono') => {
+    if (!profile) return;
+    const errors = { ...fieldErrors };
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    if (field === 'email' && profile.email) {
+      const result = validateEmail(profile.email);
+      errors.email = result.valid ? undefined : result.error;
+    }
 
-    if (data) setProfile(data);
-    setLoading(false);
+    if (field === 'telefono' && profile.telefono) {
+      const result = validatePhone(profile.telefono);
+      errors.telefono = result.valid ? undefined : result.error;
+    }
+
+    setFieldErrors(errors);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
+
+    // Validar campos antes de guardar
+    const errors: FieldErrors = {};
+    if (profile.email) {
+      const emailResult = validateEmail(profile.email);
+      if (!emailResult.valid) errors.email = emailResult.error;
+    }
+    if (profile.telefono) {
+      const phoneResult = validatePhone(profile.telefono);
+      if (!phoneResult.valid) errors.telefono = phoneResult.error;
+    }
+
+    if (errors.email || errors.telefono) {
+      setFieldErrors(errors);
+      setMessage('Corrige los errores antes de guardar');
+      return;
+    }
+
     setSaving(true);
     setMessage('');
 
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    try {
+      const res = await fetch('/api/profiles/lookup', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: sanitize(profile.nombre),
+          apellido: sanitize(profile.apellido),
+          email: profile.email ? sanitize(profile.email) : null,
+          telefono: profile.telefono ? sanitize(profile.telefono) : null,
+          medio: profile.medio ? sanitize(profile.medio) : null,
+          tipo_medio: profile.tipo_medio,
+          cargo: profile.cargo,
+          nacionalidad: profile.nacionalidad ? sanitize(profile.nacionalidad) : null,
+        }),
+      });
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        nombre: profile.nombre,
-        apellido: profile.apellido,
-        email: profile.email,
-        telefono: profile.telefono,
-        medio: profile.medio,
-        tipo_medio: profile.tipo_medio,
-        cargo: profile.cargo,
-        nacionalidad: profile.nacionalidad,
-      })
-      .eq('id', profile.id);
-
-    if (error) {
-      setMessage('Error al guardar');
-    } else {
-      setMessage('Perfil actualizado correctamente');
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || 'Error al guardar');
+      } else {
+        setMessage('Perfil actualizado correctamente');
+      }
+    } catch {
+      setMessage('Error de conexión');
     }
     setSaving(false);
   };
@@ -90,22 +130,36 @@ export default function PerfilPage() {
 
   if (!profile) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-400">No se encontró tu perfil. Contacta al administrador.</p>
+      <div className="text-center py-12 bg-white rounded-xl border max-w-md mx-auto">
+        <i className="fas fa-user-circle text-5xl text-edge mb-4" />
+        <p className="text-muted text-lg mb-2">Aún no tienes un perfil</p>
+        <p className="text-muted text-sm mb-6">
+          Tu perfil se creará automáticamente al realizar tu primera acreditación,
+          o puedes completar una solicitud desde el dashboard.
+        </p>
+        <a
+          href="/acreditado"
+          className="inline-block px-6 py-2 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover transition"
+        >
+          Ir al Dashboard
+        </a>
       </div>
     );
   }
 
+  const inputClass = 'w-full px-3 py-2 rounded-lg border border-field-border text-heading transition';
+  const errorInputClass = 'w-full px-3 py-2 rounded-lg border border-danger text-heading ring-1 ring-danger';
+
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Mi Perfil</h1>
-        <p className="text-gray-500 mt-1">Estos datos se usarán para pre-rellenar futuras acreditaciones</p>
+        <h1 className="text-3xl font-bold text-heading">Mi Perfil</h1>
+        <p className="text-body mt-1">Estos datos se usarán para pre-rellenar futuras acreditaciones</p>
       </div>
 
       {message && (
         <div className={`p-3 rounded-lg text-sm mb-6 ${
-          message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+          message.includes('Error') || message.includes('Corrige') ? 'bg-danger-light text-danger-dark' : 'bg-success-light text-success-dark'
         }`}>
           {message}
         </div>
@@ -117,100 +171,126 @@ export default function PerfilPage() {
           {profile.foto_url ? (
             <img src={profile.foto_url} alt="" className="w-20 h-20 rounded-full object-cover" />
           ) : (
-            <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold">
+            <div className="w-20 h-20 rounded-full bg-accent-light flex items-center justify-center text-brand text-2xl font-bold">
               {profile.nombre.charAt(0)}{profile.apellido.charAt(0)}
             </div>
           )}
           <div>
-            <p className="text-lg font-bold text-gray-900">{profile.nombre} {profile.apellido}</p>
-            <p className="text-gray-500 font-mono text-sm">RUT: {profile.rut}</p>
+            <p className="text-lg font-bold text-heading">{profile.nombre} {profile.apellido}</p>
+            <p className="text-body font-mono text-sm">RUT: {formatRut(cleanRut(profile.rut))}</p>
+          </div>
+        </div>
+
+        {/* Datos personales */}
+        <div>
+          <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Datos Personales</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-label mb-1">Nombre</label>
+              <input
+                type="text"
+                required
+                value={profile.nombre}
+                onChange={(e) => setProfile(prev => prev ? { ...prev, nombre: e.target.value } : null)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-label mb-1">Apellido</label>
+              <input
+                type="text"
+                required
+                value={profile.apellido}
+                onChange={(e) => setProfile(prev => prev ? { ...prev, apellido: e.target.value } : null)}
+                className={inputClass}
+              />
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-            <input
-              type="text"
-              required
-              value={profile.nombre}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, nombre: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
-            <input
-              type="text"
-              required
-              value={profile.apellido}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, apellido: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-label mb-1">Email</label>
             <input
               type="email"
               value={profile.email || ''}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, email: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => { setProfile(prev => prev ? { ...prev, email: e.target.value } : null); if (fieldErrors.email) setFieldErrors(fe => ({ ...fe, email: undefined })); }}
+              onBlur={() => handleBlur('email')}
+              className={fieldErrors.email ? errorInputClass : inputClass}
             />
+            {fieldErrors.email && <p className="text-danger text-xs mt-1"><i className="fas fa-exclamation-circle mr-1" />{fieldErrors.email}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+            <label className="block text-sm font-medium text-label mb-1">Teléfono</label>
             <input
               type="tel"
               value={profile.telefono || ''}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, telefono: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => { setProfile(prev => prev ? { ...prev, telefono: e.target.value } : null); if (fieldErrors.telefono) setFieldErrors(fe => ({ ...fe, telefono: undefined })); }}
+              onBlur={() => handleBlur('telefono')}
+              className={fieldErrors.telefono ? errorInputClass : inputClass}
             />
+            {fieldErrors.telefono && <p className="text-danger text-xs mt-1"><i className="fas fa-exclamation-circle mr-1" />{fieldErrors.telefono}</p>}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-label mb-1">Nacionalidad</label>
+          <input
+            type="text"
+            value={profile.nacionalidad || ''}
+            onChange={(e) => setProfile(prev => prev ? { ...prev, nacionalidad: e.target.value } : null)}
+            className={inputClass}
+          />
+        </div>
+
+        {/* Datos profesionales - destacado */}
+        <div className="bg-accent-light/30 rounded-lg border border-accent-light p-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Medio</label>
+            <h3 className="text-sm font-semibold text-brand uppercase tracking-wider mb-1">Datos Profesionales</h3>
+            <p className="text-xs text-accent">Tu medio/empresa se usará para auto-rellenar al agregar miembros a tu equipo</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-label mb-1">
+              Medio / Empresa
+              <span className="text-accent text-xs ml-2"><i className="fas fa-magic mr-1" />Auto-rellena en equipo</span>
+            </label>
             <input
               type="text"
               value={profile.medio || ''}
               onChange={(e) => setProfile(prev => prev ? { ...prev, medio: e.target.value } : null)}
-              placeholder="ej: Canal 13, Radio ADN"
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
+              placeholder="ej: Canal 13, Radio ADN, ESPN Chile"
+              className={`${inputClass} border-accent-light`}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Medio</label>
-            <input
-              type="text"
-              value={profile.tipo_medio || ''}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, tipo_medio: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
-            <input
-              type="text"
-              value={profile.cargo || ''}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, cargo: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nacionalidad</label>
-            <input
-              type="text"
-              value={profile.nacionalidad || ''}
-              onChange={(e) => setProfile(prev => prev ? { ...prev, nacionalidad: e.target.value } : null)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-label mb-1">Tipo de Medio</label>
+              <select
+                value={profile.tipo_medio || ''}
+                onChange={(e) => setProfile(prev => prev ? { ...prev, tipo_medio: e.target.value || null } : null)}
+                className={inputClass}
+              >
+                <option value="">Selecciona...</option>
+                {TIPOS_MEDIO.map((tm) => (
+                  <option key={tm} value={tm}>{tm}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-label mb-1">Cargo</label>
+              <select
+                value={profile.cargo || ''}
+                onChange={(e) => setProfile(prev => prev ? { ...prev, cargo: e.target.value || null } : null)}
+                className={inputClass}
+              >
+                <option value="">Selecciona...</option>
+                {CARGOS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -218,7 +298,7 @@ export default function PerfilPage() {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
+            className="px-6 py-3 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover disabled:opacity-50 transition"
           >
             {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>

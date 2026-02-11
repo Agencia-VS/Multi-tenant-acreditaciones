@@ -53,21 +53,21 @@ export default function ConfiguracionPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
-        <p className="text-gray-500 mt-1">Configuración global de la plataforma</p>
+        <h1 className="text-3xl font-bold text-heading">Configuración</h1>
+        <p className="text-body mt-1">Configuración global de la plataforma</p>
       </div>
 
       <div className="grid gap-6">
         {/* Crear SuperAdmin */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">
-            <i className="fas fa-user-shield mr-2 text-blue-600" />
+        <div className="bg-surface rounded-xl border p-6">
+          <h2 className="text-lg font-bold text-heading mb-4">
+            <i className="fas fa-user-shield mr-2 text-brand" />
             Crear Super Administrador
           </h2>
 
           {message && (
             <div className={`p-3 rounded-lg text-sm mb-4 ${
-              message.startsWith('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+              message.startsWith('Error') ? 'bg-danger-light text-danger-dark' : 'bg-success-light text-success-dark'
             }`}>
               {message}
             </div>
@@ -75,40 +75,40 @@ export default function ConfiguracionPage() {
 
           <form onSubmit={handleCreateSuperadmin} className="space-y-4 max-w-lg">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+              <label className="block text-sm font-medium text-label mb-1">Nombre</label>
               <input
                 type="text"
                 required
                 value={newNombre}
                 onChange={(e) => setNewNombre(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-label mb-1">Email</label>
               <input
                 type="email"
                 required
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+              <label className="block text-sm font-medium text-label mb-1">Contraseña</label>
               <input
                 type="password"
                 required
                 minLength={6}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900"
+                className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
               />
             </div>
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+              className="px-6 py-2 bg-brand text-white rounded-lg font-medium hover:bg-brand-hover disabled:opacity-50 transition"
             >
               {saving ? 'Creando...' : 'Crear SuperAdmin'}
             </button>
@@ -116,27 +116,27 @@ export default function ConfiguracionPage() {
         </div>
 
         {/* Info */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">
-            <i className="fas fa-info-circle mr-2 text-gray-400" />
+        <div className="bg-surface rounded-xl border p-6">
+          <h2 className="text-lg font-bold text-heading mb-4">
+            <i className="fas fa-info-circle mr-2 text-muted" />
             Información del Sistema
           </h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-500">Plataforma</p>
-              <p className="font-bold text-gray-900">Accredia v2.0</p>
+            <div className="bg-canvas p-4 rounded-lg">
+              <p className="text-body">Plataforma</p>
+              <p className="font-bold text-heading">Accredia v2.0</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-500">Base de Datos</p>
-              <p className="font-bold text-gray-900">Supabase PostgreSQL</p>
+            <div className="bg-canvas p-4 rounded-lg">
+              <p className="text-body">Base de Datos</p>
+              <p className="font-bold text-heading">Supabase PostgreSQL</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-500">Auth</p>
-              <p className="font-bold text-gray-900">Supabase Auth (email/pwd)</p>
+            <div className="bg-canvas p-4 rounded-lg">
+              <p className="text-body">Auth</p>
+              <p className="font-bold text-heading">Supabase Auth (email/pwd)</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-500">Emails</p>
-              <p className="font-bold text-gray-900">Resend</p>
+            <div className="bg-canvas p-4 rounded-lg">
+              <p className="text-body">Emails</p>
+              <p className="font-bold text-heading">Resend</p>
             </div>
           </div>
         </div>
