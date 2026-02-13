@@ -21,7 +21,7 @@ function AdminDashboardInner() {
     <div className="min-h-screen bg-gray-50">
       <AdminHeader />
 
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
+      <div className="max-w-[1600px] mx-auto px-3 py-4 sm:px-6 sm:py-6">
         {activeTab === 'acreditaciones' ? (
           <div className="space-y-6">
             {/* Stats */}

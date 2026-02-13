@@ -133,17 +133,17 @@ export default function AcreditadoRow({
       `}
     >
       {/* ── Header ── */}
-      <div className={`flex items-center justify-between px-4 py-3 ${locked ? 'bg-success/10' : 'bg-surface/40'}`}>
-        <div className="flex items-center gap-3 min-w-0">
-          <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 ${
+      <div className={`flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 ${locked ? 'bg-success/10' : 'bg-surface/40'}`}>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[0.65rem] sm:text-xs font-bold shrink-0 ${
             locked ? 'bg-success/20 text-success' : 'bg-brand/15 text-brand'
           }`}>
             {index + 1}
           </span>
-          <span className="font-semibold text-heading truncate">{displayName}</span>
+          <span className="font-semibold text-heading truncate text-sm sm:text-base">{displayName}</span>
           {locked && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/15 text-success text-xs font-semibold shrink-0">
-              <i className="fas fa-user-check text-[0.6rem]" /> Responsable
+            <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-success/15 text-success text-[0.6rem] sm:text-xs font-semibold shrink-0">
+              <i className="fas fa-user-check text-[0.5rem] sm:text-[0.6rem]" /> <span className="hidden sm:inline">Responsable</span><span className="sm:hidden">Resp.</span>
             </span>
           )}
         </div>
@@ -160,8 +160,8 @@ export default function AcreditadoRow({
       </div>
 
       {/* ── Fields ── */}
-      <div className="px-4 pb-4 pt-2">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
           {/* RUT */}
           <div>
             <label className="field-label">
@@ -287,8 +287,8 @@ export default function AcreditadoRow({
 
         {/* Dynamic Fields — only extras, never base-field duplicates */}
         {extraFields.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-edge/50">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t border-edge/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {extraFields
                 .sort((a, b) => (a.order || 0) - (b.order || 0))
                 .map((field) => (

@@ -164,9 +164,9 @@ export default function EquipoPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-heading">Mi Equipo</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-heading">Mi Equipo</h1>
           <p className="text-body mt-1">
             Gestiona tus frecuentes para acreditarlos rápidamente
           </p>
@@ -216,7 +216,7 @@ export default function EquipoPage() {
 
       {/* Add Member Form */}
       {showForm && (
-        <div className="bg-white rounded-xl border shadow-sm p-6 mb-6">
+        <div className="bg-white rounded-xl border shadow-sm p-4 sm:p-6 mb-6">
           <h3 className="text-lg font-bold text-heading mb-4">
             <i className="fas fa-user-plus mr-2 text-brand" />Nuevo Miembro
           </h3>

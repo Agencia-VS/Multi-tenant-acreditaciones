@@ -116,7 +116,7 @@ function AcreditadoAuthContent() {
   const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
 
   return (
-    <div className="min-h-screen bg-[#111111] flex items-center justify-center p-6 relative dark-surface">
+    <div className="min-h-screen bg-[#111111] flex items-center justify-center p-4 sm:p-6 relative dark-surface">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-brand/8 blur-[120px]" />
@@ -136,7 +136,7 @@ function AcreditadoAuthContent() {
         {/* Card */}
         <div className="bg-surface rounded-2xl shadow-2xl shadow-black/20 overflow-hidden opacity-0 animate-fade-in-delay-1">
           {/* Tab switcher — pill style */}
-          <div className="px-8 pt-8 pb-0">
+          <div className="px-5 pt-6 sm:px-8 sm:pt-8 pb-0">
             <div className="flex bg-subtle rounded-xl p-1 relative">
               {/* Sliding indicator */}
               <div
@@ -168,7 +168,7 @@ function AcreditadoAuthContent() {
           </div>
 
           {/* Form area with smooth transition */}
-          <div className="px-8 pt-6 pb-8">
+          <div className="px-5 pt-5 pb-6 sm:px-8 sm:pt-6 sm:pb-8">
             {/* Alerts */}
             {error && (
               <div className="flex items-start gap-2.5 bg-danger-light border border-danger/15 rounded-xl px-4 py-3 mb-5 animate-fade-in">

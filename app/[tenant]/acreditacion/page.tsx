@@ -50,22 +50,22 @@ export default async function AcreditacionPage({
     <main className="min-h-screen bg-canvas">
       {/* Header con branding del tenant */}
       <div
-        className="py-6 px-6 text-center relative"
+        className="py-4 sm:py-6 px-4 sm:px-6 text-center relative"
         style={{ backgroundColor: tenant.color_primario }}
       >
         <BackButton href={`/${slug}`} />
-        <div className="flex flex-col items-center justify-center gap-4">
+        <div className="flex flex-col items-center justify-center gap-2 sm:gap-4 pt-8 sm:pt-0">
           {tenant.logo_url && (
-            <img src={tenant.logo_url} alt={tenant.nombre} className="h-12 object-contain" />
+            <img src={tenant.logo_url} alt={tenant.nombre} className="h-10 sm:h-12 object-contain" />
           )}
-          <h1 className="text-2xl font-bold" style={{ color: tenant.color_secundario }}>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: tenant.color_secundario }}>
             Acreditación
           </h1>
         </div>
       </div>
 
       {/* Contenido */}
-      <div className="max-w-4xl mx-auto py-8 px-6">
+      <div className="max-w-4xl mx-auto py-4 sm:py-8 px-3 sm:px-6">
         {pastDeadline ? (
           <div className="text-center py-12">
             <i className="fas fa-lock text-5xl text-danger/40 mb-4" />

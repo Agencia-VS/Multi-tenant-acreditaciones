@@ -155,7 +155,7 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-heading">Mis Acreditaciones</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-heading">Mis Acreditaciones</h1>
         <p className="text-body mt-1">
           {registrations.length} solicitudes · {tenantStatuses.length} organizaciones activas
         </p>
@@ -494,7 +494,7 @@ function RegistrationHistoryView({
           {filtered.map((reg) => {
             const sCfg = statusConfig[reg.status] || statusConfig.pendiente;
             return (
-              <div key={reg.id} className="bg-surface rounded-xl border border-edge p-6 hover:shadow-md transition">
+              <div key={reg.id} className="bg-surface rounded-xl border border-edge p-4 sm:p-6 hover:shadow-md transition">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">

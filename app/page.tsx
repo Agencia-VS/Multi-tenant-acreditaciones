@@ -102,7 +102,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center opacity-0 animate-fade-in-delay-1">
               <Link
                 href="/auth/acreditado"
-                className="group px-8 py-4 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl transition-snappy shadow-lg shadow-brand/20 inline-flex items-center justify-center gap-2"
+                className="group px-6 py-3.5 sm:px-8 sm:py-4 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl transition-snappy shadow-lg shadow-brand/20 inline-flex items-center justify-center gap-2"
               >
                 Acredítate ahora
                 <svg className="w-4 h-4 group-hover:translate-x-1 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,7 +111,7 @@ export default function LandingPage() {
               </Link>
               <a
                 href="#clubes"
-                className="px-8 py-4 bg-white/[0.06] hover:bg-white/[0.1] text-white font-semibold rounded-xl border border-white/10 backdrop-blur-sm transition-snappy"
+                className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white/[0.06] hover:bg-white/[0.1] text-white font-semibold rounded-xl border border-white/10 backdrop-blur-sm transition-snappy"
               >
                 Ver eventos
               </a>
@@ -121,7 +121,7 @@ export default function LandingPage() {
 
         {/* Stats strip */}
         <div className="relative z-10 max-w-4xl mx-auto px-6 lg:px-8 pb-20 opacity-0 animate-fade-in-delay-2">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-6 px-8 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 py-4 sm:py-6 px-4 sm:px-8 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
             {[
               { value: '50+', label: 'Eventos gestionados' },
               { value: '2,000+', label: 'Credenciales emitidas' },
@@ -353,7 +353,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/superadmin"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#00C48C] text-white font-semibold rounded-xl hover:bg-[#00A676] transition-snappy shadow-lg shadow-[#00C48C]/20"
+              className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-[#00C48C] text-white font-semibold rounded-xl hover:bg-[#00A676] transition-snappy shadow-lg shadow-[#00C48C]/20"
             >
               Solicitar acceso
               <svg className="w-4 h-4 group-hover:translate-x-1 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -362,7 +362,7 @@ export default function LandingPage() {
             </Link>
             <a
               href="mailto:contacto@accredia.cl"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 text-white font-semibold rounded-xl border border-white/15 hover:bg-white/15 transition-snappy"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-white/10 text-white font-semibold rounded-xl border border-white/15 hover:bg-white/15 transition-snappy"
             >
               <i className="fas fa-envelope text-sm" />
               Contactar
@@ -382,7 +382,7 @@ export default function LandingPage() {
               <span className="text-lg font-bold tracking-tight">Accredia</span>
             </Link>
 
-            <div className="flex gap-8 text-sm text-white/40">
+            <div className="flex gap-4 sm:gap-8 text-sm text-white/40">
               <Link href="/auth/acreditado" className="hover:text-white/80 transition-snappy">
                 Mi cuenta
               </Link>

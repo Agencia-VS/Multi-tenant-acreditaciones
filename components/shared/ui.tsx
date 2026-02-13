@@ -112,7 +112,7 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: ()
   if (!toast) return null;
   return (
     <div
-      className={`fixed top-4 right-4 z-[100] max-w-md px-4 py-3 rounded-xl shadow-lg border text-base font-medium flex items-center gap-3 transition-all ${
+      className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-[100] sm:max-w-md px-4 py-3 rounded-xl shadow-lg border text-sm sm:text-base font-medium flex items-center gap-3 transition-all ${
         toast.type === 'success'
           ? 'bg-success-light text-success-dark border-success-light'
           : 'bg-danger-light text-danger-dark border-danger-light'
@@ -143,10 +143,10 @@ export function PageHeader({
   action?: { label: string; icon?: string; onClick: () => void };
 }) {
   return (
-    <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
       <div>
-        <h1 className="text-3xl font-bold text-heading">{title}</h1>
-        {subtitle && <p className="text-body mt-1">{subtitle}</p>}
+        <h1 className="text-2xl sm:text-3xl font-bold text-heading">{title}</h1>
+        {subtitle && <p className="text-body text-sm sm:text-base mt-1">{subtitle}</p>}
       </div>
       {action && (
         <button
@@ -178,15 +178,15 @@ export function Modal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className={`bg-surface rounded-2xl ${maxWidth} w-full max-h-[90vh] overflow-y-auto`}>
-        <div className="sticky top-0 bg-surface border-b border-edge px-5 py-3 flex justify-between items-center z-10 rounded-t-2xl">
-          <h2 className="text-xl font-bold text-heading">{title}</h2>
-          <button onClick={onClose} className="text-muted hover:text-body transition">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className={`bg-surface rounded-t-2xl sm:rounded-2xl ${maxWidth} w-full max-h-[90vh] sm:max-h-[85vh] overflow-y-auto`}>
+        <div className="sticky top-0 bg-surface border-b border-edge px-4 sm:px-5 py-3 flex justify-between items-center z-10 rounded-t-2xl">
+          <h2 className="text-lg sm:text-xl font-bold text-heading">{title}</h2>
+          <button onClick={onClose} className="text-muted hover:text-body transition p-1">
             <i className="fas fa-times text-xl" />
           </button>
         </div>
-        <div className="p-5 md:p-6">{children}</div>
+        <div className="p-4 sm:p-5 md:p-6">{children}</div>
       </div>
     </div>
   );
@@ -220,10 +220,10 @@ export function ConfirmDialog({
     info: 'bg-brand hover:bg-brand-hover',
   };
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-      <div className="bg-surface rounded-2xl max-w-sm w-full p-5">
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-surface rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-5">
         <h3 className="text-lg font-bold text-heading mb-2">{title}</h3>
-        <p className="text-base text-body mb-5">{message}</p>
+        <p className="text-sm sm:text-base text-body mb-5">{message}</p>
         <div className="flex gap-3">
           <button
             onClick={onConfirm}
@@ -253,6 +253,7 @@ export function ConfirmDialog({
  *  - ghost: texto sutil sin fondo
  *
  * `absolute` (default true): posición absoluta top-left con z-20
+ * Responsive: ajusta padding y posición en móvil
  */
 export function BackButton({
   href,
@@ -265,20 +266,20 @@ export function BackButton({
   variant?: 'glass' | 'dark' | 'ghost';
   absolute?: boolean;
 }) {
-  const base = 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all';
+  const base = 'flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 rounded-xl text-xs sm:text-sm font-medium transition-all';
   const styles = {
     glass: 'bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 hover:bg-white/20 hover:text-white',
     dark: 'bg-subtle border border-edge text-body hover:bg-edge hover:text-heading',
     ghost: 'text-muted hover:text-body',
   };
-  const position = absolute ? 'absolute top-6 left-6 z-20' : '';
+  const position = absolute ? 'absolute top-3 left-3 sm:top-6 sm:left-6 z-20' : '';
 
   return (
     <Link href={href} className={`${base} ${styles[variant]} ${position}`}>
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
-      {label}
+      <span className="hidden sm:inline">{label}</span>
     </Link>
   );
 }

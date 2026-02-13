@@ -681,19 +681,19 @@ export default function DynamicRegistrationForm({
 
   function StepIndicator() {
     return (
-      <div className="flex items-center justify-center gap-2 mb-8">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8 px-2">
         {STEP_LABELS.map((label, i) => {
           const isComplete = currentStepIndex > i;
           const isCurrent = currentStepIndex === i;
           return (
-            <div key={label} className="flex items-center gap-2">
+            <div key={label} className="flex items-center gap-1.5 sm:gap-2">
               {i > 0 && (
-                <div className={`w-8 h-0.5 rounded-full transition-snappy ${isComplete ? 'bg-brand' : 'bg-edge'}`} />
+                <div className={`w-5 sm:w-8 h-0.5 rounded-full transition-snappy ${isComplete ? 'bg-brand' : 'bg-edge'}`} />
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <div
                   className={`
-                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-snappy
+                    w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-snappy
                     ${isComplete ? 'bg-success text-white' : isCurrent ? 'bg-brand text-white' : 'bg-surface border border-edge text-muted'}
                   `}
                 >
@@ -726,7 +726,7 @@ export default function DynamicRegistrationForm({
      ═══════════════════════════════════════════════════════ */
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-fade-in">
       {/* Messages */}
       {message && (
         <Alert message={message} onClose={() => setMessage(null)} />
@@ -753,35 +753,35 @@ export default function DynamicRegistrationForm({
 
       {/* ═══════ PASO 1 — RESPONSABLE ═══════ */}
       {step === 'responsable' && (
-        <form onSubmit={handleResponsableSubmit} className="space-y-6 animate-fade-in">
+        <form onSubmit={handleResponsableSubmit} className="space-y-4 sm:space-y-6 animate-fade-in">
           {/* Section Card */}
           <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden">
             {/* Section Header */}
-            <div className="px-6 py-5 border-b border-edge/50 bg-surface/60">
-              <div className="flex items-center gap-4">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-edge/50 bg-surface/60">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <span
-                  className="flex items-center justify-center w-10 h-10 rounded-xl text-white font-bold text-lg shrink-0"
+                  className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl text-white font-bold text-base sm:text-lg shrink-0"
                   style={{ backgroundColor: tenantColors.primario }}
                 >
                   1
                 </span>
                 <div>
-                  <h2 className="text-lg font-bold text-heading">Responsable de acreditación</h2>
-                  <p className="text-sm text-muted">Persona que gestiona las solicitudes de prensa para este evento</p>
+                  <h2 className="text-base sm:text-lg font-bold text-heading">Responsable de acreditación</h2>
+                  <p className="text-xs sm:text-sm text-muted">Persona que gestiona las solicitudes de prensa para este evento</p>
                 </div>
               </div>
             </div>
 
             {/* Event badge */}
-            <div className="flex items-center justify-center px-6 pt-5">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-edge text-sm text-body">
+            <div className="flex items-center justify-center px-4 sm:px-6 pt-4 sm:pt-5">
+              <span className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-surface border border-edge text-xs sm:text-sm text-body">
                 <i className="fas fa-calendar-alt text-brand" />
-                {eventName}
+                <span className="truncate max-w-[200px] sm:max-w-none">{eventName}</span>
               </span>
             </div>
 
             {/* Form fields */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* RUT */}
               <div>
@@ -915,20 +915,20 @@ export default function DynamicRegistrationForm({
           )}
 
           {/* Navegación */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => goBack('disclaimer')}
-              className="flex-1 py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy"
+              className="flex-1 py-3 sm:py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm sm:text-base"
             >
-              <i className="fas fa-arrow-left mr-2" /> Volver
+              <i className="fas fa-arrow-left mr-1.5 sm:mr-2" /> Volver
             </button>
             <button
               type="submit"
-              className="flex-1 py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90"
+              className="flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 text-sm sm:text-base"
               style={{ backgroundColor: tenantColors.primario }}
             >
-              Siguiente <i className="fas fa-arrow-right ml-2" />
+              Siguiente <i className="fas fa-arrow-right ml-1.5 sm:ml-2" />
             </button>
           </div>
         </form>
@@ -936,28 +936,28 @@ export default function DynamicRegistrationForm({
 
       {/* ═══════ PASO 2 — TIPO DE MEDIO ═══════ */}
       {step === 'medio' && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 sm:space-y-6 animate-fade-in">
           {/* Section Card */}
           <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden">
             {/* Section Header */}
-            <div className="px-6 py-5 border-b border-edge/50 bg-surface/60">
-              <div className="flex items-center gap-4">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-edge/50 bg-surface/60">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <span
-                  className="flex items-center justify-center w-10 h-10 rounded-xl text-white font-bold text-lg shrink-0"
+                  className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl text-white font-bold text-base sm:text-lg shrink-0"
                   style={{ backgroundColor: tenantColors.primario }}
                 >
                   2
                 </span>
                 <div>
-                  <h2 className="text-lg font-bold text-heading">Tipo de medio</h2>
-                  <p className="text-sm text-muted">Selecciona la categoría que mejor describe a <strong className="text-heading">{responsable.organizacion}</strong></p>
+                  <h2 className="text-base sm:text-lg font-bold text-heading">Tipo de medio</h2>
+                  <p className="text-xs sm:text-sm text-muted">Selecciona la categoría que mejor describe a <strong className="text-heading">{responsable.organizacion}</strong></p>
                 </div>
               </div>
             </div>
 
             {/* Tipo de medio cards */}
-            <div className="p-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
             {tiposMedioOptions.map((tipo) => {
               const selected = tipoMedio === tipo;
               const icon = TIPO_MEDIO_ICONS[tipo] || 'fa-ellipsis-h';
@@ -967,7 +967,7 @@ export default function DynamicRegistrationForm({
                   type="button"
                   onClick={() => handleMedioSelect(tipo)}
                   className={`
-                    group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-snappy cursor-pointer
+                    group relative flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-xl border-2 transition-snappy cursor-pointer
                     ${selected
                       ? 'border-brand bg-brand/10 shadow-md'
                       : 'border-edge bg-surface/40 hover:border-brand/40 hover:bg-surface/80'}
@@ -1009,22 +1009,22 @@ export default function DynamicRegistrationForm({
           </div>{/* close section card */}
 
           {/* Nav */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => goBack('responsable')}
-              className="flex-1 py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy"
+              className="flex-1 py-3 sm:py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm sm:text-base"
             >
-              <i className="fas fa-arrow-left mr-2" /> Volver
+              <i className="fas fa-arrow-left mr-1.5 sm:mr-2" /> Volver
             </button>
             <button
               type="button"
               onClick={handleMedioSubmit}
               disabled={!tipoMedio || (quotaResult !== null && !quotaResult.available)}
-              className="flex-1 py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base"
               style={{ backgroundColor: tenantColors.primario }}
             >
-              Siguiente <i className="fas fa-arrow-right ml-2" />
+              Siguiente <i className="fas fa-arrow-right ml-1.5 sm:ml-2" />
             </button>
           </div>
         </div>
@@ -1032,25 +1032,25 @@ export default function DynamicRegistrationForm({
 
       {/* ═══════ PASO 3 — ACREDITADOS ═══════ */}
       {step === 'acreditados' && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 sm:space-y-6 animate-fade-in">
           {/* Section Card Header */}
           <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden">
-            <div className="px-6 py-5 bg-surface/60">
-              <div className="flex items-center gap-4">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 bg-surface/60">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <span
-                  className="flex items-center justify-center w-10 h-10 rounded-xl text-white font-bold text-lg shrink-0"
+                  className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl text-white font-bold text-base sm:text-lg shrink-0"
                   style={{ backgroundColor: tenantColors.primario }}
                 >
                   3
                 </span>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-bold text-heading">Acreditados</h2>
-                  <p className="text-sm text-muted">Agrega las personas que asistirán al evento por <strong className="text-heading">{responsable.organizacion}</strong></p>
+                  <h2 className="text-base sm:text-lg font-bold text-heading">Acreditados</h2>
+                  <p className="text-xs sm:text-sm text-muted">Agrega las personas que asistirán al evento por <strong className="text-heading">{responsable.organizacion}</strong></p>
                 </div>
               </div>
 
               {/* Context chips */}
-              <div className="flex flex-wrap items-center gap-2 mt-4 ml-14">
+              <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4 ml-11 sm:ml-14">
                 <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface border border-edge text-xs text-body">
                   <i className={`fas ${TIPO_MEDIO_ICONS[tipoMedio] || 'fa-ellipsis-h'} text-brand`} /> {tipoMedio}
                 </span>
@@ -1069,10 +1069,10 @@ export default function DynamicRegistrationForm({
 
           {/* ── Incluirme card ── */}
           {!incluirmeDone && (
-            <div className="rounded-2xl border-2 border-dashed border-brand/30 bg-brand/5 p-5">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="rounded-2xl border-2 border-dashed border-brand/30 bg-brand/5 p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-heading flex items-center gap-2">
+                  <p className="font-semibold text-heading flex items-center gap-2 text-sm sm:text-base">
                     <i className="fas fa-user-check text-brand" />
                     ¿Asistirás tú también?
                   </p>
@@ -1083,7 +1083,7 @@ export default function DynamicRegistrationForm({
                 <button
                   type="button"
                   onClick={handleIncluirme}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold text-sm transition-snappy hover:opacity-90 shrink-0"
+                  className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-white font-semibold text-xs sm:text-sm transition-snappy hover:opacity-90 shrink-0 w-full sm:w-auto justify-center"
                   style={{ backgroundColor: tenantColors.primario }}
                 >
                   <i className="fas fa-user-plus" /> Incluirme como acreditado
@@ -1098,7 +1098,7 @@ export default function DynamicRegistrationForm({
               type="button"
               onClick={handleAddAcreditado}
               disabled={acreditados.length >= maxCupos}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-edge text-body font-semibold text-sm hover:bg-surface transition-snappy disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-edge text-body font-semibold text-xs sm:text-sm hover:bg-surface transition-snappy disabled:opacity-40"
             >
               <i className="fas fa-user-plus" /> Agregar persona
             </button>
@@ -1106,7 +1106,7 @@ export default function DynamicRegistrationForm({
               <button
                 type="button"
                 onClick={() => setShowTeamPicker(!showTeamPicker)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-snappy ${
+                className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-snappy ${
                   showTeamPicker
                     ? 'bg-brand/10 border-2 border-brand text-brand'
                     : 'border border-edge text-body hover:bg-surface'
@@ -1117,8 +1117,8 @@ export default function DynamicRegistrationForm({
             )}
             {bulkEnabled && (
               <>
-                <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-brand/40 text-brand font-semibold text-sm hover:bg-brand/5 transition-snappy cursor-pointer">
-                  <i className="fas fa-file-upload" /> Importar Excel / CSV
+                <label className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border-2 border-dashed border-brand/40 text-brand font-semibold text-xs sm:text-sm hover:bg-brand/5 transition-snappy cursor-pointer">
+                  <i className="fas fa-file-upload" /> <span className="hidden sm:inline">Importar</span> Excel / CSV
                   <input
                     type="file"
                     accept=".xlsx,.xls,.csv,.txt,.tsv"
@@ -1129,7 +1129,7 @@ export default function DynamicRegistrationForm({
                 <button
                   type="button"
                   onClick={downloadTemplate}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-edge text-muted font-semibold text-sm hover:bg-surface hover:text-body transition-snappy"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-edge text-muted font-semibold text-xs sm:text-sm hover:bg-surface hover:text-body transition-snappy"
                   title="Descargar plantilla Excel con los campos del evento"
                 >
                   <i className="fas fa-download" /> Plantilla
@@ -1267,19 +1267,19 @@ export default function DynamicRegistrationForm({
           )}
 
           {/* Nav */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => goBack('medio')}
-              className="flex-1 py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy"
+              className="flex-1 py-3 sm:py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm sm:text-base"
             >
-              <i className="fas fa-arrow-left mr-2" /> Volver
+              <i className="fas fa-arrow-left mr-1.5 sm:mr-2" /> Volver
             </button>
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || acreditados.length === 0}
-              className="flex-1 py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed relative"
+              className="flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed relative text-sm sm:text-base"
               style={{ backgroundColor: tenantColors.primario }}
             >
               {submitting ? (
@@ -1298,14 +1298,14 @@ export default function DynamicRegistrationForm({
 
       {/* ═══════ SUCCESS ═══════ */}
       {step === 'success' && (
-        <div className="animate-fade-in text-center space-y-6">
+        <div className="animate-fade-in text-center space-y-5 sm:space-y-6 px-2">
           <div className="flex justify-center">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center bg-success/15">
-              <i className="fas fa-check text-4xl text-success" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center bg-success/15">
+              <i className="fas fa-check text-3xl sm:text-4xl text-success" />
             </div>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-heading">¡Solicitud enviada!</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-heading">¡Solicitud enviada!</h2>
             <p className="text-muted mt-2">
               {submitResults.filter(r => r.ok).length} de {submitResults.length} acreditaciones enviadas correctamente
             </p>
@@ -1360,9 +1360,9 @@ export default function DynamicRegistrationForm({
 
           {/* Responsable summary */}
           <div className="space-y-3 mb-6">
-            <div className="bg-surface rounded-xl p-4 border border-edge">
+            <div className="bg-surface rounded-xl p-3 sm:p-4 border border-edge">
               <p className="text-xs font-semibold text-muted uppercase mb-2">Responsable</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-sm">
                 <div><span className="text-muted">Nombre:</span> <span className="font-medium text-heading">{responsable.nombre} {responsable.apellido}</span></div>
                 <div><span className="text-muted">RUT:</span> <span className="font-medium text-heading">{responsable.rut}</span></div>
                 <div><span className="text-muted">Email:</span> <span className="font-medium text-heading">{responsable.email}</span></div>
@@ -1370,7 +1370,7 @@ export default function DynamicRegistrationForm({
               </div>
             </div>
 
-            <div className="bg-surface rounded-xl p-4 border border-edge">
+            <div className="bg-surface rounded-xl p-3 sm:p-4 border border-edge">
               <p className="text-xs font-semibold text-muted uppercase mb-2">Tipo de Medio</p>
               <div className="flex items-center gap-2">
                 <i className={`fas ${TIPO_MEDIO_ICONS[tipoMedio] || 'fa-ellipsis-h'} text-brand`} />
@@ -1378,7 +1378,7 @@ export default function DynamicRegistrationForm({
               </div>
             </div>
 
-            <div className="bg-surface rounded-xl p-4 border border-edge">
+            <div className="bg-surface rounded-xl p-3 sm:p-4 border border-edge">
               <p className="text-xs font-semibold text-muted uppercase mb-2">Acreditados ({acreditados.length})</p>
               <div className="space-y-2">
                 {acreditados.map((a, i) => (
@@ -1393,17 +1393,17 @@ export default function DynamicRegistrationForm({
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => setShowConfirmModal(false)}
-              className="flex-1 py-3 rounded-xl border-2 border-edge text-body font-semibold hover:bg-surface transition-snappy"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl border-2 border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm sm:text-base"
             >
-              <i className="fas fa-pen mr-2" /> Modificar
+              <i className="fas fa-pen mr-1.5 sm:mr-2" /> Modificar
             </button>
             <button
               onClick={handleConfirmedSubmit}
               disabled={submitting}
-              className="flex-1 py-3 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-50"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-50 text-sm sm:text-base"
               style={{ backgroundColor: tenantColors.primario }}
             >
               {submitting ? (

@@ -153,7 +153,7 @@ export default function PerfilPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-heading">Mi Perfil</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-heading">Mi Perfil</h1>
         <p className="text-body mt-1">Estos datos se usarán para pre-rellenar futuras acreditaciones</p>
       </div>
 
@@ -165,9 +165,9 @@ export default function PerfilPage() {
         </div>
       )}
 
-      <form onSubmit={handleSave} className="bg-white rounded-xl border p-8 space-y-6 max-w-2xl">
+      <form onSubmit={handleSave} className="bg-white rounded-xl border p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
         {/* Avatar + RUT */}
-        <div className="flex items-center gap-6 pb-6 border-b">
+        <div className="flex items-center gap-4 sm:gap-6 pb-4 sm:pb-6 border-b">
           {profile.foto_url ? (
             <img src={profile.foto_url} alt="" className="w-20 h-20 rounded-full object-cover" />
           ) : (
@@ -298,7 +298,7 @@ export default function PerfilPage() {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-3 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover disabled:opacity-50 transition"
+            className="px-4 sm:px-6 py-2.5 sm:py-3 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover disabled:opacity-50 transition text-sm sm:text-base"
           >
             {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>

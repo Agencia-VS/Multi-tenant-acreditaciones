@@ -68,7 +68,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                     value={bulkRejectMotivo}
                     onChange={e => setBulkRejectMotivo(e.target.value)}
                     placeholder="Motivo del rechazo..."
-                    className="px-3 py-1.5 text-sm border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 text-heading w-64"
+                    className="px-3 py-1.5 text-sm border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 text-heading w-full sm:w-64"
                     autoFocus
                   />
                   <button

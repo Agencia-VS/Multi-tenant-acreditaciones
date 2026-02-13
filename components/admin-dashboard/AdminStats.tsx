@@ -35,7 +35,7 @@ export default function AdminStats() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-base font-medium text-body uppercase tracking-wide">{card.label}</p>
-              <p className="text-3xl font-bold text-heading mt-1">{card.value}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-heading mt-1">{card.value}</p>
             </div>
             <div className={`w-12 h-12 bg-gradient-to-br ${card.gradient} rounded-xl flex items-center justify-center shadow-sm`}>
               <i className={`fas ${card.icon} text-white text-lg`} />
