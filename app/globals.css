@@ -17,31 +17,40 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* Content / Text hierarchy */
-  --color-heading: #111827;
-  --color-body: #4b5563;
-  --color-muted: #9ca3af;
-  --color-label: #374151;
+  /* ── Content / Text hierarchy ──
+     Negro Suave (#111111) → headings
+     Gris Grafito (#2B2B2B) → body/labels
+     Neutral grays for muted text */
+  --color-heading: #111111;
+  --color-body: #2B2B2B;
+  --color-muted: #888888;
+  --color-label: #2B2B2B;
 
-  /* Interactive / Brand */
-  --color-brand: #2563eb;
-  --color-brand-hover: #1d4ed8;
+  /* ── Interactive / Brand ──
+     Verde Acento (#00C48C) = primary action color
+     Darker green for hover states
+     White on green surfaces */
+  --color-brand: #00C48C;
+  --color-brand-hover: #00A676;
   --color-on-brand: #ffffff;
-  --color-accent: #3b82f6;
-  --color-accent-light: #dbeafe;
+  --color-accent: #00C48C;
+  --color-accent-light: #E6FBF3;
 
-  /* Surfaces */
+  /* ── Surfaces ──
+     Blanco (#FFFFFF) → elevated cards/surfaces
+     Gris Claro (#F2F2F2) → screen/canvas background */
   --color-surface: #ffffff;
-  --color-canvas: #f9fafb;
-  --color-subtle: #f3f4f6;
+  --color-canvas: #F2F2F2;
+  --color-subtle: #E8E8E8;
 
-  /* Borders */
-  --color-edge: #e5e7eb;
-  --color-field-border: #d1d5db;
+  /* ── Borders ──
+     Neutral grays matching achromatic corporate palette */
+  --color-edge: #DEDEDE;
+  --color-field-border: #CCCCCC;
 
-  /* Status / Sentiment */
+  /* ── Status / Sentiment ── */
   --color-success: #059669;
-  --color-success-light: #d1fae5;
+  --color-success-light: #D4F5E9;
   --color-success-dark: #065f46;
   --color-warn: #d97706;
   --color-warn-light: #fef3c7;
@@ -49,8 +58,8 @@
   --color-danger: #dc2626;
   --color-danger-light: #fee2e2;
   --color-danger-dark: #991b1b;
-  --color-info-light: #dbeafe;
-  --color-info-dark: #1e40af;
+  --color-info-light: #E6FBF3;
+  --color-info-dark: #00785A;
 
   /* ── Motion / Transitions (Wise: Snappy 60%, Fluid 30%, Intuitive 10%) ── */
   --duration-snappy: 200ms;
@@ -102,7 +111,7 @@
      Branded, accessible, keyboard-only (:focus-visible)
      Buttons: 2px border + 2px offset | Inputs: 3px border
      Links: 2px border, 4px radius    | Color: brand token */
-  --focus-color: var(--color-brand, #2563eb);
+  --focus-color: var(--color-brand, #00C48C);
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --focus-input-width: 3px;
@@ -201,7 +210,7 @@ a:focus-visible {
 .dark-surface input:focus-visible,
 .dark-surface select:focus-visible,
 .dark-surface [role="button"]:focus-visible {
-  --focus-color: var(--color-accent, #3b82f6);
+  --focus-color: var(--color-accent, #00C48C);
 }
 
 /* ── Skip-to-content link (a11y best practice) ── */

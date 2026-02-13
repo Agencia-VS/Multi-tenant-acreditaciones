@@ -118,6 +118,8 @@ export async function getProfileByUserId(userId: string): Promise<Profile | null
 
 /**
  * Actualizar datos_base del perfil (datos reutilizables como talla, seguro, etc.)
+ * NOTA: Esta función mantiene compatibilidad con el formato plano legacy.
+ * Para datos contextualizados por tenant, usar saveTenantProfileData().
  */
 export async function updateProfileDatosBase(
   profileId: string, 
@@ -144,3 +146,210 @@ export async function updateProfileDatosBase(
   if (error) throw new Error(`Error actualizando perfil: ${error.message}`);
   return data as Profile;
 }
+
+// ─── Tenant-Context Profile Data ───────────────────────────────────────────
+
+/**
+ * Guarda datos del perfil contextualizados por tenant.
+ * 
+ * Estructura en datos_base:
+ * {
+ *   // Legacy flat keys (backwards compatible)
+ *   talla_polera: "M",
+ *   // Tenant-namespaced data
+ *   _tenant: {
+ *     "uuid-tenant-uc": { talla_polera: "M", zona: "mixta", _form_keys: [...], _updated_at: "..." },
+ *     "uuid-tenant-cc": { grupo_sanguineo: "A+", _form_keys: [...], _updated_at: "..." }
+ *   }
+ * }
+ */
+export async function saveTenantProfileData(
+  profileId: string,
+  tenantId: string,
+  data: Record<string, unknown>,
+  formKeys: string[]
+): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+
+  // Leer datos_base actuales
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('datos_base')
+    .eq('id', profileId)
+    .single();
+
+  const datosBase = (existing?.datos_base || {}) as Record<string, unknown>;
+  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+  const currentTenantData = tenantMap[tenantId] || {};
+
+  // Merge datos nuevos con existentes del tenant (sin perder datos previos)
+  const mergedTenantData = {
+    ...currentTenantData,
+    ...data,
+    _form_keys: formKeys,
+    _updated_at: new Date().toISOString(),
+  };
+
+  // También guardar en flat (legacy compat) para que buildDynamicData funcione con código antiguo
+  const flatMerge = { ...datosBase };
+  for (const [key, val] of Object.entries(data)) {
+    if (!key.startsWith('_')) flatMerge[key] = val;
+  }
+
+  // Actualizar _tenant namespace
+  flatMerge._tenant = {
+    ...tenantMap,
+    [tenantId]: mergedTenantData,
+  };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ datos_base: flatMerge })
+    .eq('id', profileId);
+
+  if (error) throw new Error(`Error guardando datos de tenant: ${error.message}`);
+}
+
+/**
+ * Obtiene los datos guardados del perfil para un tenant específico.
+ */
+export async function getTenantProfileData(
+  profileId: string,
+  tenantId: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('datos_base')
+    .eq('id', profileId)
+    .single();
+
+  if (!data?.datos_base) return null;
+
+  const datosBase = data.datos_base as Record<string, unknown>;
+  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+
+  return tenantMap[tenantId] || null;
+}
+
+/**
+ * Construye datos de autofill mergeados para un formulario específico.
+ * Cascade: tenant-specific → flat datos_base → profile fixed fields
+ *
+ * Esta función se usa tanto en backend como puede exportarse para el frontend.
+ */
+export function buildMergedAutofillData(
+  profile: Profile,
+  tenantId: string,
+  formFields: import('@/types').FormFieldDefinition[]
+): Record<string, string> {
+  const datosBase = profile.datos_base || {};
+  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+  const tenantData = tenantMap[tenantId] || {};
+
+  // Mapeo de profile fixed fields a form field keys
+  const profileFieldMap: Record<string, unknown> = {
+    rut: profile.rut,
+    nombre: profile.nombre,
+    apellido: profile.apellido,
+    email: profile.email,
+    telefono: profile.telefono,
+    nacionalidad: profile.nacionalidad,
+    cargo: profile.cargo,
+    medio: profile.medio,
+    tipo_medio: profile.tipo_medio,
+  };
+
+  const result: Record<string, string> = {};
+
+  for (const field of formFields) {
+    let val: unknown;
+
+    // 1. Tenant-specific data (highest priority)
+    val = tenantData[field.key];
+
+    // 2. Flat datos_base (legacy)
+    if (val === undefined || val === null || val === '') {
+      val = datosBase[field.key];
+    }
+
+    // 3. Profile field mapping (e.g. "datos_base.talla_polera" → datosBase.talla_polera)
+    if ((val === undefined || val === null || val === '') && field.profile_field) {
+      const pfKey = field.profile_field.replace(/^datos_base\./, '');
+      // Check tenant data first
+      val = tenantData[pfKey];
+      // Then flat
+      if (val === undefined || val === null || val === '') {
+        val = datosBase[pfKey];
+      }
+      // Then profile fixed fields
+      if (val === undefined || val === null || val === '') {
+        val = profileFieldMap[pfKey];
+      }
+    }
+
+    if (val !== undefined && val !== null && val !== '') {
+      result[field.key] = String(val);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Calcula los campos faltantes de un perfil para un contexto tenant/evento.
+ * Compara lo que el formulario requiere contra los datos que ya tiene el perfil.
+ * 
+ * Retorna: { missingFields, formChanged, newKeys, removedKeys }
+ */
+export function computeTenantProfileStatus(
+  profile: Profile,
+  tenantId: string,
+  formFields: import('@/types').FormFieldDefinition[]
+): {
+  missingFields: import('@/types').FormFieldDefinition[];
+  totalRequired: number;
+  filledRequired: number;
+  formChanged: boolean;
+  newKeys: string[];
+  removedKeys: string[];
+} {
+  const mergedData = buildMergedAutofillData(profile, tenantId, formFields);
+  
+  // Solo contar campos requeridos para el % de completitud
+  const requiredFields = formFields.filter(f => f.required);
+  const totalRequired = requiredFields.length;
+  
+  const missingFields = requiredFields.filter(f => {
+    const val = mergedData[f.key];
+    return !val || val.trim() === '';
+  });
+  
+  const filledRequired = totalRequired - missingFields.length;
+
+  // Detectar cambios en el formulario vs lo que se guardó
+  const datosBase = profile.datos_base || {};
+  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+  const tenantData = tenantMap[tenantId] || {};
+  const savedFormKeys = (tenantData._form_keys || []) as string[];
+  
+  const currentFormKeys = formFields.map(f => f.key);
+  
+  // Si nunca guardó datos, no hay "cambio"
+  const hasData = savedFormKeys.length > 0;
+  const newKeys = hasData ? currentFormKeys.filter(k => !savedFormKeys.includes(k)) : [];
+  const removedKeys = hasData ? savedFormKeys.filter(k => !currentFormKeys.includes(k) && !k.startsWith('_')) : [];
+  const formChanged = newKeys.length > 0 || removedKeys.length > 0;
+
+  return {
+    missingFields,
+    totalRequired,
+    filledRequired,
+    formChanged,
+    newKeys,
+    removedKeys,
+  };
+}
+
+

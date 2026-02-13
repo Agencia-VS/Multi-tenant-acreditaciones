@@ -38,6 +38,64 @@ interface QuotaRule {
 
 const FIELD_TYPES = ['text', 'email', 'tel', 'select', 'checkbox', 'file', 'textarea', 'number'] as const;
 
+/* ═══════════════════════════════════════════════════════
+   Select Options Editor — tag-based UI for select fields
+   ═══════════════════════════════════════════════════════ */
+function SelectOptionsEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
+  const [inputValue, setInputValue] = useState('');
+
+  const addOption = () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    // Support comma-separated batch add
+    const newOpts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+    const unique = newOpts.filter(o => !options.includes(o));
+    if (unique.length > 0) {
+      onChange([...options, ...unique]);
+    }
+    setInputValue('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addOption();
+    }
+    if (e.key === 'Backspace' && inputValue === '' && options.length > 0) {
+      onChange(options.slice(0, -1));
+    }
+  };
+
+  const removeOption = (index: number) => {
+    onChange(options.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-lg border border-field-border bg-surface">
+        {options.map((opt, i) => (
+          <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-light text-brand rounded-md text-xs font-medium">
+            {opt}
+            <button type="button" onClick={() => removeOption(i)} className="text-brand/60 hover:text-danger transition">
+              <i className="fas fa-times text-[10px]" />
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={addOption}
+          placeholder={options.length === 0 ? 'Escribe opciones (Enter o coma para agregar)' : 'Agregar...'}
+          className="flex-1 min-w-[120px] px-1 py-0.5 text-sm text-label border-none outline-none bg-transparent"
+        />
+      </div>
+      <p className="text-[11px] text-muted">Enter o coma para agregar. Backspace para borrar la última.</p>
+    </div>
+  );
+}
+
 const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
   { key: 'nombre', label: 'Nombre', type: 'text', required: true, profile_field: 'nombre' },
   { key: 'apellido', label: 'Apellido', type: 'text', required: true, profile_field: 'apellido' },
@@ -56,7 +114,7 @@ export default function EventosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Event | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'cupos'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'cupos' | 'zonas'>('general');
   const [saving, setSaving] = useState(false);
   const { toast, showSuccess, showError, dismiss } = useToast();
 
@@ -76,6 +134,7 @@ export default function EventosPage() {
   });
   const [formFields, setFormFields] = useState<FormFieldDefinition[]>(DEFAULT_FORM_FIELDS);
   const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
+  const [zoneRules, setZoneRules] = useState<{ id?: string; cargo: string; zona: string }[]>([]);
 
   const loadData = useCallback(async () => {
     const [tenantsRes, eventsRes] = await Promise.all([
@@ -112,6 +171,7 @@ export default function EventosPage() {
     });
     setFormFields(DEFAULT_FORM_FIELDS);
     setQuotaRules([]);
+    setZoneRules([]);
     setActiveTab('general');
     setShowForm(true);
   };
@@ -133,11 +193,38 @@ export default function EventosPage() {
     });
     setFormFields(event.form_fields?.length ? event.form_fields : DEFAULT_FORM_FIELDS);
 
-    // Load quota rules
-    const res = await fetch(`/api/events/${event.id}/quotas`);
-    if (res.ok) {
-      const data = await res.json();
-      setQuotaRules(data.rules || []);
+    // Load quota rules (API returns array directly, not { rules: [...] })
+    try {
+      const res = await fetch(`/api/events/${event.id}/quotas`);
+      if (res.ok) {
+        const data = await res.json();
+        // API returns array directly from getQuotaRulesWithUsage
+        const rules = Array.isArray(data) ? data : (data.rules || []);
+        setQuotaRules(rules.map((r: QuotaRule & { id?: string }) => ({
+          id: r.id,
+          tipo_medio: r.tipo_medio,
+          max_per_organization: r.max_per_organization,
+          max_global: r.max_global,
+        })));
+      }
+    } catch {
+      console.warn('No se pudieron cargar reglas de cupos');
+    }
+
+    // Load zone rules
+    try {
+      const zRes = await fetch(`/api/events/${event.id}/zones`);
+      if (zRes.ok) {
+        const zData = await zRes.json();
+        const zArr = Array.isArray(zData) ? zData : [];
+        setZoneRules(zArr.map((r: { id?: string; cargo: string; zona: string }) => ({
+          id: r.id,
+          cargo: r.cargo,
+          zona: r.zona,
+        })));
+      }
+    } catch {
+      console.warn('No se pudieron cargar reglas de zonas');
     }
 
     setActiveTab('general');
@@ -172,10 +259,44 @@ export default function EventosPage() {
       const eventData = await res.json();
       const eventId = eventData.event?.id || eventData.id || editing?.id;
 
-      // Save quota rules
-      if (eventId && quotaRules.length > 0) {
+      // Save quota rules — upsert handles duplicates via (event_id, tipo_medio) constraint
+      if (eventId) {
+        // First, get existing rules to detect deletions
+        const existingRes = await fetch(`/api/events/${eventId}/quotas`);
+        const existingRules = existingRes.ok ? await existingRes.json() : [];
+        const existingArray = Array.isArray(existingRules) ? existingRules : (existingRules.rules || []);
+
+        // Delete rules that were removed
+        for (const existing of existingArray) {
+          const stillExists = quotaRules.some(r => r.tipo_medio === existing.tipo_medio);
+          if (!stillExists && existing.id) {
+            await fetch(`/api/events/${eventId}/quotas?rule_id=${existing.id}`, { method: 'DELETE' });
+          }
+        }
+
+        // Upsert current rules
         for (const rule of quotaRules) {
           await fetch(`/api/events/${eventId}/quotas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rule),
+          });
+        }
+
+        // Save zone rules — same pattern: detect deletions + upsert
+        const existingZRes = await fetch(`/api/events/${eventId}/zones`);
+        const existingZones = existingZRes.ok ? await existingZRes.json() : [];
+        const existingZArr = Array.isArray(existingZones) ? existingZones : [];
+
+        for (const existing of existingZArr) {
+          const stillExists = zoneRules.some(r => r.cargo === existing.cargo);
+          if (!stillExists && existing.id) {
+            await fetch(`/api/events/${eventId}/zones?rule_id=${existing.id}`, { method: 'DELETE' });
+          }
+        }
+
+        for (const rule of zoneRules) {
+          await fetch(`/api/events/${eventId}/zones`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(rule),
@@ -211,7 +332,9 @@ export default function EventosPage() {
 
   // Quota Management
   const addQuotaRule = () => {
-    setQuotaRules(prev => [...prev, { tipo_medio: TIPOS_MEDIO[0], max_per_organization: 5, max_global: 0 }]);
+    const tipoField = formFields.find(f => f.key === 'tipo_medio');
+    const firstTipo = tipoField?.options?.[0] || TIPOS_MEDIO[0];
+    setQuotaRules(prev => [...prev, { tipo_medio: firstTipo, max_per_organization: 5, max_global: 0 }]);
   };
 
   const updateQuotaRule = (index: number, updates: Partial<QuotaRule>) => {
@@ -220,6 +343,19 @@ export default function EventosPage() {
 
   const removeQuotaRule = (index: number) => {
     setQuotaRules(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Zone Management
+  const addZoneRule = () => {
+    setZoneRules(prev => [...prev, { cargo: '', zona: '' }]);
+  };
+
+  const updateZoneRule = (index: number, updates: Partial<{ cargo: string; zona: string }>) => {
+    setZoneRules(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
+  };
+
+  const removeZoneRule = (index: number) => {
+    setZoneRules(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -240,7 +376,7 @@ export default function EventosPage() {
 
             {/* Tabs */}
             <div className="px-8 pt-4 flex gap-1 border-b">
-              {(['general', 'form', 'cupos'] as const).map((tab) => (
+              {(['general', 'form', 'cupos', 'zonas'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -253,6 +389,7 @@ export default function EventosPage() {
                   {tab === 'general' && <><i className="fas fa-info-circle mr-2" />General</>}
                   {tab === 'form' && <><i className="fas fa-list-alt mr-2" />Formulario ({formFields.length})</>}
                   {tab === 'cupos' && <><i className="fas fa-chart-pie mr-2" />Cupos ({quotaRules.length})</>}
+                  {tab === 'zonas' && <><i className="fas fa-map-signs mr-2" />Zonas ({zoneRules.length})</>}
                 </button>
               ))}
             </div>
@@ -447,15 +584,10 @@ export default function EventosPage() {
                           </button>
                         </div>
                         {field.type === 'select' && (
-                          <div className="mt-2">
-                            <input
-                              type="text"
-                              value={field.options?.join(', ') || ''}
-                              onChange={(e) => updateField(i, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                              placeholder="Opciones separadas por coma"
-                              className="w-full px-2 py-1 rounded border text-sm text-body"
-                            />
-                          </div>
+                          <SelectOptionsEditor
+                            options={field.options || []}
+                            onChange={(opts) => updateField(i, { options: opts })}
+                          />
                         )}
                       </div>
                     ))}
@@ -467,9 +599,17 @@ export default function EventosPage() {
               {activeTab === 'cupos' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-body">
-                      Limitar acreditaciones por tipo de medio y organización.
-                    </p>
+                    <div>
+                      <p className="text-sm text-body">
+                        Limitar acreditaciones por tipo de medio y organización.
+                      </p>
+                      {editing && quotaRules.some(r => r.id) && (
+                        <p className="text-xs text-success mt-1">
+                          <i className="fas fa-check-circle mr-1" />
+                          {quotaRules.filter(r => r.id).length} regla(s) guardada(s) en base de datos
+                        </p>
+                      )}
+                    </div>
                     <button type="button" onClick={addQuotaRule} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
                       <i className="fas fa-plus mr-1" /> Regla
                     </button>
@@ -479,47 +619,191 @@ export default function EventosPage() {
                     <div className="text-center py-8 text-muted">
                       <i className="fas fa-infinity text-3xl mb-2" />
                       <p>Sin restricciones de cupo. Se permiten acreditaciones ilimitadas.</p>
+                      <p className="text-xs mt-2">Haz clic en &quot;+ Regla&quot; para agregar un límite.</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {quotaRules.map((rule, i) => (
-                        <div key={i} className="bg-canvas rounded-lg p-4 border flex items-center gap-4">
-                          <select
-                            value={rule.tipo_medio}
-                            onChange={(e) => updateQuotaRule(i, { tipo_medio: e.target.value })}
-                            className="px-3 py-2 rounded-lg border text-sm text-label flex-1"
-                          >
-                            {TIPOS_MEDIO.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-body whitespace-nowrap">Max/Org:</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={rule.max_per_organization}
-                              onChange={(e) => updateQuotaRule(i, { max_per_organization: parseInt(e.target.value) || 0 })}
-                              className="w-20 px-2 py-2 rounded-lg border text-sm text-label"
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-body whitespace-nowrap">Max Global:</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={rule.max_global}
-                              onChange={(e) => updateQuotaRule(i, { max_global: parseInt(e.target.value) || 0 })}
-                              className="w-20 px-2 py-2 rounded-lg border text-sm text-label"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeQuotaRule(i)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <i className="fas fa-trash" />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="space-y-3">
+                      {/* Summary table */}
+                      <div className="rounded-lg border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-canvas text-left">
+                              <th className="px-4 py-2 font-medium text-label">Tipo de Medio</th>
+                              <th className="px-4 py-2 font-medium text-label text-center">Máx. por Org</th>
+                              <th className="px-4 py-2 font-medium text-label text-center">Máx. Global</th>
+                              <th className="px-4 py-2 font-medium text-label text-center">Estado</th>
+                              <th className="px-4 py-2 font-medium text-label text-center w-10"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {quotaRules.map((rule, i) => {
+                              // Derive tipo_medio options from current form_fields
+                              const tipoField = formFields.find(f => f.key === 'tipo_medio');
+                              const tipoOptions = tipoField?.options?.length ? tipoField.options : [...TIPOS_MEDIO];
+
+                              return (
+                              <tr key={i} className="hover:bg-canvas/50">
+                                <td className="px-4 py-3">
+                                  <select
+                                    value={rule.tipo_medio}
+                                    onChange={(e) => updateQuotaRule(i, { tipo_medio: e.target.value })}
+                                    className="px-2 py-1 rounded border text-sm text-label bg-transparent"
+                                  >
+                                    {tipoOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                                  </select>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={rule.max_per_organization}
+                                    onChange={(e) => updateQuotaRule(i, { max_per_organization: parseInt(e.target.value) || 0 })}
+                                    className="w-20 px-2 py-1 rounded border text-sm text-label text-center"
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={rule.max_global}
+                                    onChange={(e) => updateQuotaRule(i, { max_global: parseInt(e.target.value) || 0 })}
+                                    className="w-20 px-2 py-1 rounded border text-sm text-label text-center"
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {rule.id ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-light text-success-dark rounded-full text-xs font-medium">
+                                      <i className="fas fa-check text-[10px]" /> Guardada
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-warn-light text-warn-dark rounded-full text-xs font-medium">
+                                      <i className="fas fa-clock text-[10px]" /> Nueva
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeQuotaRule(i)}
+                                    className="text-red-400 hover:text-red-600 transition"
+                                  >
+                                    <i className="fas fa-trash text-sm" />
+                                  </button>
+                                </td>
+                              </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-muted">
+                        <i className="fas fa-info-circle mr-1" />
+                        0 = sin límite. Los cambios se aplicarán al guardar el evento.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Zone Rules Tab */}
+              {activeTab === 'zonas' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-body">
+                        Asignar zonas de acceso automáticamente según el cargo.
+                      </p>
+                      {editing && zoneRules.some(r => r.id) && (
+                        <p className="text-xs text-success mt-1">
+                          <i className="fas fa-check-circle mr-1" />
+                          {zoneRules.filter(r => r.id).length} regla(s) guardada(s) en base de datos
+                        </p>
+                      )}
+                    </div>
+                    <button type="button" onClick={addZoneRule} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
+                      <i className="fas fa-plus mr-1" /> Regla
+                    </button>
+                  </div>
+
+                  {zoneRules.length === 0 ? (
+                    <div className="text-center py-8 text-muted">
+                      <i className="fas fa-map-marked-alt text-3xl mb-2" />
+                      <p>Sin reglas de zona. El admin asignará zonas manualmente.</p>
+                      <p className="text-xs mt-2">Haz clic en &quot;+ Regla&quot; para mapear cargo → zona.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="rounded-lg border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-canvas text-left">
+                              <th className="px-4 py-2 font-medium text-label">Cargo</th>
+                              <th className="px-4 py-2 font-medium text-label"><i className="fas fa-arrow-right mx-1" /></th>
+                              <th className="px-4 py-2 font-medium text-label">Zona asignada</th>
+                              <th className="px-4 py-2 font-medium text-label text-center">Estado</th>
+                              <th className="px-4 py-2 font-medium text-label text-center w-10"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {zoneRules.map((rule, i) => {
+                              // Derive cargo options from the current form_fields cargo field
+                              const cargoField = formFields.find(f => f.key === 'cargo');
+                              const cargoOptions = cargoField?.options || [...CARGOS];
+
+                              return (
+                                <tr key={i} className="hover:bg-canvas/50">
+                                  <td className="px-4 py-3">
+                                    <select
+                                      value={rule.cargo}
+                                      onChange={(e) => updateZoneRule(i, { cargo: e.target.value })}
+                                      className="px-2 py-1 rounded border text-sm text-label bg-transparent"
+                                    >
+                                      <option value="">Seleccionar cargo...</option>
+                                      {cargoOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-muted">
+                                    <i className="fas fa-arrow-right" />
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <input
+                                      type="text"
+                                      value={rule.zona}
+                                      onChange={(e) => updateZoneRule(i, { zona: e.target.value })}
+                                      placeholder="Ej: Prensa, VIP, Staff, Cancha..."
+                                      className="w-full px-2 py-1 rounded border text-sm text-label"
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {rule.id ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-light text-success-dark rounded-full text-xs font-medium">
+                                        <i className="fas fa-check text-[10px]" /> Guardada
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-warn-light text-warn-dark rounded-full text-xs font-medium">
+                                        <i className="fas fa-clock text-[10px]" /> Nueva
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeZoneRule(i)}
+                                      className="text-red-400 hover:text-red-600 transition"
+                                    >
+                                      <i className="fas fa-trash text-sm" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-muted">
+                        <i className="fas fa-info-circle mr-1" />
+                        Al crear una acreditación con un cargo mapeado, la zona se asignará automáticamente en datos_extra.
+                      </p>
                     </div>
                   )}
                 </div>

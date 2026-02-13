@@ -62,6 +62,18 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
       {/* Cargo */}
       <td className="p-3 text-base text-body">{reg.cargo || <span className="text-muted">—</span>}</td>
 
+      {/* Zona */}
+      <td className="p-3">
+        {(reg.datos_extra as Record<string, unknown>)?.zona ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-sm font-medium text-purple-700">
+            <i className="fas fa-map-signs mr-1 text-xs" />
+            {String((reg.datos_extra as Record<string, unknown>).zona)}
+          </span>
+        ) : (
+          <span className="text-muted text-sm">—</span>
+        )}
+      </td>
+
       {/* Estado */}
       <td className="p-3">
         <StatusBadge status={reg.status} />

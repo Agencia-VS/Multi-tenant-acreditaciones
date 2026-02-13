@@ -37,7 +37,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0c1117] dark-surface">
+    <div className="min-h-screen bg-[#111111] dark-surface">
       {/* ════════════════════════════════════════════════════════════════
           HERO — "Write headlines as if it's illegal to write subcopy"
          ════════════════════════════════════════════════════════════════ */}
@@ -329,7 +329,7 @@ export default function LandingPage() {
          ════════════════════════════════════════════════════════════════ */}
       <section className="py-20 relative overflow-hidden">
         {/* Background with gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-brand via-brand-hover to-[#1e3a8a]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#111111] via-[#1A1A1A] to-[#111111]" />
         <div className="absolute inset-0 opacity-[0.04]" style={{
           backgroundImage: `radial-gradient(circle, #ffffff 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
@@ -343,7 +343,7 @@ export default function LandingPage() {
 
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-5 tracking-tight">
             ¿Organizas eventos?
-            <span className="block mt-2 text-white/80">Digitaliza tu acreditación.</span>
+            <span className="block mt-2 text-[#00C48C]">Digitaliza tu acreditación.</span>
           </h2>
 
           <p className="text-white/60 text-lg mb-10 max-w-lg mx-auto leading-relaxed">
@@ -353,7 +353,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/superadmin"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-brand font-semibold rounded-xl hover:bg-white/90 transition-snappy shadow-lg"
+              className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#00C48C] text-white font-semibold rounded-xl hover:bg-[#00A676] transition-snappy shadow-lg shadow-[#00C48C]/20"
             >
               Solicitar acceso
               <svg className="w-4 h-4 group-hover:translate-x-1 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,7 +374,7 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════════════════════════
           FOOTER — Limpio y funcional
          ════════════════════════════════════════════════════════════════ */}
-      <footer className="bg-[#0c1117] border-t border-white/[0.06] text-white py-10">
+      <footer className="bg-[#111111] border-t border-white/[0.06] text-white py-10">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <Link href="/" className="flex items-center gap-3 group">

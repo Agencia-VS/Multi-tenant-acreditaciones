@@ -85,6 +85,7 @@ export default async function AcreditacionPage({
               secundario: tenant.color_secundario,
             }}
             tenantSlug={slug}
+            tenantId={tenant.id}
             tenantName={tenant.nombre}
             eventFecha={event.fecha}
             eventVenue={event.venue}

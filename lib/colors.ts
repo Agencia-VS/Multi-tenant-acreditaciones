@@ -304,3 +304,38 @@ export function paletteToCSS(
     '--tenant-dark': rawColors.dark,
   };
 }
+
+// ─── Corporate (non-tenant) default colors ───────────────────────────────────
+
+/**
+ * Corporate brand colors for the platform itself (landing page, non-tenant UI).
+ * Used when no tenant context is active.
+ *
+ *   Negro Suave   #111111  — headings, primary text
+ *   Gris Grafito  #2B2B2B  — body text, labels
+ *   Gris Claro    #F2F2F2  — canvas / light backgrounds
+ *   Blanco        #FFFFFF  — surfaces, elevated elements
+ *   Verde Acento  #00C48C  — primary action / accent (CTA, links, focus)
+ */
+export const CORPORATE_COLORS = {
+  negroSuave:   '#111111',
+  grisGrafito:  '#2B2B2B',
+  grisClaro:    '#F2F2F2',
+  blanco:       '#FFFFFF',
+  verdeAccion:  '#00C48C',
+  verdeHover:   '#00A676',
+  accentLight:  '#E6FBF3',
+} as const;
+
+/**
+ * Generate the corporate (non-tenant) palette using the platform's own colors.
+ * Returns a TenantPalette so it's compatible with paletteToCSS().
+ */
+export function generateCorporatePalette(): TenantPalette {
+  return generateTenantPalette(
+    CORPORATE_COLORS.verdeAccion,  // primario  → brand / accent
+    CORPORATE_COLORS.grisGrafito,  // secundario
+    CORPORATE_COLORS.grisClaro,    // light
+    CORPORATE_COLORS.negroSuave,   // dark
+  );
+}

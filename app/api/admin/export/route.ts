@@ -9,6 +9,19 @@ import { listRegistrations } from '@/lib/services';
 import type { RegistrationStatus } from '@/types';
 import ExcelJS from 'exceljs';
 
+/* ── helpers ─────────────────────────────────────────── */
+
+/** Try to extract a field from datos_extra → datos_base → top-level registration */
+function extractField(r: Record<string, unknown>, key: string): string {
+  // 1. datos_extra (dynamic form fields for THIS registration)
+  const extras = (r.datos_extra ?? {}) as Record<string, unknown>;
+  if (extras[key]) return String(extras[key]);
+  // 2. profile datos_base
+  const db = (r.profile_datos_base ?? {}) as Record<string, unknown>;
+  if (db[key]) return String(db[key]);
+  return '';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -32,51 +45,63 @@ export async function GET(request: NextRequest) {
       limit: 10000,
     });
 
-    // PuntoTicket XLSX format — only approved registrations
+    // ─── PuntoTicket XLSX format ────────────────────────
+    // Matches the real PuntoTicket structure:
+    // Nombre | Apellido | RUT | Empresa | Área | Zona | Patente | (reserved) | Acreditación | Cantidad
     if (format === 'puntoticket') {
       const approved = registrations.filter(r => r.status === 'aprobado');
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Accredia';
-      const sheet = workbook.addWorksheet('PuntoTicket');
+      const sheet = workbook.addWorksheet('Acreditaciones');
 
       sheet.columns = [
-        { header: 'RUT', key: 'rut', width: 16 },
-        { header: 'Nombre Completo', key: 'nombre_completo', width: 30 },
-        { header: 'Email', key: 'email', width: 28 },
-        { header: 'Tipo Medio', key: 'tipo_medio', width: 16 },
-        { header: 'Organización', key: 'organizacion', width: 25 },
-        { header: 'Cargo', key: 'cargo', width: 18 },
-        { header: 'Evento', key: 'evento', width: 30 },
-        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'Nombre',       key: 'nombre',       width: 22 },
+        { header: 'Apellido',     key: 'apellido',     width: 22 },
+        { header: 'Rut xxxxxxxx-x', key: 'rut',        width: 16 },
+        { header: 'Empresa',      key: 'empresa',      width: 25 },
+        { header: 'Área',         key: 'area',         width: 22 },
+        { header: 'Zona',         key: 'zona',         width: 20 },
+        { header: 'Patente',      key: 'patente',      width: 12 },
       ];
 
+      // Deep purple header matching PuntoTicket branding
       const headerRow = sheet.getRow(1);
       headerRow.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6b21a8' } };
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FF4a1480' } },
+        };
       });
-      headerRow.height = 22;
+      headerRow.height = 24;
 
       approved.forEach(r => {
+        const rec = r as unknown as Record<string, unknown>;
         sheet.addRow({
-          rut: r.rut,
-          nombre_completo: `${r.profile_nombre} ${r.profile_apellido}`,
-          email: r.profile_email || '',
-          tipo_medio: r.tipo_medio || '',
-          organizacion: r.organizacion || '',
-          cargo: r.cargo || '',
-          evento: r.event_nombre || '',
-          fecha: r.event_fecha ? new Date(r.event_fecha).toLocaleDateString('es-CL') : '',
+          nombre:   r.profile_nombre || '',
+          apellido: r.profile_apellido || '',
+          rut:      r.rut || '',
+          empresa:  r.organizacion || extractField(rec, 'empresa') || '',
+          area:     extractField(rec, 'area') || r.tipo_medio || '',
+          zona:     extractField(rec, 'zona') || '',
+          patente:  extractField(rec, 'patente') || '',
         });
       });
 
+      // Auto-filter
+      sheet.autoFilter = { from: 'A1', to: 'G1' };
+
+      // Freeze header
+      sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
       const buffer = await workbook.xlsx.writeBuffer();
+      const eventName = approved[0]?.event_nombre?.replace(/[^a-zA-Z0-9]/g, '_') || 'export';
       return new NextResponse(buffer as unknown as BodyInit, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="puntoticket-${Date.now()}.xlsx"`,
+          'Content-Disposition': `attachment; filename="puntoticket-${eventName}-${Date.now()}.xlsx"`,
         },
       });
     }

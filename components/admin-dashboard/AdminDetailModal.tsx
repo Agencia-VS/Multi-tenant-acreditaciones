@@ -46,6 +46,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
     { label: 'Organización', value: reg.organizacion || '—', icon: 'fa-building' },
     { label: 'Tipo Medio', value: reg.tipo_medio || '—', icon: 'fa-broadcast-tower' },
     { label: 'Cargo', value: reg.cargo || '—', icon: 'fa-user-tie' },
+    { label: 'Zona', value: (reg.datos_extra as Record<string, unknown>)?.zona as string || '—', icon: 'fa-map-signs' },
   ];
 
   return (

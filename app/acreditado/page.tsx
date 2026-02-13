@@ -8,6 +8,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/ui';
 import { isDeadlinePast, formatDeadlineChile } from '@/lib/dates';
+import type { TenantProfileStatus } from '@/types';
 
 interface ActiveEvent {
   id: string;
@@ -21,6 +22,7 @@ interface ActiveEvent {
 export default function AcreditadoHomePage() {
   const [events, setEvents] = useState<ActiveEvent[]>([]);
   const [profile, setProfile] = useState<{ nombre: string; apellido: string } | null>(null);
+  const [tenantStatuses, setTenantStatuses] = useState<TenantProfileStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,6 +56,16 @@ export default function AcreditadoHomePage() {
       .order('fecha', { ascending: true });
 
     if (eventsData) setEvents(eventsData as unknown as ActiveEvent[]);
+
+    // Get tenant completion statuses
+    try {
+      const statusRes = await fetch('/api/profiles/tenant-status');
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        setTenantStatuses(statusData.tenants || []);
+      }
+    } catch { /* ignore */ }
+
     setLoading(false);
   };
 
@@ -89,6 +101,61 @@ export default function AcreditadoHomePage() {
         </Link>
       </div>
 
+      {/* Tenant Profile Completion */}
+      {tenantStatuses.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-bold text-heading mb-3">
+            <i className="fas fa-tasks mr-2 text-muted" />
+            Estado de tu Perfil por Organización
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {tenantStatuses.map(t => {
+              const isComplete = t.completionPct === 100 || t.totalRequired === 0;
+              const hasChanges = t.formChanged && t.newKeys.length > 0;
+              return (
+                <Link
+                  key={t.tenantId}
+                  href={`/${t.tenantSlug}/acreditacion`}
+                  className="flex items-center gap-3 p-4 bg-surface rounded-xl border border-edge hover:shadow-md transition"
+                >
+                  {/* Mini completion ring */}
+                  <div className="relative w-10 h-10 shrink-0">
+                    <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="3" className="text-edge" />
+                      <circle
+                        cx="18" cy="18" r="15.5" fill="none"
+                        stroke={isComplete ? 'var(--color-success)' : t.tenantColor}
+                        strokeWidth="3"
+                        strokeDasharray={`${t.completionPct * 0.975} 100`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-heading">
+                      {t.completionPct}%
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-heading text-sm truncate">{t.tenantNombre}</p>
+                    {isComplete && (
+                      <p className="text-xs text-success"><i className="fas fa-check mr-1" />Perfil completo</p>
+                    )}
+                    {!isComplete && t.missingFields.length > 0 && (
+                      <p className="text-xs text-warn-dark">
+                        {t.missingFields.length} campo{t.missingFields.length !== 1 ? 's' : ''} faltante{t.missingFields.length !== 1 ? 's' : ''}
+                      </p>
+                    )}
+                    {hasChanges && (
+                      <p className="text-xs text-info-dark"><i className="fas fa-sync-alt mr-1" />Formulario actualizado</p>
+                    )}
+                  </div>
+                  <i className="fas fa-chevron-right text-muted text-xs" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Active Events */}
       <h2 className="text-xl font-bold text-heading mb-4">
         <i className="fas fa-calendar mr-2 text-muted" />
@@ -116,7 +183,7 @@ export default function AcreditadoHomePage() {
                     ) : (
                       <div
                         className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
-                        style={{ backgroundColor: tenant?.color_primario || '#3b82f6' }}
+                        style={{ backgroundColor: tenant?.color_primario || '#00C48C' }}
                       >
                         {tenant?.nombre?.charAt(0) || '?'}
                       </div>

@@ -144,6 +144,59 @@ export interface FormFieldDefinition {
   order?: number;
 }
 
+// ─── Tenant-Context Profile Data ───────────────────────────────────────────
+
+/**
+ * Datos que un usuario ha completado para un tenant específico.
+ * Almacenados en `profile.datos_base._tenant[tenantId]`.
+ *
+ * Esto permite:
+ * - Persistencia inteligente: datos se guardan por tenant
+ * - Formulario diferencial: solo mostrar campos faltantes
+ * - Detección de cambios: comparar _form_keys contra el form actual
+ */
+export interface TenantProfileData {
+  [key: string]: unknown;
+  /** Keys del formulario cuando se guardaron los datos (para detectar cambios) */
+  _form_keys?: string[];
+  /** Timestamp de la última actualización */
+  _updated_at?: string;
+}
+
+/**
+ * Estado de completitud de un perfil para un tenant/evento específico.
+ * Usado en el dashboard del acreditado para mostrar progreso.
+ */
+export interface TenantProfileStatus {
+  tenantId: string;
+  tenantSlug: string;
+  tenantNombre: string;
+  tenantShield?: string | null;
+  tenantColor: string;
+  /** Evento activo del tenant (si existe) */
+  eventId?: string;
+  eventNombre?: string;
+  eventFecha?: string | null;
+  /** Campos del formulario del evento activo */
+  formFields: FormFieldDefinition[];
+  /** Total de campos dinámicos requeridos */
+  totalRequired: number;
+  /** Campos requeridos ya completados */
+  filledRequired: number;
+  /** Campos que faltan (requeridos y no completados) */
+  missingFields: FormFieldDefinition[];
+  /** Porcentaje de completitud (0-100) */
+  completionPct: number;
+  /** Si existe algún dato guardado para este tenant */
+  hasData: boolean;
+  /** Si el formulario cambió desde la última vez que el usuario guardó datos */
+  formChanged: boolean;
+  /** Keys nuevas que el tenant agregó desde la última vez */
+  newKeys: string[];
+  /** Keys que el tenant eliminó desde la última vez */
+  removedKeys: string[];
+}
+
 /** Regla de cupo por tipo de medio */
 export interface EventQuotaRule {
   id: string;
@@ -444,16 +497,22 @@ export interface BulkActionPayload {
 }
 
 export interface PuntoTicketRow {
-  rut: string;
   nombre: string;
   apellido: string;
-  email: string;
-  tipo_medio: string;
-  organizacion: string;
+  rut: string;
+  empresa: string;
+  area: string;
+  zona: string;
+  patente: string;
+}
+
+/** Regla de auto-asignación de zona basada en cargo */
+export interface ZoneAssignmentRule {
+  id: string;
+  event_id: string;
   cargo: string;
   zona: string;
-  evento: string;
-  fecha: string;
+  created_at: string;
 }
 
 export interface AdminContextType {

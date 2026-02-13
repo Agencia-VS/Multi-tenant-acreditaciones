@@ -19,6 +19,8 @@ interface BulkRow {
   cargo?: string;
   organizacion?: string;
   tipo_medio?: string;
+  zona?: string;
+  patente?: string;
   [key: string]: string | undefined;
 }
 

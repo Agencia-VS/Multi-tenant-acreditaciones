@@ -14,7 +14,7 @@ import { BackButton } from '@/components/shared/ui';
 export default function AcreditadoAuthPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0c1117] flex items-center justify-center">
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     }>
@@ -116,7 +116,7 @@ function AcreditadoAuthContent() {
   const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
 
   return (
-    <div className="min-h-screen bg-[#0c1117] flex items-center justify-center p-6 relative dark-surface">
+    <div className="min-h-screen bg-[#111111] flex items-center justify-center p-6 relative dark-surface">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-brand/8 blur-[120px]" />

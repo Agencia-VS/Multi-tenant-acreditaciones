@@ -136,6 +136,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Organización</th>
                 <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
                 <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Cargo</th>
+                <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Zona</th>
                 <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Estado</th>
                 <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider">Check-in</th>
                 <th className="p-3 text-left text-sm font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>

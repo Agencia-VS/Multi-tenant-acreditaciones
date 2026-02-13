@@ -81,7 +81,7 @@ export default function NuevaSolicitudPage() {
                     ) : (
                       <div
                         className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl"
-                        style={{ backgroundColor: tenant?.color_primario || '#3b82f6' }}
+                        style={{ backgroundColor: tenant?.color_primario || '#00C48C' }}
                       >
                         {tenant?.nombre?.charAt(0)}
                       </div>

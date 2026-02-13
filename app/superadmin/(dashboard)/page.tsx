@@ -57,8 +57,7 @@ export default function SuperAdminDashboardPage() {
     { label: 'Tenants', value: stats?.total_tenants || 0, icon: 'fas fa-building', color: 'blue', href: '/superadmin/tenants' },
     { label: 'Eventos', value: stats?.total_events || 0, icon: 'fas fa-calendar', color: 'purple', href: '/superadmin/eventos' },
     { label: 'Perfiles', value: stats?.total_profiles || 0, icon: 'fas fa-id-card', color: 'green', href: '#' },
-    { label: 'Pendientes', value: stats?.pending_registrations || 0, icon: 'fas fa-clock', color: 'yellow', href: '#' },
-    { label: 'Aprobadas', value: stats?.approved_registrations || 0, icon: 'fas fa-check-circle', color: 'emerald', href: '#' },
+    { label: 'Acreditaciones', value: stats?.total_registrations || 0, icon: 'fas fa-ticket-alt', color: 'emerald', href: '#' },
   ];
 
   const colorMap: Record<string, string> = {
@@ -88,7 +87,7 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {statCards.map((card) => (
           <Link
             key={card.label}

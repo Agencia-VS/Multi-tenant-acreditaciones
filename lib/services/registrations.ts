@@ -10,8 +10,9 @@ import type {
   Registration, RegistrationFull, RegistrationFormData, 
   RegistrationStatus, QuotaCheckResult, RegistrationFilters 
 } from '@/types';
-import { getOrCreateProfile, updateProfileDatosBase } from './profiles';
+import { getOrCreateProfile, updateProfileDatosBase, saveTenantProfileData } from './profiles';
 import { checkQuota } from './quotas';
+import { resolveZone } from './zones';
 
 /**
  * Crear una nueva inscripción.
@@ -57,6 +58,15 @@ export async function createRegistration(
   }
 
   // 4. Crear registro
+  // First resolve auto-zone from cargo→zona rules (if any)
+  const datosExtra = { ...(formData.datos_extra || {}) };
+  if (formData.cargo && !datosExtra.zona) {
+    try {
+      const autoZona = await resolveZone(eventId, formData.cargo);
+      if (autoZona) datosExtra.zona = autoZona;
+    } catch { /* no bloquear */ }
+  }
+
   const { data: registration, error } = await supabase
     .from('registrations')
     .insert({
@@ -66,7 +76,7 @@ export async function createRegistration(
       tipo_medio: formData.tipo_medio || null,
       cargo: formData.cargo || null,
       submitted_by: submittedByProfileId || null,
-      datos_extra: formData.datos_extra || {},
+      datos_extra: datosExtra,
       status: 'pendiente',
     })
     .select()
@@ -74,10 +84,31 @@ export async function createRegistration(
 
   if (error) throw new Error(`Error creando inscripción: ${error.message}`);
 
-  // 5. Guardar datos reutilizables en el perfil (datos_base)
+  // 5. Guardar datos reutilizables en el perfil (tenant-namespaced + legacy flat)
   if (formData.datos_extra && Object.keys(formData.datos_extra).length > 0) {
     try {
-      await updateProfileDatosBase(profile.id, formData.datos_extra);
+      // Determinar el tenant_id del evento para guardar namespaced
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('tenant_id, form_fields')
+        .eq('id', eventId)
+        .single();
+
+      if (eventData?.tenant_id) {
+        // Filtrar metadatos internos (responsable_*) — solo datos de formulario
+        const cleanData: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(formData.datos_extra)) {
+          if (!key.startsWith('responsable_') && !key.startsWith('_')) {
+            cleanData[key] = val;
+          }
+        }
+
+        const formKeys = (eventData.form_fields || []).map((f: { key: string }) => f.key);
+        await saveTenantProfileData(profile.id, eventData.tenant_id, cleanData, formKeys);
+      } else {
+        // Fallback: guardar en flat (legacy)
+        await updateProfileDatosBase(profile.id, formData.datos_extra);
+      }
     } catch {
       // No bloquear si falla el update del perfil
       console.warn('No se pudieron guardar datos extra en el perfil');

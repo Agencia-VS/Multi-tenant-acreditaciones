@@ -58,7 +58,7 @@ export default function SuperAdminLoginPage() {
   const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
 
   return (
-    <div className="min-h-screen bg-[#0c1117] flex items-center justify-center p-6 relative dark-surface">
+    <div className="min-h-screen bg-[#111111] flex items-center justify-center p-6 relative dark-surface">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-brand/6 blur-[120px]" />
