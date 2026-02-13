@@ -51,6 +51,24 @@ export async function addTeamMember(
 ): Promise<TeamMember> {
   const supabase = createSupabaseAdminClient();
 
+  // GUARD: Verificar que el miembro no sea el mismo manager (por RUT)
+  const { data: managerProfile } = await supabase
+    .from('profiles')
+    .select('rut, email')
+    .eq('id', managerProfileId)
+    .single();
+
+  if (managerProfile?.rut === memberData.rut) {
+    throw new Error('No puedes agregarte a ti mismo como miembro de equipo');
+  }
+
+  // GUARD: Advertir si el email del miembro coincide con el del manager
+  // (causa confusión en perfiles — cada persona debe tener su propio email)
+  if (memberData.email && managerProfile?.email
+      && memberData.email.toLowerCase() === managerProfile.email.toLowerCase()) {
+    console.warn(`[addTeamMember] Email del miembro (${memberData.email}) coincide con el del manager (${managerProfile.email}). Esto puede causar confusión de perfiles.`);
+  }
+
   // Buscar o crear perfil del miembro
   let { data: profile } = await supabase
     .from('profiles')

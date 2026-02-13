@@ -19,15 +19,45 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, motivo_rechazo, send_email } = body as {
-      status: RegistrationStatus;
+    const { status, motivo_rechazo, send_email, datos_extra } = body as {
+      status?: RegistrationStatus;
       motivo_rechazo?: string;
       send_email?: boolean;
+      datos_extra?: Record<string, unknown>;
     };
 
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    // Case 1: Update datos_extra fields (e.g., zona assignment by admin)
+    if (datos_extra && !status) {
+      const supabase = createSupabaseAdminClient();
+      // Merge with existing datos_extra
+      const { data: existing } = await supabase
+        .from('registrations')
+        .select('datos_extra')
+        .eq('id', id)
+        .single();
+
+      const merged = { ...(existing?.datos_extra || {}), ...datos_extra };
+      const { error } = await supabase
+        .from('registrations')
+        .update({ datos_extra: merged })
+        .eq('id', id);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      await logAuditAction(user.id, 'registration.updated', 'registration', id, { datos_extra });
+      return NextResponse.json({ success: true, datos_extra: merged });
+    }
+
+    // Case 2: Status change (approve/reject)
+    if (!status) {
+      return NextResponse.json({ error: 'status o datos_extra requerido' }, { status: 400 });
     }
 
     const registration = await updateRegistrationStatus(

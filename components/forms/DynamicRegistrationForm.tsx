@@ -144,6 +144,7 @@ export default function DynamicRegistrationForm({
     rut: '',
     nombre: '',
     apellido: '',
+    segundo_apellido: '',
     email: '',
     telefono: '',
     organizacion: '',
@@ -192,6 +193,7 @@ export default function DynamicRegistrationForm({
         rut: userProfile.rut || prev.rut,
         nombre: userProfile.nombre || prev.nombre,
         apellido: userProfile.apellido || prev.apellido,
+        segundo_apellido: (userProfile.datos_base as Record<string, string> | undefined)?.segundo_apellido || prev.segundo_apellido,
         email: userProfile.email || prev.email,
         telefono: userProfile.telefono || prev.telefono,
         organizacion: userProfile.medio || prev.organizacion,
@@ -606,6 +608,7 @@ export default function DynamicRegistrationForm({
             responsable_rut: sanitize(responsable.rut),
             responsable_nombre: sanitize(responsable.nombre),
             responsable_apellido: sanitize(responsable.apellido),
+            responsable_segundo_apellido: sanitize(responsable.segundo_apellido),
             responsable_email: sanitize(responsable.email),
             responsable_telefono: sanitize(responsable.telefono),
           },
@@ -662,7 +665,7 @@ export default function DynamicRegistrationForm({
   const resetForm = () => {
     setStep('disclaimer');
     setDisclaimerAccepted(false);
-    setResponsable({ rut: '', nombre: '', apellido: '', email: '', telefono: '', organizacion: '' });
+    setResponsable({ rut: '', nombre: '', apellido: '', segundo_apellido: '', email: '', telefono: '', organizacion: '' });
     setRespErrors({});
     setRespTouched(new Set());
     setTipoMedio('');
@@ -822,7 +825,7 @@ export default function DynamicRegistrationForm({
 
               {/* Apellido */}
               <div>
-                <label className="field-label">Apellido *</label>
+                <label className="field-label">Primer Apellido *</label>
                 <input
                   type="text"
                   value={responsable.apellido}
@@ -832,6 +835,18 @@ export default function DynamicRegistrationForm({
                   className={getRespInputClass('apellido')}
                 />
                 {respErrors.apellido && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" /> {respErrors.apellido}</p>}
+              </div>
+
+              {/* Segundo Apellido */}
+              <div>
+                <label className="field-label">Segundo Apellido</label>
+                <input
+                  type="text"
+                  value={responsable.segundo_apellido}
+                  onChange={(e) => handleRespChange('segundo_apellido', e.target.value)}
+                  placeholder="González"
+                  className="field-input"
+                />
               </div>
 
               {/* Email */}

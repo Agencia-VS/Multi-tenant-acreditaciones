@@ -22,6 +22,21 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
 }
 
 /**
+ * Obtener tenant por ID (para APIs internas como export)
+ */
+export async function getTenantById(id: string): Promise<Tenant | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) return null;
+  return data as Tenant;
+}
+
+/**
  * Listar todos los tenants (para super admin)
  */
 export async function listTenants(): Promise<TenantWithStats[]> {

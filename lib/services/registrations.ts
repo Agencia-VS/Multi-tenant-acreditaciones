@@ -58,11 +58,11 @@ export async function createRegistration(
   }
 
   // 4. Crear registro
-  // First resolve auto-zone from cargo→zona rules (if any)
+  // First resolve auto-zone from cargo→zona or tipo_medio→zona rules (if any)
   const datosExtra = { ...(formData.datos_extra || {}) };
-  if (formData.cargo && !datosExtra.zona) {
+  if (!datosExtra.zona) {
     try {
-      const autoZona = await resolveZone(eventId, formData.cargo);
+      const autoZona = await resolveZone(eventId, formData.cargo, formData.tipo_medio);
       if (autoZona) datosExtra.zona = autoZona;
     } catch { /* no bloquear */ }
   }

@@ -1,12 +1,13 @@
 /**
  * API: Zone Assignment Rules by Event
- * GET    — Obtener reglas de zona (cargo → zona)
+ * GET    — Obtener reglas de zona (cargo/tipo_medio → zona)
  * POST   — Crear/actualizar regla
  * DELETE — Eliminar regla
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getZoneRules, upsertZoneRule, deleteZoneRule, resolveZone } from '@/lib/services/zones';
+import type { ZoneMatchField } from '@/types';
 
 export async function GET(
   request: NextRequest,
@@ -16,11 +17,12 @@ export async function GET(
     const { id: eventId } = await params;
     const { searchParams } = new URL(request.url);
 
-    // Check específico: resolver zona para un cargo
+    // Check específico: resolver zona para un cargo/tipo_medio
     const cargo = searchParams.get('cargo');
-    if (cargo) {
-      const zona = await resolveZone(eventId, cargo);
-      return NextResponse.json({ cargo, zona });
+    const tipoMedio = searchParams.get('tipo_medio');
+    if (cargo || tipoMedio) {
+      const zona = await resolveZone(eventId, cargo || undefined, tipoMedio || undefined);
+      return NextResponse.json({ cargo, tipo_medio: tipoMedio, zona });
     }
 
     // General: obtener todas las reglas
@@ -41,13 +43,13 @@ export async function POST(
   try {
     const { id: eventId } = await params;
     const body = await request.json();
-    const { cargo, zona } = body;
+    const { cargo, zona, match_field } = body;
 
     if (!cargo || !zona) {
       return NextResponse.json({ error: 'cargo y zona son requeridos' }, { status: 400 });
     }
 
-    const rule = await upsertZoneRule(eventId, cargo, zona);
+    const rule = await upsertZoneRule(eventId, cargo, zona, (match_field as ZoneMatchField) || 'cargo');
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
     return NextResponse.json(

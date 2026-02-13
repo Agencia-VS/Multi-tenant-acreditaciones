@@ -12,12 +12,14 @@ interface AdminDetailModalProps {
 }
 
 export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModalProps) {
-  const { handleStatusChange, handleDelete, processing } = useAdmin();
+  const { handleStatusChange, handleDelete, processing, tenant, updateRegistrationZona } = useAdmin();
   const [rejectMotivo, setRejectMotivo] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
 
   if (!reg) return null;
   const isProcessing = processing === reg.id;
+  const zonaOptions = ((tenant?.config as Record<string, unknown>)?.zonas as string[]) || [];
+  const currentZona = (reg.datos_extra as Record<string, unknown>)?.zona as string || '';
 
   const handleReject = () => {
     if (!rejectMotivo.trim()) return;
@@ -46,7 +48,6 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
     { label: 'Organización', value: reg.organizacion || '—', icon: 'fa-building' },
     { label: 'Tipo Medio', value: reg.tipo_medio || '—', icon: 'fa-broadcast-tower' },
     { label: 'Cargo', value: reg.cargo || '—', icon: 'fa-user-tie' },
-    { label: 'Zona', value: (reg.datos_extra as Record<string, unknown>)?.zona as string || '—', icon: 'fa-map-signs' },
   ];
 
   return (
@@ -89,6 +90,28 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Zona Assignment */}
+      <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i className="fas fa-map-signs text-purple-600" />
+            <span className="text-sm font-semibold text-purple-900">Zona de Acceso</span>
+          </div>
+          {zonaOptions.length > 0 ? (
+            <select
+              value={currentZona}
+              onChange={(e) => updateRegistrationZona(reg.id, e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-sm font-medium text-purple-700 cursor-pointer"
+            >
+              <option value="">Sin zona asignada</option>
+              {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
+            </select>
+          ) : (
+            <span className="text-sm font-medium text-purple-700">{currentZona || '—'}</span>
+          )}
+        </div>
       </div>
 
       {/* Event info */}

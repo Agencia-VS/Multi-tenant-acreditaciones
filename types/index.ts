@@ -506,13 +506,25 @@ export interface PuntoTicketRow {
   patente: string;
 }
 
-/** Regla de auto-asignación de zona basada en cargo */
+/** Campo fuente para regla de zona */
+export type ZoneMatchField = 'cargo' | 'tipo_medio';
+
+/** Regla de auto-asignación de zona (cargo→zona ó tipo_medio→zona) */
 export interface ZoneAssignmentRule {
   id: string;
   event_id: string;
-  cargo: string;
+  match_field: ZoneMatchField;
+  cargo: string;  // match_value — the value to match against the field
   zona: string;
   created_at: string;
+}
+
+/** Typed tenant config */
+export interface TenantConfig {
+  acreditacion_masiva_enabled?: boolean;
+  zonas?: string[];  // zona options available for this tenant
+  puntoticket_acreditacion_fija?: string;  // fixed value for PT "Acreditación" column
+  [key: string]: unknown;
 }
 
 export interface AdminContextType {
@@ -539,6 +551,7 @@ export interface AdminContextType {
   handleStatusChange: (regId: string, status: RegistrationStatus, motivo?: string) => Promise<void>;
   handleBulkAction: (payload: BulkActionPayload) => Promise<void>;
   handleDelete: (regId: string) => Promise<void>;
+  updateRegistrationZona: (regId: string, zona: string) => Promise<void>;
   toggleSelect: (id: string) => void;
   toggleSelectAll: () => void;
   

@@ -5,12 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfileByUserId, getOrCreateProfile } from '@/lib/services';
+import { getProfileByUserId, getProfileByEmail, getOrCreateProfile } from '@/lib/services';
 import { getCurrentUser } from '@/lib/services';
 
 /**
  * GET — Retorna el perfil del usuario autenticado.
- * NUNCA expone datos de otros usuarios por RUT.
+ * Busca primero por user_id; si no encuentra, intenta por email
+ * (fallback para perfiles creados como "equipo" que aún no tienen user_id vinculado).
+ * Si encuentra por email, auto-vincula el user_id para futuras consultas.
  */
 export async function GET() {
   try {
@@ -19,7 +21,24 @@ export async function GET() {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const profile = await getProfileByUserId(user.id);
+    let profile = await getProfileByUserId(user.id);
+
+    // Fallback: buscar por email del auth user y auto-vincular
+    if (!profile && user.email) {
+      profile = await getProfileByEmail(user.email);
+      if (profile) {
+        // Auto-vincular user_id al perfil encontrado por email
+        const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
+        const supabase = createSupabaseAdminClient();
+        await supabase
+          .from('profiles')
+          .update({ user_id: user.id })
+          .eq('id', profile.id)
+          .is('user_id', null);  // solo si sigue sin user_id
+        profile = { ...profile, user_id: user.id };
+        console.info(`[profiles/lookup] Auto-vinculado user_id ${user.id} a perfil ${profile.id} por email ${user.email}`);
+      }
+    }
 
     if (!profile) {
       return NextResponse.json({ found: false, profile: null });

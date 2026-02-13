@@ -12,8 +12,11 @@ interface AdminRowProps {
 }
 
 export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps) {
-  const { selectedIds, toggleSelect, handleStatusChange, processing } = useAdmin();
+  const { selectedIds, toggleSelect, handleStatusChange, processing, tenant, updateRegistrationZona } = useAdmin();
   const isProcessing = processing === reg.id;
+
+  // Get zone options from tenant config
+  const zonaOptions = ((tenant?.config as Record<string, unknown>)?.zonas as string[]) || [];
 
   return (
     <tr className={`border-b border-edge transition ${selectedIds.has(reg.id) ? 'bg-accent-light/50' : 'hover:bg-canvas/50'}`}>
@@ -62,9 +65,22 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
       {/* Cargo */}
       <td className="p-3 text-base text-body">{reg.cargo || <span className="text-muted">—</span>}</td>
 
-      {/* Zona */}
+      {/* Zona — editable dropdown */}
       <td className="p-3">
-        {(reg.datos_extra as Record<string, unknown>)?.zona ? (
+        {zonaOptions.length > 0 ? (
+          <select
+            value={String((reg.datos_extra as Record<string, unknown>)?.zona || '')}
+            onChange={(e) => updateRegistrationZona(reg.id, e.target.value)}
+            className={`px-2 py-1 rounded-md border text-sm font-medium transition cursor-pointer ${
+              (reg.datos_extra as Record<string, unknown>)?.zona
+                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                : 'bg-subtle text-muted border-edge'
+            }`}
+          >
+            <option value="">Sin zona</option>
+            {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
+          </select>
+        ) : (reg.datos_extra as Record<string, unknown>)?.zona ? (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-sm font-medium text-purple-700">
             <i className="fas fa-map-signs mr-1 text-xs" />
             {String((reg.datos_extra as Record<string, unknown>).zona)}

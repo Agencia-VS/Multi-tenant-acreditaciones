@@ -259,6 +259,75 @@ export default function TenantsPage() {
                 </label>
               </div>
 
+              {/* ═══ Zonas del Tenant ═══ */}
+              <div className="mt-4 p-4 bg-canvas rounded-xl">
+                <h4 className="text-sm font-semibold text-label mb-1">
+                  <i className="fas fa-map-signs mr-2 text-muted" />
+                  Zonas disponibles
+                </h4>
+                <p className="text-xs text-muted mb-3">
+                  Zonas que el admin podrá asignar desde su dashboard (desplegable). Ej: Prensa, VIP, Staff, Cancha.
+                </p>
+                <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-lg border border-field-border bg-surface mb-2">
+                  {((form.config?.zonas as string[]) || []).map((zona, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-xs font-medium">
+                      {zona}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const zonas = ((form.config?.zonas as string[]) || []).filter((_, idx) => idx !== i);
+                          setForm(prev => ({ ...prev, config: { ...prev.config, zonas } }));
+                        }}
+                        className="text-purple-400 hover:text-red-500 transition"
+                      >
+                        <i className="fas fa-times text-[10px]" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    placeholder="Agregar zona y Enter..."
+                    className="flex-1 min-w-[120px] outline-none text-sm bg-transparent text-heading"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        const input = e.currentTarget;
+                        const val = input.value.trim();
+                        if (!val) return;
+                        const newZones = val.split(',').map(s => s.trim()).filter(Boolean);
+                        const current = (form.config?.zonas as string[]) || [];
+                        const unique = newZones.filter(z => !current.includes(z));
+                        if (unique.length > 0) {
+                          setForm(prev => ({ ...prev, config: { ...prev.config, zonas: [...current, ...unique] } }));
+                        }
+                        input.value = '';
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* ═══ PuntoTicket Config ═══ */}
+              <div className="mt-4 p-4 bg-canvas rounded-xl">
+                <h4 className="text-sm font-semibold text-label mb-1">
+                  <i className="fas fa-ticket-alt mr-2 text-purple-500" />
+                  PuntoTicket — Acreditación fija
+                </h4>
+                <p className="text-xs text-muted mb-3">
+                  Si se define, TODOS los registros exportados a PuntoTicket usarán este valor en la columna &quot;Acreditación&quot;.
+                  Ej: &quot;Cruzados&quot;. Si se deja vacío, se usará la zona asignada de cada registro.
+                </p>
+                <input
+                  type="text"
+                  value={(form.config?.puntoticket_acreditacion_fija as string) || ''}
+                  onChange={(e) => setForm(prev => ({
+                    ...prev,
+                    config: { ...prev.config, puntoticket_acreditacion_fija: e.target.value || undefined }
+                  }))}
+                  placeholder="Ej: Cruzados (vacío = usar zona del registro)"
+                  className="w-full px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+                />
+              </div>
+
               <FormActions
                 saving={saving}
                 onCancel={() => setShowForm(false)}

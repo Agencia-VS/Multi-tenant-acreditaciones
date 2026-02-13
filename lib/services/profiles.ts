@@ -28,6 +28,9 @@ export async function lookupProfileByRut(rut: string): Promise<Profile | null> {
  * Obtener o crear perfil por RUT.
  * Si el RUT ya existe, actualiza los datos no vacíos.
  * Si no existe, crea un perfil nuevo.
+ * 
+ * GUARD: Si se provee userId, verifica que no exista OTRO perfil ya vinculado
+ * a ese userId (previene vincular user_id a perfil equivocado).
  */
 export async function getOrCreateProfile(data: RegistrationFormData, userId?: string): Promise<Profile> {
   const supabase = createSupabaseAdminClient();
@@ -45,7 +48,16 @@ export async function getOrCreateProfile(data: RegistrationFormData, userId?: st
     if (data.cargo) updates.cargo = data.cargo;
     if (data.tipo_medio) updates.tipo_medio = data.tipo_medio;
     if (data.organizacion) updates.medio = data.organizacion;
-    if (userId && !existing.user_id) updates.user_id = userId;
+    
+    // Solo vincular user_id si el perfil no tiene uno Y no hay otro perfil con ese userId
+    if (userId && !existing.user_id) {
+      const alreadyLinked = await getProfileByUserId(userId);
+      if (!alreadyLinked) {
+        updates.user_id = userId;
+      } else {
+        console.warn(`[getOrCreateProfile] user_id ${userId} ya está vinculado a perfil ${alreadyLinked.id} (rut: ${alreadyLinked.rut}). No se re-vincula a perfil ${existing.id} (rut: ${existing.rut}).`);
+      }
+    }
     
     if (Object.keys(updates).length > 0) {
       const { data: updated, error } = await supabase
@@ -85,9 +97,20 @@ export async function getOrCreateProfile(data: RegistrationFormData, userId?: st
 /**
  * Vincular un user_id de auth con un perfil existente por RUT.
  * Se usa cuando un usuario se registra y ya tenía perfil creado por un Manager.
+ * 
+ * GUARD: Si el userId ya está vinculado a otro perfil, no re-vincula.
  */
 export async function linkProfileToUser(rut: string, userId: string): Promise<Profile | null> {
   const supabase = createSupabaseAdminClient();
+
+  // Verificar que no exista otro perfil ya vinculado a este userId
+  const alreadyLinked = await getProfileByUserId(userId);
+  if (alreadyLinked) {
+    // Ya hay un perfil vinculado — no tocar
+    if (alreadyLinked.rut === rut) return alreadyLinked; // mismo perfil, todo OK
+    console.warn(`[linkProfileToUser] userId ${userId} ya vinculado a perfil con rut ${alreadyLinked.rut}. Ignorando intento de vincular a rut ${rut}.`);
+    return alreadyLinked;
+  }
   
   const { data, error } = await supabase
     .from('profiles')
@@ -102,7 +125,9 @@ export async function linkProfileToUser(rut: string, userId: string): Promise<Pr
 }
 
 /**
- * Obtener perfil por user_id de auth
+ * Obtener perfil por user_id de auth.
+ * Usa .limit(1) en vez de .single() para mayor robustez:
+ * si por alguna razón existiesen duplicados, devuelve el más antiguo.
  */
 export async function getProfileByUserId(userId: string): Promise<Profile | null> {
   const supabase = createSupabaseAdminClient();
@@ -110,10 +135,30 @@ export async function getProfileByUserId(userId: string): Promise<Profile | null
     .from('profiles')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
-  if (error || !data) return null;
-  return data as Profile;
+  if (error || !data || data.length === 0) return null;
+  return data[0] as Profile;
+}
+
+/**
+ * Obtener perfil por email (fallback cuando no se encuentra por user_id).
+ * Retorna solo perfiles sin user_id vinculado para evitar conflictos.
+ * Si hay múltiples, prefiere el más antiguo (creado primero = el "real").
+ */
+export async function getProfileByEmail(email: string): Promise<Profile | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('email', email)
+    .is('user_id', null)
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  if (error || !data || data.length === 0) return null;
+  return data[0] as Profile;
 }
 
 /**

@@ -227,6 +227,31 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     }
   }, [fetchData, showSuccess, showError]);
 
+  // ─── Update zona for a registration ───────────────
+  const updateRegistrationZona = useCallback(async (regId: string, zona: string) => {
+    try {
+      const res = await fetch(`/api/registrations/${regId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ datos_extra: { zona } }),
+      });
+      if (res.ok) {
+        // Update locally without full refetch for snappy UX
+        setRegistrations(prev => prev.map(r =>
+          r.id === regId
+            ? { ...r, datos_extra: { ...r.datos_extra, zona } }
+            : r
+        ));
+        showSuccess(`Zona asignada: ${zona}`);
+      } else {
+        const d = await res.json();
+        showError(d.error || 'Error asignando zona');
+      }
+    } catch {
+      showError('Error de conexión');
+    }
+  }, [showSuccess, showError]);
+
   // ─── Selection helpers ────────────────────────────
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -248,6 +273,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     activeTab, setActiveTab, filters, setFilters,
     selectedIds, setSelectedIds, loading, processing,
     fetchData, selectEvent, handleStatusChange, handleBulkAction, handleDelete,
+    updateRegistrationZona,
     toggleSelect, toggleSelectAll,
     showSuccess, showError,
   };

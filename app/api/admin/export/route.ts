@@ -2,24 +2,48 @@
  * API: Admin Export
  * GET — Exportar registros a Excel/CSV/PuntoTicket
  * Supports filters: event_id, tenant_id, status, tipo_medio, search, format
+ *
+ * Formatos:
+ *   xlsx        → Excel completo (18 columnas) para gestión interna del admin
+ *   puntoticket → Formato PuntoTicket (7 columnas) para envío a PuntoTicket
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listRegistrations } from '@/lib/services';
-import type { RegistrationStatus } from '@/types';
+import { listRegistrations, getTenantById } from '@/lib/services';
+import type { RegistrationStatus, TenantConfig } from '@/types';
 import ExcelJS from 'exceljs';
 
 /* ── helpers ─────────────────────────────────────────── */
 
-/** Try to extract a field from datos_extra → datos_base → top-level registration */
+/** Try to extract a field: datos_extra → profile datos_base → '' */
 function extractField(r: Record<string, unknown>, key: string): string {
-  // 1. datos_extra (dynamic form fields for THIS registration)
   const extras = (r.datos_extra ?? {}) as Record<string, unknown>;
   if (extras[key]) return String(extras[key]);
-  // 2. profile datos_base
   const db = (r.profile_datos_base ?? {}) as Record<string, unknown>;
   if (db[key]) return String(db[key]);
   return '';
+}
+
+/** Split "apellido" into [primer_apellido, segundo_apellido] if segundo not explicit */
+function splitApellidos(
+  apellido: string,
+  segundoApellido: string
+): [string, string] {
+  if (segundoApellido) return [apellido, segundoApellido];
+  const parts = apellido.trim().split(/\s+/);
+  if (parts.length >= 2) return [parts[0], parts.slice(1).join(' ')];
+  return [apellido, ''];
+}
+
+/** Style header row with brand color */
+function styleHeader(row: ExcelJS.Row, color: string, height = 24) {
+  row.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FF333333' } } };
+  });
+  row.height = height;
 }
 
 export async function GET(request: NextRequest) {
@@ -45,55 +69,56 @@ export async function GET(request: NextRequest) {
       limit: 10000,
     });
 
-    // ─── PuntoTicket XLSX format ────────────────────────
-    // Matches the real PuntoTicket structure:
-    // Nombre | Apellido | RUT | Empresa | Área | Zona | Patente | (reserved) | Acreditación | Cantidad
+    // ─────────────────────────────────────────────────────
+    // PuntoTicket XLSX  (7 columnas — solo aprobados)
+    // Nombre | Apellido | RUT | Empresa | Área | Acreditación | Patente
+    //
+    // Acreditación:
+    //   Si el tenant tiene puntoticket_acreditacion_fija → se usa siempre
+    //   Sino → datos_extra.zona || cargo || ''
+    // ─────────────────────────────────────────────────────
     if (format === 'puntoticket') {
       const approved = registrations.filter(r => r.status === 'aprobado');
+
+      // Cargar config del tenant para acreditación fija
+      let tenantConfig: TenantConfig = {};
+      const tid = tenantId || (approved[0] as unknown as Record<string, unknown>)?.tenant_id as string | undefined;
+      if (tid) {
+        const tenant = await getTenantById(tid);
+        if (tenant?.config) tenantConfig = tenant.config as TenantConfig;
+      }
+      const acreditacionFija = tenantConfig.puntoticket_acreditacion_fija || '';
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Accredia';
       const sheet = workbook.addWorksheet('Acreditaciones');
 
       sheet.columns = [
-        { header: 'Nombre',       key: 'nombre',       width: 22 },
-        { header: 'Apellido',     key: 'apellido',     width: 22 },
-        { header: 'Rut xxxxxxxx-x', key: 'rut',        width: 16 },
-        { header: 'Empresa',      key: 'empresa',      width: 25 },
-        { header: 'Área',         key: 'area',         width: 22 },
-        { header: 'Zona',         key: 'zona',         width: 20 },
-        { header: 'Patente',      key: 'patente',      width: 12 },
+        { header: 'Nombre',         key: 'nombre',        width: 22 },
+        { header: 'Apellido',       key: 'apellido',      width: 22 },
+        { header: 'RUT',            key: 'rut',           width: 16 },
+        { header: 'Empresa',        key: 'empresa',       width: 25 },
+        { header: 'Área',           key: 'area',          width: 22 },
+        { header: 'Acreditación',   key: 'acreditacion',  width: 22 },
+        { header: 'Patente',        key: 'patente',       width: 14 },
       ];
 
-      // Deep purple header matching PuntoTicket branding
-      const headerRow = sheet.getRow(1);
-      headerRow.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6b21a8' } };
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        cell.border = {
-          bottom: { style: 'thin', color: { argb: 'FF4a1480' } },
-        };
-      });
-      headerRow.height = 24;
+      styleHeader(sheet.getRow(1), 'FF6b21a8');
 
       approved.forEach(r => {
         const rec = r as unknown as Record<string, unknown>;
         sheet.addRow({
-          nombre:   r.profile_nombre || '',
-          apellido: r.profile_apellido || '',
-          rut:      r.rut || '',
-          empresa:  r.organizacion || extractField(rec, 'empresa') || '',
-          area:     extractField(rec, 'area') || r.tipo_medio || '',
-          zona:     extractField(rec, 'zona') || '',
-          patente:  extractField(rec, 'patente') || '',
+          nombre:       r.profile_nombre || '',
+          apellido:     r.profile_apellido || '',
+          rut:          r.rut || '',
+          empresa:      r.organizacion || extractField(rec, 'empresa') || '',
+          area:         extractField(rec, 'area') || r.tipo_medio || '',
+          acreditacion: acreditacionFija || extractField(rec, 'zona') || r.cargo || '',
+          patente:      extractField(rec, 'patente') || '',
         });
       });
 
-      // Auto-filter
       sheet.autoFilter = { from: 'A1', to: 'G1' };
-
-      // Freeze header
       sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -106,61 +131,86 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (format === 'csv') {
-      // Fallback CSV — redirigir a XLSX
-      // Se mantiene compatibilidad pero genera XLSX
-    }
-
-    // Excel
+    // ─────────────────────────────────────────────────────
+    // Excel Admin completo (18 columnas — todos los estados)
+    // ─────────────────────────────────────────────────────
     const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Accredia';
     const sheet = workbook.addWorksheet('Acreditaciones');
 
     sheet.columns = [
-      { header: 'RUT', key: 'rut', width: 15 },
-      { header: 'Nombre', key: 'nombre', width: 20 },
-      { header: 'Apellido', key: 'apellido', width: 20 },
-      { header: 'Email', key: 'email', width: 30 },
-      { header: 'Teléfono', key: 'telefono', width: 15 },
-      { header: 'Organización', key: 'organizacion', width: 25 },
-      { header: 'Tipo Medio', key: 'tipo_medio', width: 15 },
-      { header: 'Cargo', key: 'cargo', width: 15 },
-      { header: 'Estado', key: 'status', width: 12 },
-      { header: 'Check-in', key: 'checked_in', width: 10 },
-      { header: 'Evento', key: 'evento', width: 30 },
-      { header: 'Fecha Registro', key: 'created_at', width: 15 },
+      { header: 'Nombre',                key: 'nombre',              width: 20 },
+      { header: 'Primer Apellido',       key: 'primer_apellido',     width: 18 },
+      { header: 'Segundo Apellido',      key: 'segundo_apellido',    width: 18 },
+      { header: 'RUT',                   key: 'rut',                 width: 15 },
+      { header: 'Email',                 key: 'email',               width: 28 },
+      { header: 'Cargo',                 key: 'cargo',               width: 18 },
+      { header: 'Tipo Credencial',       key: 'tipo_credencial',     width: 18 },
+      { header: 'N° Credencial',         key: 'n_credencial',        width: 14 },
+      { header: 'Empresa',               key: 'empresa',             width: 25 },
+      { header: 'Área',                  key: 'area',                width: 20 },
+      { header: 'Zona',                  key: 'zona',                width: 20 },
+      { header: 'Estado',                key: 'estado',              width: 14 },
+      { header: 'Responsable',           key: 'resp_nombre',         width: 20 },
+      { header: 'Primer Apellido Resp.', key: 'resp_primer_ap',      width: 18 },
+      { header: 'Segundo Apellido Resp.',key: 'resp_segundo_ap',     width: 18 },
+      { header: 'RUT Responsable',       key: 'resp_rut',            width: 15 },
+      { header: 'Email Responsable',     key: 'resp_email',          width: 28 },
+      { header: 'Teléfono Responsable',  key: 'resp_telefono',       width: 18 },
     ];
 
-    // Header style
-    sheet.getRow(1).eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a1a2e' } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    });
-    sheet.getRow(1).height = 22;
+    styleHeader(sheet.getRow(1), 'FF1a1a2e');
+
+    const STATUS_LABELS: Record<string, string> = {
+      pendiente: 'Pendiente',
+      aprobado: 'Aprobado',
+      rechazado: 'Rechazado',
+      revision: 'En revisión',
+    };
 
     registrations.forEach((r) => {
+      const rec = r as unknown as Record<string, unknown>;
+      const segundo = extractField(rec, 'segundo_apellido');
+      const [primerAp, segundoAp] = splitApellidos(r.profile_apellido || '', segundo);
+
+      // Responsable data from datos_extra
+      const extras = (r.datos_extra ?? {}) as Record<string, string>;
+      const respSegundo = extras.responsable_segundo_apellido || '';
+      const respApellido = extras.responsable_apellido || '';
+      const [respPrimerAp, respSegundoAp] = splitApellidos(respApellido, respSegundo);
+
       sheet.addRow({
-        rut: r.rut,
-        nombre: r.profile_nombre,
-        apellido: r.profile_apellido,
-        email: r.profile_email || '',
-        telefono: r.profile_telefono || '',
-        organizacion: r.organizacion || '',
-        tipo_medio: r.tipo_medio || '',
-        cargo: r.cargo || '',
-        status: r.status,
-        checked_in: r.checked_in ? 'Sí' : 'No',
-        evento: r.event_nombre,
-        created_at: new Date(r.created_at).toLocaleDateString('es-CL'),
+        nombre:           r.profile_nombre || '',
+        primer_apellido:  primerAp,
+        segundo_apellido: segundoAp,
+        rut:              r.rut || '',
+        email:            r.profile_email || '',
+        cargo:            r.cargo || '',
+        tipo_credencial:  r.tipo_medio || '',
+        n_credencial:     extractField(rec, 'n_credencial') || '',
+        empresa:          r.organizacion || extractField(rec, 'empresa') || '',
+        area:             extractField(rec, 'area') || r.tipo_medio || '',
+        zona:             extractField(rec, 'zona') || '',
+        estado:           STATUS_LABELS[r.status] || r.status,
+        resp_nombre:      extras.responsable_nombre || '',
+        resp_primer_ap:   respPrimerAp,
+        resp_segundo_ap:  respSegundoAp,
+        resp_rut:         extras.responsable_rut || '',
+        resp_email:       extras.responsable_email || '',
+        resp_telefono:    extras.responsable_telefono || '',
       });
     });
 
+    sheet.autoFilter = { from: 'A1', to: 'R1' };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
     const buffer = await workbook.xlsx.writeBuffer();
+    const eventName = registrations[0]?.event_nombre?.replace(/[^a-zA-Z0-9]/g, '_') || 'acreditaciones';
 
     return new NextResponse(buffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="acreditaciones-${Date.now()}.xlsx"`,
+        'Content-Disposition': `attachment; filename="${eventName}-${Date.now()}.xlsx"`,
       },
     });
   } catch (error) {

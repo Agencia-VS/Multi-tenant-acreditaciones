@@ -6,11 +6,12 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { FormFieldDefinition } from '@/types';
+import type { ZoneMatchField } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
 
-interface Tenant { id: string; nombre: string; slug: string; }
+interface Tenant { id: string; nombre: string; slug: string; config?: Record<string, unknown>; }
 interface Event {
   id: string;
   tenant_id: string;
@@ -98,7 +99,8 @@ function SelectOptionsEditor({ options, onChange }: { options: string[]; onChang
 
 const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
   { key: 'nombre', label: 'Nombre', type: 'text', required: true, profile_field: 'nombre' },
-  { key: 'apellido', label: 'Apellido', type: 'text', required: true, profile_field: 'apellido' },
+  { key: 'apellido', label: 'Primer Apellido', type: 'text', required: true, profile_field: 'apellido' },
+  { key: 'segundo_apellido', label: 'Segundo Apellido', type: 'text', required: false, profile_field: 'datos_base.segundo_apellido' },
   { key: 'rut', label: 'RUT', type: 'text', required: true, profile_field: 'rut' },
   { key: 'email', label: 'Email', type: 'email', required: true, profile_field: 'email' },
   { key: 'telefono', label: 'Teléfono', type: 'tel', required: false, profile_field: 'telefono' },
@@ -134,7 +136,7 @@ export default function EventosPage() {
   });
   const [formFields, setFormFields] = useState<FormFieldDefinition[]>(DEFAULT_FORM_FIELDS);
   const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
-  const [zoneRules, setZoneRules] = useState<{ id?: string; cargo: string; zona: string }[]>([]);
+  const [zoneRules, setZoneRules] = useState<{ id?: string; match_field: ZoneMatchField; cargo: string; zona: string }[]>([]);
 
   const loadData = useCallback(async () => {
     const [tenantsRes, eventsRes] = await Promise.all([
@@ -217,8 +219,9 @@ export default function EventosPage() {
       if (zRes.ok) {
         const zData = await zRes.json();
         const zArr = Array.isArray(zData) ? zData : [];
-        setZoneRules(zArr.map((r: { id?: string; cargo: string; zona: string }) => ({
+        setZoneRules(zArr.map((r: { id?: string; match_field?: string; cargo: string; zona: string }) => ({
           id: r.id,
+          match_field: (r.match_field as ZoneMatchField) || 'cargo',
           cargo: r.cargo,
           zona: r.zona,
         })));
@@ -289,7 +292,7 @@ export default function EventosPage() {
         const existingZArr = Array.isArray(existingZones) ? existingZones : [];
 
         for (const existing of existingZArr) {
-          const stillExists = zoneRules.some(r => r.cargo === existing.cargo);
+          const stillExists = zoneRules.some(r => r.match_field === existing.match_field && r.cargo === existing.cargo);
           if (!stillExists && existing.id) {
             await fetch(`/api/events/${eventId}/zones?rule_id=${existing.id}`, { method: 'DELETE' });
           }
@@ -299,7 +302,7 @@ export default function EventosPage() {
           await fetch(`/api/events/${eventId}/zones`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(rule),
+            body: JSON.stringify({ cargo: rule.cargo, zona: rule.zona, match_field: rule.match_field }),
           });
         }
       }
@@ -347,10 +350,10 @@ export default function EventosPage() {
 
   // Zone Management
   const addZoneRule = () => {
-    setZoneRules(prev => [...prev, { cargo: '', zona: '' }]);
+    setZoneRules(prev => [...prev, { match_field: 'cargo' as ZoneMatchField, cargo: '', zona: '' }]);
   };
 
-  const updateZoneRule = (index: number, updates: Partial<{ cargo: string; zona: string }>) => {
+  const updateZoneRule = (index: number, updates: Partial<{ match_field: ZoneMatchField; cargo: string; zona: string }>) => {
     setZoneRules(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
   };
 
@@ -711,7 +714,7 @@ export default function EventosPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-body">
-                        Asignar zonas de acceso automáticamente según el cargo.
+                        Asignar zonas automáticamente según un campo del registro (cargo o tipo medio/área).
                       </p>
                       {editing && zoneRules.some(r => r.id) && (
                         <p className="text-xs text-success mt-1">
@@ -729,7 +732,7 @@ export default function EventosPage() {
                     <div className="text-center py-8 text-muted">
                       <i className="fas fa-map-marked-alt text-3xl mb-2" />
                       <p>Sin reglas de zona. El admin asignará zonas manualmente.</p>
-                      <p className="text-xs mt-2">Haz clic en &quot;+ Regla&quot; para mapear cargo → zona.</p>
+                      <p className="text-xs mt-2">Haz clic en &quot;+ Regla&quot; para mapear cargo/área → zona.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -737,44 +740,71 @@ export default function EventosPage() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-canvas text-left">
-                              <th className="px-4 py-2 font-medium text-label">Cargo</th>
-                              <th className="px-4 py-2 font-medium text-label"><i className="fas fa-arrow-right mx-1" /></th>
-                              <th className="px-4 py-2 font-medium text-label">Zona asignada</th>
-                              <th className="px-4 py-2 font-medium text-label text-center">Estado</th>
-                              <th className="px-4 py-2 font-medium text-label text-center w-10"></th>
+                              <th className="px-3 py-2 font-medium text-label w-28">Campo</th>
+                              <th className="px-3 py-2 font-medium text-label">Valor</th>
+                              <th className="px-3 py-2 font-medium text-label w-8"><i className="fas fa-arrow-right mx-1" /></th>
+                              <th className="px-3 py-2 font-medium text-label">Zona asignada</th>
+                              <th className="px-3 py-2 font-medium text-label text-center w-20">Estado</th>
+                              <th className="px-3 py-2 font-medium text-label text-center w-10"></th>
                             </tr>
                           </thead>
                           <tbody className="divide-y">
                             {zoneRules.map((rule, i) => {
-                              // Derive cargo options from the current form_fields cargo field
-                              const cargoField = formFields.find(f => f.key === 'cargo');
-                              const cargoOptions = cargoField?.options || [...CARGOS];
+                              // Derive options based on match_field
+                              const sourceField = formFields.find(f => f.key === rule.match_field);
+                              const valueOptions = sourceField?.options
+                                || (rule.match_field === 'cargo' ? [...CARGOS] : [...TIPOS_MEDIO]);
+
+                              // Also get tenant zonas for autocomplete (if available)
+                              const selectedTenant = tenants.find(t => t.id === eventForm.tenant_id);
+                              const tenantZonas = (selectedTenant?.config as Record<string, unknown>)?.zonas as string[] | undefined;
 
                               return (
                                 <tr key={i} className="hover:bg-canvas/50">
-                                  <td className="px-4 py-3">
+                                  <td className="px-3 py-3">
+                                    <select
+                                      value={rule.match_field}
+                                      onChange={(e) => updateZoneRule(i, { match_field: e.target.value as ZoneMatchField, cargo: '' })}
+                                      className="px-2 py-1 rounded border text-xs text-label bg-transparent font-medium"
+                                    >
+                                      <option value="cargo">Cargo</option>
+                                      <option value="tipo_medio">Tipo Medio / Área</option>
+                                    </select>
+                                  </td>
+                                  <td className="px-3 py-3">
                                     <select
                                       value={rule.cargo}
                                       onChange={(e) => updateZoneRule(i, { cargo: e.target.value })}
-                                      className="px-2 py-1 rounded border text-sm text-label bg-transparent"
+                                      className="w-full px-2 py-1 rounded border text-sm text-label bg-transparent"
                                     >
-                                      <option value="">Seleccionar cargo...</option>
-                                      {cargoOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                      <option value="">Seleccionar...</option>
+                                      {valueOptions.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                   </td>
-                                  <td className="px-4 py-3 text-center text-muted">
+                                  <td className="px-3 py-3 text-center text-muted">
                                     <i className="fas fa-arrow-right" />
                                   </td>
-                                  <td className="px-4 py-3">
-                                    <input
-                                      type="text"
-                                      value={rule.zona}
-                                      onChange={(e) => updateZoneRule(i, { zona: e.target.value })}
-                                      placeholder="Ej: Prensa, VIP, Staff, Cancha..."
-                                      className="w-full px-2 py-1 rounded border text-sm text-label"
-                                    />
+                                  <td className="px-3 py-3">
+                                    {tenantZonas && tenantZonas.length > 0 ? (
+                                      <select
+                                        value={rule.zona}
+                                        onChange={(e) => updateZoneRule(i, { zona: e.target.value })}
+                                        className="w-full px-2 py-1 rounded border text-sm text-label bg-transparent"
+                                      >
+                                        <option value="">Seleccionar zona...</option>
+                                        {tenantZonas.map(z => <option key={z} value={z}>{z}</option>)}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={rule.zona}
+                                        onChange={(e) => updateZoneRule(i, { zona: e.target.value })}
+                                        placeholder="Ej: Prensa, VIP, Staff, Cancha..."
+                                        className="w-full px-2 py-1 rounded border text-sm text-label"
+                                      />
+                                    )}
                                   </td>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-3 py-3 text-center">
                                     {rule.id ? (
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-light text-success-dark rounded-full text-xs font-medium">
                                         <i className="fas fa-check text-[10px]" /> Guardada
@@ -785,7 +815,7 @@ export default function EventosPage() {
                                       </span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-3 py-3 text-center">
                                     <button
                                       type="button"
                                       onClick={() => removeZoneRule(i)}
@@ -802,7 +832,8 @@ export default function EventosPage() {
                       </div>
                       <p className="text-xs text-muted">
                         <i className="fas fa-info-circle mr-1" />
-                        Al crear una acreditación con un cargo mapeado, la zona se asignará automáticamente en datos_extra.
+                        Al crear una acreditación, si el valor del campo coincide con una regla, la zona se asigna automáticamente.
+                        Para mapeos 1:muchos, el admin asigna desde su dashboard.
                       </p>
                     </div>
                   )}
