@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface DisclaimerProps {
   visible: boolean;
@@ -94,186 +95,174 @@ export default function Disclaimer({
 
   if (!visible) return null;
 
-  return (
-    <>
-      {/* ─── Backdrop oscuro ─── */}
-      <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4">
+      {/* Card — flexbox column, constrained to 85vh so it NEVER overflows */}
+      <div
+        className="bg-white rounded-2xl w-full flex flex-col overflow-hidden shadow-2xl"
+        style={{ maxWidth: '42rem', maxHeight: '85vh' }}
+      >
+        {/* ── Header (fixed height) ── */}
+        <div
+          className="flex-shrink-0 px-5 py-3 sm:px-6 sm:py-4"
+          style={{
+            background: `linear-gradient(to right, ${tenantColors.primario}, ${tenantColors.primario}cc)`,
+          }}
+        >
+          <h2 className="text-white font-bold" style={{ fontSize: '1.1rem' }}>
+            Términos y Condiciones de Acreditación
+          </h2>
+        </div>
 
-      {/* ─── Modal centrado ─── */}
-      <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-4xl max-h-[95vh] sm:max-h-[92vh] flex flex-col overflow-hidden">
-          
-          {/* ─── Header con degradado ─── */}
-          <div
-            className="px-4 py-3 sm:py-4 text-center flex-shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${tenantColors.primario}, ${tenantColors.primario}dd)`,
-            }}
-          >
-            <h2 className="text-base sm:text-xl font-bold text-white">
-              Términos y Condiciones de Acreditación
-            </h2>
-          </div>
+        {/* ── Scrollable body (takes all remaining space) ── */}
+        <div
+          ref={contentRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{
+            minHeight: 0, /* critical for flex scroll */
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${tenantColors.primario}40 transparent`,
+            padding: '1rem 1rem',
+          }}
+        >
+          <p className="text-gray-500 mb-3" style={{ fontSize: '0.85rem' }}>
+            Revise completamente los términos y condiciones antes de continuar.
+          </p>
 
-          {/* ─── Contenido Scrollable ─── */}
-          <div
-            ref={contentRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-10 py-4 sm:py-6 space-y-4 sm:space-y-5"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: `${tenantColors.primario}40 transparent`,
-            }}
-          >
-            {/* 📋 Proceso de Acreditación */}
-            <section className="rounded-xl border-l-4 border-blue-500 bg-blue-50 p-3 sm:p-4 md:p-5">
-              <h3 className="font-bold text-blue-800 text-base sm:text-lg flex items-center gap-2 mb-2">
-                <i className="fas fa-clipboard-list" />
-                Proceso de Acreditación
-              </h3>
-              <p className="text-sm sm:text-base text-blue-700 leading-relaxed">
-                La solicitud de acreditación de prensa debe ser realizada por el editor o responsable
-                del medio de comunicación correspondiente. Cada solicitud será revisada y aprobada
-                por la organización según disponibilidad de cupos y criterios internos.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
+            {/* 📋 Proceso */}
+            <div className="bg-blue-50 rounded-xl border border-blue-200" style={{ padding: '0.875rem 1rem' }}>
+              <p className="font-semibold text-blue-800 flex items-center gap-2 mb-1.5">
+                <span>📋</span> Proceso de Acreditación
               </p>
-              <p className="text-sm sm:text-base text-blue-700 leading-relaxed mt-2">
+              <p className="text-blue-700 leading-relaxed">
+                La solicitud debe ser realizada por el editor o responsable
+                del medio de comunicación. Cada solicitud será revisada y aprobada
+                según disponibilidad de cupos y criterios internos.
+              </p>
+              <p className="text-blue-700 leading-relaxed mt-1.5">
                 Una vez aprobada, recibirá una notificación por correo electrónico con los detalles
-                de su acreditación y las instrucciones de acceso.
+                de su acreditación.
               </p>
-            </section>
+            </div>
 
-            {/* ⏰ Plazo de Acreditación */}
-            <section className="rounded-xl border-l-4 border-amber-500 bg-amber-50 p-3 sm:p-4 md:p-5">
-              <h3 className="font-bold text-amber-800 text-base sm:text-lg flex items-center gap-2 mb-2">
-                <i className="fas fa-clock" />
-                Plazo de Acreditación
-              </h3>
+            {/* ⏰ Plazo */}
+            <div className="bg-yellow-50 rounded-xl border border-yellow-200" style={{ padding: '0.875rem 1rem' }}>
+              <p className="font-semibold text-yellow-800 flex items-center gap-2 mb-1.5">
+                <span>⏰</span> Plazo de Acreditación
+              </p>
               {fechaLimite ? (
-                <div className="text-sm sm:text-base text-amber-700 leading-relaxed">
-                  <p>Las solicitudes de acreditación se recibirán hasta:</p>
-                  <div className="mt-2 bg-white/60 rounded-lg p-2 sm:p-3 border border-amber-200">
-                    <p className="font-bold text-amber-900 text-base sm:text-xl">
-                      <i className="fas fa-calendar-alt mr-2" />
-                      {formatDateTime(fechaLimite)}
+                <>
+                  <p className="text-yellow-700 leading-relaxed">
+                    Las solicitudes se recibirán hasta:
+                  </p>
+                  <div className="mt-1.5 bg-white/60 rounded-lg border border-yellow-200" style={{ padding: '0.5rem 0.75rem' }}>
+                    <p className="font-bold text-yellow-900" style={{ fontSize: '0.95rem' }}>
+                      📅 {formatDateTime(fechaLimite)}
                     </p>
                   </div>
-                  <p className="mt-2 text-sm text-amber-600">
+                  <p className="mt-1.5 text-yellow-600" style={{ fontSize: '0.8rem' }}>
                     Pasada esta fecha, no se aceptarán nuevas solicitudes.
                   </p>
-                </div>
+                </>
               ) : (
-                <p className="text-sm sm:text-base text-amber-700 leading-relaxed">
+                <p className="text-yellow-700 leading-relaxed">
                   Las solicitudes se recibirán según disponibilidad. Recomendamos enviar su
                   solicitud con la mayor anticipación posible.
                 </p>
               )}
-
               {eventFecha && (
-                <div className="mt-3 text-sm sm:text-base text-amber-700">
-                  <p>
-                    <i className="fas fa-flag-checkered mr-1" />
-                    <strong>Fecha del evento:</strong> {formatDate(eventFecha)}
-                    {eventVenue && <span> — {eventVenue}</span>}
-                  </p>
-                </div>
+                <p className="text-yellow-700 mt-1.5">
+                  🏁 <strong>Fecha del evento:</strong> {formatDate(eventFecha)}
+                  {eventVenue && <span> — {eventVenue}</span>}
+                </p>
               )}
-            </section>
+            </div>
 
-            {/* ⚠️ Restricciones de Cupos */}
-            <section className="rounded-xl border-l-4 border-red-500 bg-red-50 p-3 sm:p-4 md:p-5">
-              <h3 className="font-bold text-red-800 text-base sm:text-lg flex items-center gap-2 mb-2">
-                <i className="fas fa-exclamation-triangle" />
-                Restricciones de Cupos
-              </h3>
-              <p className="text-sm sm:text-base text-red-700 leading-relaxed">
-                Existe un número limitado de acreditaciones disponibles según el tipo de medio
-                de comunicación (TV, Radio, Prensa Escrita, Digital, Fotógrafo, etc.).
+            {/* ⚠️ Restricciones */}
+            <div className="bg-red-50 rounded-xl border border-red-200" style={{ padding: '0.875rem 1rem' }}>
+              <p className="font-semibold text-red-800 flex items-center gap-2 mb-1.5">
+                <span>⚠️</span> Restricciones de Cupos
+              </p>
+              <p className="text-red-700 leading-relaxed">
+                Existe un número limitado de acreditaciones según el tipo de medio.
                 La organización se reserva el derecho de limitar la cantidad de acreditados
-                por medio.
+                por medio. Si los cupos se agotan, la solicitud quedará en lista de espera.
               </p>
-              <p className="text-sm sm:text-base text-red-700 leading-relaxed mt-2">
-                En caso de que los cupos se agoten para su categoría, la solicitud quedará
-                en lista de espera.
-              </p>
-            </section>
+            </div>
 
-            {/* 📞 Excepciones y Consultas */}
-            <section className="rounded-xl border-l-4 border-green-500 bg-green-50 p-3 sm:p-4 md:p-5">
-              <h3 className="font-bold text-green-800 text-base sm:text-lg flex items-center gap-2 mb-2">
-                <i className="fas fa-phone-alt" />
-                Excepciones y Consultas
-              </h3>
-              <p className="text-sm sm:text-base text-green-700 leading-relaxed">
-                Para consultas sobre el proceso de acreditación, solicitar excepciones
-                o resolver cualquier inconveniente, contacte directamente a:
+            {/* 📞 Excepciones */}
+            <div className="bg-green-50 rounded-xl border border-green-200" style={{ padding: '0.875rem 1rem' }}>
+              <p className="font-semibold text-green-800 flex items-center gap-2 mb-1.5">
+                <span>📞</span> Excepciones y Consultas
+              </p>
+              <p className="text-green-700 leading-relaxed">
+                Para consultas, solicitar excepciones o resolver inconvenientes, contacte a:
               </p>
               {contactEmail ? (
                 <a
                   href={`mailto:${contactEmail}`}
-                  className="mt-2 inline-flex items-center gap-2 bg-white/60 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 border border-green-200 text-green-800 hover:bg-white transition text-sm sm:text-base font-medium break-all"
+                  className="mt-1.5 inline-flex items-center gap-2 bg-white/60 rounded-lg border border-green-200 text-green-800 hover:bg-white transition font-medium break-all"
+                  style={{ padding: '0.375rem 0.75rem', fontSize: '0.85rem' }}
                 >
-                  <i className="fas fa-envelope" />
-                  {contactEmail}
+                  ✉️ {contactEmail}
                 </a>
               ) : (
-                <p className="text-sm sm:text-base text-green-700 mt-1">
+                <p className="text-green-700 mt-1">
                   Contacte al departamento de comunicaciones de{' '}
                   <strong>{tenantName || 'la organización'}</strong>.
                 </p>
               )}
-            </section>
+            </div>
 
             {/* 🔒 Protección de Datos */}
-            <section className="rounded-xl border-l-4 border-purple-500 bg-purple-50 p-4 md:p-5">
-              <h3 className="font-bold text-purple-800 text-base sm:text-lg flex items-center gap-2 mb-2">
-                <i className="fas fa-user-shield" />
-                Protección de Datos Personales
-              </h3>
-              <p className="text-sm sm:text-base text-purple-700 leading-relaxed">
-                Los datos proporcionados serán tratados de forma confidencial y utilizados
-                exclusivamente para fines de acreditación de prensa, conforme a la
-                Ley 19.628 sobre Protección de la Vida Privada. En caso de proporcionar
-                información falsa, la acreditación podrá ser revocada sin previo aviso.
+            <div className="bg-purple-50 rounded-xl border border-purple-200" style={{ padding: '0.875rem 1rem' }}>
+              <p className="font-semibold text-purple-800 flex items-center gap-2 mb-1.5">
+                <span>🔒</span> Protección de Datos Personales
               </p>
-            </section>
-          </div>
-
-          {/* ─── Footer: Botones ─── */}
-          <div className="flex-shrink-0 border-t border-gray-200 px-4 sm:px-6 md:px-10 py-3 sm:py-4 bg-gray-50 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
-              <button
-                onClick={onBack}
-                className="w-full sm:flex-1 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-100 transition text-sm sm:text-base"
-              >
-                <i className="fas fa-arrow-left mr-2" />
-                Volver
-              </button>
-              <button
-                onClick={onAccept}
-                disabled={!canAccept}
-                className="w-full sm:flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-all text-base sm:text-lg disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]"
-                style={{
-                  backgroundColor: canAccept ? tenantColors.primario : '#9ca3af',
-                }}
-              >
-                {canAccept ? (
-                  <>
-                    <i className="fas fa-check-circle mr-2" />
-                    <span className="hidden sm:inline">Entiendo y acepto los términos</span>
-                    <span className="sm:hidden">Acepto los términos</span>
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-scroll mr-2" />
-                    <span className="hidden sm:inline">Desliza y lee para continuar</span>
-                    <span className="sm:hidden">Lee para continuar</span>
-                  </>
-                )}
-              </button>
+              <p className="text-purple-700 leading-relaxed">
+                Los datos serán tratados de forma confidencial y usados exclusivamente para
+                acreditación de prensa, conforme a la Ley 19.628 sobre Protección de la Vida
+                Privada. Información falsa puede resultar en revocación sin previo aviso.
+              </p>
             </div>
           </div>
         </div>
+
+        {/* ── Footer buttons (fixed height, always at card bottom) ── */}
+        <div
+          className="flex-shrink-0 flex gap-2 border-t border-gray-200 bg-gray-50"
+          style={{ padding: '0.75rem 1rem' }}
+        >
+          <button
+            onClick={onBack}
+            className="rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-100 active:scale-95 transition"
+            style={{ padding: '0.625rem 1rem', fontSize: '0.85rem' }}
+          >
+            ← Volver
+          </button>
+          <button
+            onClick={onAccept}
+            disabled={!canAccept}
+            className={`flex-1 rounded-xl font-semibold transition-all ${
+              canAccept
+                ? 'text-white shadow-lg hover:shadow-xl active:scale-95'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            style={{
+              padding: '0.625rem 1rem',
+              fontSize: '0.85rem',
+              ...(canAccept
+                ? { background: `linear-gradient(to right, ${tenantColors.primario}, ${tenantColors.primario}cc)` }
+                : {}),
+            }}
+          >
+            {canAccept ? 'Entiendo y acepto los términos' : 'Desliza y lee para continuar'}
+          </button>
+        </div>
       </div>
-    </>
+    </div>,
+    document.body
   );
 }
