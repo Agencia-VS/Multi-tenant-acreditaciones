@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/ui';
 import type { TenantProfileStatus } from '@/types';
+import { STATUS_MAP, type RegistrationStatus } from '@/types';
 
 // ─── Registration type (from API) ──────────────────────────────────────────
 
@@ -64,14 +65,9 @@ const mapReg = (r: any, isSelf: boolean): Registration => ({
   isSelf,
 });
 
-// ─── Status config ──────────────────────────────────────────────────────────
+// ─── Status config (centralizado en @/types) ───────────────────────────────
 
-const statusConfig: Record<string, { bg: string; text: string; icon: string; label: string }> = {
-  pendiente: { bg: 'bg-warn-light', text: 'text-warn-dark', icon: 'fas fa-clock', label: 'Pendiente' },
-  aprobado: { bg: 'bg-success-light', text: 'text-success-dark', icon: 'fas fa-check-circle', label: 'Aprobado' },
-  rechazado: { bg: 'bg-danger-light', text: 'text-danger-dark', icon: 'fas fa-times-circle', label: 'Rechazado' },
-  revision: { bg: 'bg-info-light', text: 'text-info-dark', icon: 'fas fa-search', label: 'En Revisión' },
-};
+const statusConfig = STATUS_MAP as Record<string, { label: string; bg: string; text: string; icon: string }>;
 
 // ═════════════════════════════════════════════════════════════════════════════
 

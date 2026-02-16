@@ -5,96 +5,21 @@
  * Crear/editar eventos con form_fields dinámicos y cupos
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { FormFieldDefinition } from '@/types';
-import type { ZoneMatchField } from '@/types';
+import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
+import EventFormFieldsTab from './EventFormFieldsTab';
+import EventQuotasTab from './EventQuotasTab';
+import EventZonesTab from './EventZonesTab';
 
-interface Tenant { id: string; nombre: string; slug: string; config?: Record<string, unknown>; }
-interface Event {
-  id: string;
-  tenant_id: string;
-  nombre: string;
-  descripcion: string | null;
-  fecha: string | null;
-  hora: string | null;
-  venue: string | null;
-  league: string | null;
-  opponent_name: string | null;
-  opponent_logo_url: string | null;
-  is_active: boolean;
-  qr_enabled: boolean;
-  fecha_limite_acreditacion: string | null;
-  form_fields: FormFieldDefinition[];
-  tenant?: Tenant;
-}
+type SAEvent = BaseEvent & { tenant?: Tenant };
 
 interface QuotaRule {
   id?: string;
   tipo_medio: string;
   max_per_organization: number;
   max_global: number;
-}
-
-const FIELD_TYPES = ['text', 'email', 'tel', 'select', 'checkbox', 'file', 'textarea', 'number'] as const;
-
-/* ═══════════════════════════════════════════════════════
-   Select Options Editor — tag-based UI for select fields
-   ═══════════════════════════════════════════════════════ */
-function SelectOptionsEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
-  const [inputValue, setInputValue] = useState('');
-
-  const addOption = () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) return;
-    // Support comma-separated batch add
-    const newOpts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
-    const unique = newOpts.filter(o => !options.includes(o));
-    if (unique.length > 0) {
-      onChange([...options, ...unique]);
-    }
-    setInputValue('');
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      addOption();
-    }
-    if (e.key === 'Backspace' && inputValue === '' && options.length > 0) {
-      onChange(options.slice(0, -1));
-    }
-  };
-
-  const removeOption = (index: number) => {
-    onChange(options.filter((_, i) => i !== index));
-  };
-
-  return (
-    <div className="mt-2 space-y-2">
-      <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-lg border border-field-border bg-surface">
-        {options.map((opt, i) => (
-          <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-light text-brand rounded-md text-xs font-medium">
-            {opt}
-            <button type="button" onClick={() => removeOption(i)} className="text-brand/60 hover:text-danger transition">
-              <i className="fas fa-times text-[10px]" />
-            </button>
-          </span>
-        ))}
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={addOption}
-          placeholder={options.length === 0 ? 'Escribe opciones (Enter o coma para agregar)' : 'Agregar...'}
-          className="flex-1 min-w-[120px] px-1 py-0.5 text-sm text-label border-none outline-none bg-transparent"
-        />
-      </div>
-      <p className="text-[11px] text-muted">Enter o coma para agregar. Backspace para borrar la última.</p>
-    </div>
-  );
 }
 
 const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
@@ -112,12 +37,13 @@ const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
 
 export default function EventosPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<SAEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Event | null>(null);
+  const [editing, setEditing] = useState<SAEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'form' | 'cupos' | 'zonas'>('general');
   const [saving, setSaving] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const { toast, showSuccess, showError, dismiss } = useToast();
 
   // Event form state
@@ -137,6 +63,9 @@ export default function EventosPage() {
   const [formFields, setFormFields] = useState<FormFieldDefinition[]>(DEFAULT_FORM_FIELDS);
   const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
   const [zoneRules, setZoneRules] = useState<{ id?: string; match_field: ZoneMatchField; cargo: string; zona: string }[]>([]);
+  // Zonas configuradas para el evento (event.config.zonas)
+  const [eventZonas, setEventZonas] = useState<string[]>([]);
+  const [newEventZona, setNewEventZona] = useState('');
 
   const loadData = useCallback(async () => {
     const [tenantsRes, eventsRes] = await Promise.all([
@@ -174,11 +103,13 @@ export default function EventosPage() {
     setFormFields(DEFAULT_FORM_FIELDS);
     setQuotaRules([]);
     setZoneRules([]);
+    setEventZonas([]);
+    setNewEventZona('');
     setActiveTab('general');
     setShowForm(true);
   };
 
-  const handleEdit = async (event: Event) => {
+  const handleEdit = async (event: SAEvent) => {
     setEditing(event);
     setEventForm({
       tenant_id: event.tenant_id,
@@ -194,6 +125,10 @@ export default function EventosPage() {
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
     });
     setFormFields(event.form_fields?.length ? event.form_fields : DEFAULT_FORM_FIELDS);
+    // Load event zonas from config
+    const evConfig = (event.config || {}) as Record<string, unknown>;
+    setEventZonas((evConfig.zonas as string[]) || []);
+    setNewEventZona('');
 
     // Load quota rules (API returns array directly, not { rules: [...] })
     try {
@@ -238,9 +173,15 @@ export default function EventosPage() {
     e.preventDefault();
     setSaving(true);
     try {
+      // Merge zonas into existing event config (preserving other config keys like acreditacion_abierta)
+      const existingConfig = editing ? ((editing.config || {}) as Record<string, unknown>) : {};
+      const eventConfig = { ...existingConfig, zonas: eventZonas.length > 0 ? eventZonas : undefined };
+      if (!eventConfig.zonas) delete eventConfig.zonas;
+
       const body = {
         ...eventForm,
         form_fields: formFields,
+        config: eventConfig,
         fecha_limite_acreditacion: eventForm.fecha_limite_acreditacion
           ? localToChileISO(eventForm.fecha_limite_acreditacion)
           : null,
@@ -351,6 +292,22 @@ export default function EventosPage() {
   // Zone Management
   const addZoneRule = () => {
     setZoneRules(prev => [...prev, { match_field: 'cargo' as ZoneMatchField, cargo: '', zona: '' }]);
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/events?id=${eventId}&action=delete`, { method: 'DELETE' });
+      if (res.ok) {
+        showSuccess('Evento eliminado permanentemente');
+        setDeletingEventId(null);
+        loadData();
+      } else {
+        const d = await res.json();
+        showError(d.error || 'Error eliminando evento');
+      }
+    } catch {
+      showError('Error de conexión');
+    }
   };
 
   const updateZoneRule = (index: number, updates: Partial<{ match_field: ZoneMatchField; cargo: string; zona: string }>) => {
@@ -527,317 +484,40 @@ export default function EventosPage() {
 
               {/* Form Builder Tab */}
               {activeTab === 'form' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-body">
-                      Define los campos que debe llenar el acreditado. Los campos con <code className="bg-subtle px-1 rounded">profile_field</code> se auto-rellenan.
-                    </p>
-                    <button type="button" onClick={addField} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
-                      <i className="fas fa-plus mr-1" /> Campo
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {formFields.map((field, i) => (
-                      <div key={i} className="bg-canvas rounded-lg p-4 border">
-                        <div className="grid grid-cols-12 gap-3 items-center">
-                          <input
-                            type="text"
-                            value={field.key}
-                            onChange={(e) => updateField(i, { key: e.target.value })}
-                            placeholder="key"
-                            className="col-span-2 px-2 py-1 rounded border text-xs font-mono text-label"
-                          />
-                          <input
-                            type="text"
-                            value={field.label}
-                            onChange={(e) => updateField(i, { label: e.target.value })}
-                            placeholder="Label"
-                            className="col-span-3 px-2 py-1 rounded border text-sm text-label"
-                          />
-                          <select
-                            value={field.type}
-                            onChange={(e) => updateField(i, { type: e.target.value as FormFieldDefinition['type'] })}
-                            className="col-span-2 px-2 py-1 rounded border text-sm text-label"
-                          >
-                            {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                          <input
-                            type="text"
-                            value={field.profile_field || ''}
-                            onChange={(e) => updateField(i, { profile_field: e.target.value || undefined })}
-                            placeholder="profile_field"
-                            className="col-span-2 px-2 py-1 rounded border text-xs font-mono text-body"
-                          />
-                          <label className="col-span-2 flex items-center gap-1 text-xs text-body">
-                            <input
-                              type="checkbox"
-                              checked={field.required}
-                              onChange={(e) => updateField(i, { required: e.target.checked })}
-                              className="rounded"
-                            />
-                            Obligatorio
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => removeField(i)}
-                            className="col-span-1 text-red-400 hover:text-red-600 transition"
-                          >
-                            <i className="fas fa-trash" />
-                          </button>
-                        </div>
-                        {field.type === 'select' && (
-                          <SelectOptionsEditor
-                            options={field.options || []}
-                            onChange={(opts) => updateField(i, { options: opts })}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <EventFormFieldsTab
+                  formFields={formFields}
+                  addField={addField}
+                  updateField={updateField}
+                  removeField={removeField}
+                />
               )}
 
               {/* Quota Rules Tab */}
               {activeTab === 'cupos' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-body">
-                        Limitar acreditaciones por tipo de medio y organización.
-                      </p>
-                      {editing && quotaRules.some(r => r.id) && (
-                        <p className="text-xs text-success mt-1">
-                          <i className="fas fa-check-circle mr-1" />
-                          {quotaRules.filter(r => r.id).length} regla(s) guardada(s) en base de datos
-                        </p>
-                      )}
-                    </div>
-                    <button type="button" onClick={addQuotaRule} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
-                      <i className="fas fa-plus mr-1" /> Regla
-                    </button>
-                  </div>
-
-                  {quotaRules.length === 0 ? (
-                    <div className="text-center py-8 text-muted">
-                      <i className="fas fa-infinity text-3xl mb-2" />
-                      <p>Sin restricciones de cupo. Se permiten acreditaciones ilimitadas.</p>
-                      <p className="text-xs mt-2">Haz clic en &quot;+ Regla&quot; para agregar un límite.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {/* Summary table */}
-                      <div className="rounded-lg border overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="bg-canvas text-left">
-                              <th className="px-4 py-2 font-medium text-label">Tipo de Medio</th>
-                              <th className="px-4 py-2 font-medium text-label text-center">Máx. por Org</th>
-                              <th className="px-4 py-2 font-medium text-label text-center">Máx. Global</th>
-                              <th className="px-4 py-2 font-medium text-label text-center">Estado</th>
-                              <th className="px-4 py-2 font-medium text-label text-center w-10"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {quotaRules.map((rule, i) => {
-                              // Derive tipo_medio options from current form_fields
-                              const tipoField = formFields.find(f => f.key === 'tipo_medio');
-                              const tipoOptions = tipoField?.options?.length ? tipoField.options : [...TIPOS_MEDIO];
-
-                              return (
-                              <tr key={i} className="hover:bg-canvas/50">
-                                <td className="px-4 py-3">
-                                  <select
-                                    value={rule.tipo_medio}
-                                    onChange={(e) => updateQuotaRule(i, { tipo_medio: e.target.value })}
-                                    className="px-2 py-1 rounded border text-sm text-label bg-transparent"
-                                  >
-                                    {tipoOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                                  </select>
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={rule.max_per_organization}
-                                    onChange={(e) => updateQuotaRule(i, { max_per_organization: parseInt(e.target.value) || 0 })}
-                                    className="w-20 px-2 py-1 rounded border text-sm text-label text-center"
-                                  />
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={rule.max_global}
-                                    onChange={(e) => updateQuotaRule(i, { max_global: parseInt(e.target.value) || 0 })}
-                                    className="w-20 px-2 py-1 rounded border text-sm text-label text-center"
-                                  />
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  {rule.id ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-light text-success-dark rounded-full text-xs font-medium">
-                                      <i className="fas fa-check text-[10px]" /> Guardada
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-warn-light text-warn-dark rounded-full text-xs font-medium">
-                                      <i className="fas fa-clock text-[10px]" /> Nueva
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => removeQuotaRule(i)}
-                                    className="text-red-400 hover:text-red-600 transition"
-                                  >
-                                    <i className="fas fa-trash text-sm" />
-                                  </button>
-                                </td>
-                              </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      <p className="text-xs text-muted">
-                        <i className="fas fa-info-circle mr-1" />
-                        0 = sin límite. Los cambios se aplicarán al guardar el evento.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <EventQuotasTab
+                  quotaRules={quotaRules}
+                  formFields={formFields}
+                  isEditing={!!editing}
+                  addQuotaRule={addQuotaRule}
+                  updateQuotaRule={updateQuotaRule}
+                  removeQuotaRule={removeQuotaRule}
+                />
               )}
 
               {/* Zone Rules Tab */}
               {activeTab === 'zonas' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-body">
-                        Asignar zonas automáticamente según un campo del registro (cargo o tipo medio/área).
-                      </p>
-                      {editing && zoneRules.some(r => r.id) && (
-                        <p className="text-xs text-success mt-1">
-                          <i className="fas fa-check-circle mr-1" />
-                          {zoneRules.filter(r => r.id).length} regla(s) guardada(s) en base de datos
-                        </p>
-                      )}
-                    </div>
-                    <button type="button" onClick={addZoneRule} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
-                      <i className="fas fa-plus mr-1" /> Regla
-                    </button>
-                  </div>
-
-                  {zoneRules.length === 0 ? (
-                    <div className="text-center py-8 text-muted">
-                      <i className="fas fa-map-marked-alt text-3xl mb-2" />
-                      <p>Sin reglas de zona. El admin asignará zonas manualmente.</p>
-                      <p className="text-xs mt-2">Haz clic en &quot;+ Regla&quot; para mapear cargo/área → zona.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="rounded-lg border overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="bg-canvas text-left">
-                              <th className="px-3 py-2 font-medium text-label w-28">Campo</th>
-                              <th className="px-3 py-2 font-medium text-label">Valor</th>
-                              <th className="px-3 py-2 font-medium text-label w-8"><i className="fas fa-arrow-right mx-1" /></th>
-                              <th className="px-3 py-2 font-medium text-label">Zona asignada</th>
-                              <th className="px-3 py-2 font-medium text-label text-center w-20">Estado</th>
-                              <th className="px-3 py-2 font-medium text-label text-center w-10"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {zoneRules.map((rule, i) => {
-                              // Derive options based on match_field
-                              const sourceField = formFields.find(f => f.key === rule.match_field);
-                              const valueOptions = sourceField?.options
-                                || (rule.match_field === 'cargo' ? [...CARGOS] : [...TIPOS_MEDIO]);
-
-                              // Also get tenant zonas for autocomplete (if available)
-                              const selectedTenant = tenants.find(t => t.id === eventForm.tenant_id);
-                              const tenantZonas = (selectedTenant?.config as Record<string, unknown>)?.zonas as string[] | undefined;
-
-                              return (
-                                <tr key={i} className="hover:bg-canvas/50">
-                                  <td className="px-3 py-3">
-                                    <select
-                                      value={rule.match_field}
-                                      onChange={(e) => updateZoneRule(i, { match_field: e.target.value as ZoneMatchField, cargo: '' })}
-                                      className="px-2 py-1 rounded border text-xs text-label bg-transparent font-medium"
-                                    >
-                                      <option value="cargo">Cargo</option>
-                                      <option value="tipo_medio">Tipo Medio / Área</option>
-                                    </select>
-                                  </td>
-                                  <td className="px-3 py-3">
-                                    <select
-                                      value={rule.cargo}
-                                      onChange={(e) => updateZoneRule(i, { cargo: e.target.value })}
-                                      className="w-full px-2 py-1 rounded border text-sm text-label bg-transparent"
-                                    >
-                                      <option value="">Seleccionar...</option>
-                                      {valueOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                  </td>
-                                  <td className="px-3 py-3 text-center text-muted">
-                                    <i className="fas fa-arrow-right" />
-                                  </td>
-                                  <td className="px-3 py-3">
-                                    {tenantZonas && tenantZonas.length > 0 ? (
-                                      <select
-                                        value={rule.zona}
-                                        onChange={(e) => updateZoneRule(i, { zona: e.target.value })}
-                                        className="w-full px-2 py-1 rounded border text-sm text-label bg-transparent"
-                                      >
-                                        <option value="">Seleccionar zona...</option>
-                                        {tenantZonas.map(z => <option key={z} value={z}>{z}</option>)}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        type="text"
-                                        value={rule.zona}
-                                        onChange={(e) => updateZoneRule(i, { zona: e.target.value })}
-                                        placeholder="Ej: Prensa, VIP, Staff, Cancha..."
-                                        className="w-full px-2 py-1 rounded border text-sm text-label"
-                                      />
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-3 text-center">
-                                    {rule.id ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-light text-success-dark rounded-full text-xs font-medium">
-                                        <i className="fas fa-check text-[10px]" /> Guardada
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-warn-light text-warn-dark rounded-full text-xs font-medium">
-                                        <i className="fas fa-clock text-[10px]" /> Nueva
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-3 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => removeZoneRule(i)}
-                                      className="text-red-400 hover:text-red-600 transition"
-                                    >
-                                      <i className="fas fa-trash text-sm" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      <p className="text-xs text-muted">
-                        <i className="fas fa-info-circle mr-1" />
-                        Al crear una acreditación, si el valor del campo coincide con una regla, la zona se asigna automáticamente.
-                        Para mapeos 1:muchos, el admin asigna desde su dashboard.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <EventZonesTab
+                  zoneRules={zoneRules}
+                  formFields={formFields}
+                  eventZonas={eventZonas}
+                  setEventZonas={setEventZonas}
+                  newEventZona={newEventZona}
+                  setNewEventZona={setNewEventZona}
+                  isEditing={!!editing}
+                  addZoneRule={addZoneRule}
+                  updateZoneRule={updateZoneRule}
+                  removeZoneRule={removeZoneRule}
+                />
               )}
 
               <FormActions
@@ -886,6 +566,33 @@ export default function EventosPage() {
                   >
                     <i className="fas fa-edit mr-1" /> Editar
                   </button>
+
+                  {/* Delete event */}
+                  {deletingEventId === event.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-danger font-medium">¿Eliminar?</span>
+                      <button
+                        onClick={() => handleDeleteEvent(event.id)}
+                        className="px-2 py-1 bg-danger text-white rounded-lg text-xs font-medium hover:bg-danger/90 transition"
+                      >
+                        Sí
+                      </button>
+                      <button
+                        onClick={() => setDeletingEventId(null)}
+                        className="px-2 py-1 text-body hover:text-label text-xs"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingEventId(event.id)}
+                      className="p-1.5 text-muted hover:text-danger hover:bg-red-50 rounded-lg transition"
+                      title="Eliminar evento"
+                    >
+                      <i className="fas fa-trash text-sm" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

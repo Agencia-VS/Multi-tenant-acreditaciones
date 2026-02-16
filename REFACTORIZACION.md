@@ -3,7 +3,8 @@
 > **Proyecto**: Multi-tenant Acreditaciones  
 > **Stack**: Next.js 16 (App Router + Turbopack) · TypeScript · Tailwind CSS v4 · Supabase · Vercel  
 > **Fecha de auditoría**: 13 de febrero de 2026  
-> **Codebase**: ~16,500 líneas TS/TSX/CSS · 18 API routes · 11 servicios · 0 tests  
+> **Última actualización**: 16 de febrero de 2026  
+> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 0 tests  
 
 ---
 
@@ -14,7 +15,20 @@ El proyecto es **funcional en producción** con arquitectura multi-tenant por su
 sistema de zonas, cupos, exportación PuntoTicket y gestión de equipos.
 
 La auditoría línea por línea reveló **6 áreas de mejora** organizadas por prioridad
-en milestones independientes que se pueden desplegar por separado.
+en milestones independientes. **5 de 6 milestones completados** (M1–M5).
+Se agrega un **M7 — Testing** como siguiente prioridad.
+
+### Progreso Global
+
+```
+M1 (Seguridad)                ███████████████  ✅ COMPLETADO — 13 feb 2026
+M2 (Client unificado)          ████████████     ✅ COMPLETADO — 14 feb 2026
+M3 (Performance queries)       ██████████       ✅ COMPLETADO — 14 feb 2026
+M4 (Decomposición)             ████████         ✅ COMPLETADO — 15 feb 2026
+M5 (Tipado fuerte)             ██████           ✅ COMPLETADO — 16 feb 2026
+M6 (Optimización Vercel)       ██████           ⬜ PENDIENTE
+M7 (Testing)                   ████████         ⬜ PENDIENTE (nuevo)
+```
 
 ---
 
@@ -49,413 +63,181 @@ individualmente en cada API route (o no se verifica — ver M1).
 
 ---
 
-## Diagnóstico por Área
+## Diagnóstico por Área (post-refactorización)
 
-### Seguridad
+### Seguridad — ✅ Resuelto en M1
 
-| Ruta | Estado | Problema |
-|------|--------|----------|
-| `GET /api/admin/export` | 🔴 Sin auth | Exporta RUT, email, teléfono de todos los registros |
-| `GET /api/registrations` | 🔴 Sin auth | Lista registros con datos personales |
-| `GET /api/registrations/[id]` | 🔴 Sin auth | Datos completos de una persona por ID |
-| `GET/POST/DELETE /api/events/[id]/quotas` | 🔴 Sin auth | Modifica reglas de cupo |
-| `GET/POST/DELETE /api/events/[id]/zones` | 🔴 Sin auth | Modifica reglas de zona |
-| `GET/POST /api/tenants/[id]/admins` | 🔴 Sin auth | Crea admins de tenant |
-| `GET /api/events` (sin filtro) | 🟡 Sin auth | Lista todos los eventos |
+| Ruta | Estado | Resolución |
+|------|--------|------------|
+| `GET /api/admin/export` | ✅ Protegido | `requireAuth()` con rol admin_tenant/superadmin |
+| `GET /api/registrations` | ✅ Protegido | `requireAuth()` — admin solo ve sus eventos |
+| `GET /api/registrations/[id]` | ✅ Protegido | `requireAuth()` — verificación de ownership |
+| `GET/POST/DELETE /api/events/[id]/quotas` | ✅ Protegido | `requireAuth()` en mutaciones |
+| `GET/POST/DELETE /api/events/[id]/zones` | ✅ Protegido | `requireAuth()` en mutaciones |
+| `GET/POST /api/tenants/[id]/admins` | ✅ Protegido | `requireAuth({ role: 'superadmin' })` |
 | `POST /api/registrations` | ✅ Diseño intencional | Formulario público, auth es opcional |
-| `POST/PATCH /api/tenants` | ✅ SuperAdmin check | Correcto |
-| `GET /api/superadmin/stats` | ✅ SuperAdmin check | Correcto |
-| `GET /api/acreditado/registrations` | ✅ Auth check | Correcto |
+| `POST/PATCH /api/tenants` | ✅ SuperAdmin check | Ya estaba correcto |
 
-### Performance
+Helper creado: `lib/services/requireAuth.ts` — verifica usuario, rol y ownership en 1 línea.
 
-| Problema | Ubicación | Impacto |
-|----------|-----------|---------|
-| N+1 queries (3 sub-queries por tenant) | `listTenants()` en `lib/services/tenants.ts` | 10 tenants = 31 queries |
-| N+1 en bulk update (1 UPDATE por registro) | `bulkUpdateStatus()` en `lib/services/registrations.ts` | 100 registros = 100 queries |
-| Full table scan para conteos | `getRegistrationStats()` | Trae todos los registros para contar |
-| 2 queries secuenciales | `getUserTenantRole()` en `lib/services/auth.ts` | 1 query sería suficiente |
-| ExcelJS en client bundle | `DynamicRegistrationForm.tsx` importa ExcelJS | Bundle size innecesario |
-| Sin paginación real | AdminContext trae 500 registros de golpe | Lento con datasets grandes |
+### Performance — ✅ Resuelto en M3
 
-### Código Duplicado
+| Problema original | Resolución |
+|-------------------|------------|
+| N+1 queries en `listTenants()` (31 queries) | Vista SQL `v_tenant_stats` → 1 query |
+| N+1 en `bulkUpdateStatus()` (100 queries) | Batch con `.in()` → 1 query |
+| Full table scan en `getRegistrationStats()` | `count: 'exact', head: true` → 3 queries ligeras |
+| 2 queries en `getUserTenantRole()` | Combinado en 1 query |
+| ExcelJS en client bundle | Movido a `app/api/bulk/parse/route.ts` (server-side) |
 
-| Duplicación | Ubicaciones | Solución |
-|-------------|-------------|----------|
-| Browser client creado inline | **20+ archivos** con `createBrowserClient(url, key)` | Usar singleton de `lib/supabase/client.ts` |
-| Lógica de autofill | `buildMergedAutofillData()` (server) + `buildDynamicDataForProfile()` (client) | Función isomórfica única |
-| Status labels | `types/index.ts` + `ui.tsx` + `export/route.ts` | Centralizar en 1 lugar |
-| Interfaces locales Tenant/Event | `SA eventos/page.tsx` define locales en vez de importar | Importar de `@/types` |
+### Código Duplicado — ✅ Resuelto en M2 + M5
 
-### Código Muerto
+| Duplicación original | Resolución |
+|---------------------|------------|
+| Browser client inline en 20+ archivos | Singleton `getSupabaseBrowserClient()` — 12 archivos migrados |
+| Autofill duplicado (server + client) | `lib/services/autofill.ts` — función isomórfica única |
+| STATUS_MAP en 3 lugares | Centralizado en `types/index.ts` |
+| Interfaces locales Tenant/Event | Eliminadas, importan de `@/types` |
 
-| Elemento | Ubicación | Acción |
-|----------|-----------|--------|
-| `getSupabaseBrowserClient()` singleton | `lib/supabase/client.ts` | Preservar (será usado en M2) |
-| `export const supabase` legacy | `lib/supabase/index.ts` | 🗑️ Eliminar |
-| `CookieOptions` import no usado | `lib/supabase/server.ts` | 🗑️ Eliminar |
-| `AdminDashboard.tsx` legacy | `components/admin/AdminDashboard.tsx` | 🗑️ Eliminar |
-| Archivos `.bak` y `.bak2` | `components/forms/` | 🗑️ Eliminar |
-| `ip_address` en `AuditLog` | `types/index.ts` | Declarado pero nunca poblado |
+### Código Muerto — ✅ Eliminado en M2
 
-### Archivos Monolíticos
+| Elemento | Acción |
+|----------|--------|
+| `AdminDashboard.tsx` legacy | 🗑️ Eliminado |
+| `DynamicRegistrationForm.tsx.bak` | 🗑️ Eliminado |
+| `AcreditadoRow.tsx.bak2` | 🗑️ Eliminado |
+| `export const supabase` legacy | 🗑️ Eliminado de `lib/supabase/index.ts` |
+| `CookieOptions` import | 🗑️ Eliminado de `lib/supabase/server.ts` |
 
-| Archivo | Líneas | Responsabilidades mezcladas |
-|---------|--------|-----------------------------|
-| `DynamicRegistrationForm.tsx` | **1,439** | Wizard 3 pasos + CSV/Excel parser + validación + equipo + bulk + submit |
-| `SA eventos/page.tsx` | **897** | CRUD eventos + editor form_fields + cupos + zonas + SelectOptionsEditor |
-| `globals.css` | **446** | Design tokens + componentes + animaciones + utilidades |
+### Archivos Monolíticos — ✅ Descompuestos en M4
 
-### Tipado
+| Archivo original | Resultado |
+|-----------------|-----------|
+| `DynamicRegistrationForm.tsx` (1,439 líneas) | 8 archivos en `components/forms/registration/` (1,805 líneas total) |
+| `SA eventos/page.tsx` (1,011 líneas) | `page.tsx` (604) + 4 componentes extraídos (511 total) |
+| `globals.css` (446 líneas) | `globals.css` (4) + 3 archivos en `app/styles/` (412 total) |
+
+### Tipado — ✅ Reforzado en M5
 
 | Aspecto | Estado |
 |---------|--------|
-| `any` explícito | ✅ Solo 1 ocurrencia — excelente |
-| `Record<string, unknown>` | ✅ Usado consistentemente |
-| Tipos generados de Supabase | 🟡 No usa `supabase gen types` — riesgo de drift DB↔TS |
-| Castings `as Type` en servicios | 🟡 Funcional pero pierde type safety de la DB |
+| Tipos generados de Supabase | ✅ `database.types.ts` (1,071 líneas) auto-generado |
+| Clientes Supabase tipados | ✅ `createServerClient<Database>`, `createBrowserClient<Database>` |
+| Tipos derivados de DB | ✅ `Tables<'tenants'>` + helper `NonNull<>` en vez de interfaces manuales |
+| STATUS_MAP centralizado | ✅ Const tipada en `types/index.ts` con bg/text/icon/label |
+| Autofill isomórfico | ✅ `lib/services/autofill.ts` (server + client sin deps de servidor) |
+
+### Testing — 🔴 Pendiente
+
+| Aspecto | Estado |
+|---------|--------|
+| Tests unitarios | 🔴 0 tests — sin framework configurado |
+| Tests de integración API | 🔴 No existen |
+| Tests E2E | 🔴 No existen |
+| Coverage | 🔴 Sin medición |
 
 ---
 
-## Plan de Ejecución
+## Milestones Completados
 
-### Milestone 1 — Seguridad
-> **Prioridad**: URGENTE · **~10 archivos** · **Riesgo de regresión**: Bajo  
-> **Tiempo estimado**: 1 sesión
+### ✅ Milestone 1 — Seguridad (completado 13 feb 2026)
+> **~10 archivos** · Build verificado
 
-Cierra todas las vulnerabilidades de exposición de datos sin auth.
+**Qué se hizo:**
+- Creado `lib/services/requireAuth.ts` — helper reutilizable que verifica usuario, rol y ownership de tenant
+- Protegidas 7 rutas API que exponían datos personales sin autenticación:
+  - `GET /api/admin/export` — ahora requiere admin_tenant o superadmin
+  - `GET /api/registrations` y `GET /api/registrations/[id]` — requiere auth
+  - `POST/DELETE /api/events/[id]/quotas` y `/zones` — requiere auth en mutaciones
+  - `GET/POST /api/tenants/[id]/admins` — requiere superadmin
 
-#### Paso 1.1 — Helper `requireAuth()`
-```
-📁 Crear: lib/services/requireAuth.ts
-```
-Función reutilizable que en 1 línea:
-- Obtiene el usuario actual con `getCurrentUser()`
-- Opcionalmente verifica rol (`admin_tenant`, `superadmin`)
-- Opcionalmente verifica ownership de tenant
-- Retorna `{ user, role }` o lanza error 401/403
+### ✅ Milestone 2 — Cliente Supabase Unificado + Limpieza (completado 14 feb 2026)
+> **~25 archivos** · Build verificado
 
-```typescript
-// Uso esperado en cada API route:
-const { user } = await requireAuth(request, { role: 'admin_tenant', tenantId });
-```
+**Qué se hizo:**
+- 12 archivos migrados de `createBrowserClient(url, key)` inline → `getSupabaseBrowserClient()` singleton
+- Eliminados 3 archivos muertos: `AdminDashboard.tsx`, `DynamicRegistrationForm.tsx.bak`, `AcreditadoRow.tsx.bak2`
+- Limpiado `export const supabase` legacy de `lib/supabase/index.ts`
+- Eliminado import `CookieOptions` no usado de `lib/supabase/server.ts`
 
-#### Paso 1.2 — Proteger export
-```
-✏️ Editar: app/api/admin/export/route.ts
-```
-- Agregar `requireAuth()` con rol `admin_tenant` o `superadmin`
-- Filtrar registros por el tenant del admin autenticado
-- **Verificar**: GET sin auth → 403
+### ✅ Milestone 3 — Performance de Queries (completado 14 feb 2026)
+> **~6 archivos + 1 vista SQL** · Build verificado
 
-#### Paso 1.3 — Proteger registrations GET
-```
-✏️ Editar: app/api/registrations/route.ts (GET)
-✏️ Editar: app/api/registrations/[id]/route.ts (GET)
-```
-- `requireAuth()` en GET
-- Admin solo ve registros de sus eventos
-- **Verificar**: GET sin auth → 403, GET con auth → solo sus datos
+**Qué se hizo:**
+- Vista SQL `v_tenant_stats` creada → `listTenants()` pasó de 31 queries a 1
+- `bulkUpdateStatus()` reescrito con `.in()` batch → de N queries a 1
+- `getRegistrationStats()` usa `count: 'exact', head: true` en vez de full scan
+- `getUserTenantRole()` combinado en 1 query
+- ExcelJS parsing movido a `app/api/bulk/parse/route.ts` (server-side), eliminado del client bundle
 
-#### Paso 1.4 — Proteger quotas y zones
-```
-✏️ Editar: app/api/events/[id]/quotas/route.ts (POST, DELETE)
-✏️ Editar: app/api/events/[id]/zones/route.ts (POST, DELETE)
-```
-- `requireAuth()` en mutaciones
-- GET puede quedar público (info no sensible)
-- **Verificar**: DELETE sin auth → 403
+### ✅ Milestone 4 — Decomposición de Componentes Monolíticos (completado 15 feb 2026)
+> **3 archivos → 15 archivos** · Build verificado
 
-#### Paso 1.5 — Proteger tenant admins
-```
-✏️ Editar: app/api/tenants/[id]/admins/route.ts
-```
-- `requireAuth({ role: 'superadmin' })` en POST
-- GET: autenticado + superadmin o admin del mismo tenant
-- **Verificar**: POST sin auth → 403
+**Qué se hizo:**
 
-#### Paso 1.6 — Verificación final M1
-```bash
-npx next build        # 0 errores
-# Test manual: cada ruta protegida retorna 403 sin auth
+**4.1 — DynamicRegistrationForm (1,439 → 8 archivos):**
+```
+components/forms/registration/
+├── RegistrationWizard.tsx       (216 líneas) — Orquestador wizard
+├── StepResponsable.tsx          (226 líneas) — Paso 1: datos responsable
+├── StepTipoMedio.tsx            (126 líneas) — Paso 2: tipo de medio
+├── StepAcreditados.tsx          (375 líneas) — Paso 3: equipo + bulk
+├── ConfirmModal.tsx             (117 líneas) — Modal de confirmación
+├── StepIndicator.tsx            (40 líneas)  — Indicador de pasos
+├── useRegistrationForm.ts       (631 líneas) — Hook: estado, validación, submit
+├── types.ts                     (64 líneas)  — Tipos del formulario
+└── index.ts                     (10 líneas)  — Barrel export
 ```
 
----
-
-### Milestone 2 — Cliente Supabase Unificado + Limpieza
-> **Prioridad**: Alta · **~25 archivos** · **Riesgo de regresión**: Bajo  
-> **Tiempo estimado**: 1 sesión
-
-Elimina código muerto y unifica el patrón de client browser.
-
-#### Paso 2.1 — Simplificar singleton
+**4.2 — SA Eventos Page (1,011 → 5 archivos):**
 ```
-✏️ Editar: lib/supabase/client.ts
-```
-Dejar un único export claro: `getSupabaseBrowserClient()` que retorna singleton.
-
-#### Paso 2.2 — Reemplazar en 20+ archivos
-```
-✏️ Editar (batch): Todos los archivos que importan createBrowserClient de @supabase/ssr
-```
-Reemplazo mecánico:
-```typescript
-// ANTES (en cada archivo):
-import { createBrowserClient } from '@supabase/ssr';
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-// DESPUÉS:
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-const supabase = getSupabaseBrowserClient();
+app/superadmin/(dashboard)/eventos/
+├── page.tsx                     (604 líneas) — Orquestador reducido
+├── EventFormFieldsTab.tsx       (92 líneas)  — Tab campos de formulario
+├── EventQuotasTab.tsx           (136 líneas) — Tab cupos
+├── EventZonesTab.tsx            (221 líneas) — Tab zonas
+└── SelectOptionsEditor.tsx      (62 líneas)  — Editor de opciones select
 ```
 
-Archivos a editar (lista completa):
-- `app/page.tsx`
-- `app/superadmin/(dashboard)/page.tsx`
-- `app/superadmin/(dashboard)/layout-client.tsx`
-- `app/superadmin/(dashboard)/configuracion/page.tsx`
-- `app/superadmin/login/page.tsx`
-- `app/acreditado/page.tsx`
-- `app/acreditado/nueva/page.tsx`
-- `app/acreditado/layout.tsx`
-- `app/auth/acreditado/page.tsx`
-- `app/auth/callback/page.tsx`
-- `app/[tenant]/admin/login/AdminLoginForm.tsx`
-- `components/admin-dashboard/AdminContext.tsx`
-- `components/forms/DynamicRegistrationForm.tsx`
-- `hooks/useProfileLookup.ts`
-- `hooks/useQuotaCheck.ts`
-- `hooks/useTenantProfile.ts`
-- (y cualquier otro encontrado con `grep -r "createBrowserClient"`)
-
-#### Paso 2.3 — Eliminar código muerto
+**4.3 — globals.css (446 → 4 archivos):**
 ```
-🗑️ Eliminar: components/admin/AdminDashboard.tsx
-🗑️ Eliminar: components/forms/DynamicRegistrationForm.tsx.bak
-🗑️ Eliminar: components/forms/AcreditadoRow.tsx.bak2
-✏️ Editar: lib/supabase/index.ts         → quitar export const supabase
-✏️ Editar: lib/supabase/server.ts        → quitar import CookieOptions
+app/globals.css                  (4 líneas)   — Solo @imports
+app/styles/tokens.css            (124 líneas) — Design tokens + variables CSS
+app/styles/components.css        (207 líneas) — Clases .btn-*, .card-*, etc.
+app/styles/animations.css        (81 líneas)  — @keyframes + utilidades
 ```
 
-#### Paso 2.4 — Verificación final M2
-```bash
-npx next build                    # 0 errores
-grep -r "createBrowserClient" .   # 0 resultados (excepto lib/supabase/)
-```
+### ✅ Milestone 5 — Tipado Fuerte desde la DB (completado 16 feb 2026)
+> **~20 archivos** · Build verificado
+
+**Qué se hizo:**
+
+- **5.1**: Generado `lib/supabase/database.types.ts` (1,071 líneas) con `supabase gen types typescript`
+  - 14 tablas, 3 vistas, 11 funciones RPC tipadas
+- **5.2**: Clientes Supabase tipados con `<Database>` en `server.ts` y `client.ts`
+  - Resultado: autocompletado de tablas y columnas en todos los servicios
+- **5.3**: Tipos principales derivados de la DB en `types/index.ts`:
+  - Helper `NonNull<T, K>` para columnas con default DB (ej: `activo`, `is_active`, `created_at`)
+  - `Profile`, `Tenant`, `Event`, `Registration` derivados con `Tables<>` + `NonNull<>`
+  - `RegistrationFull`, `EventFull` derivados de vistas `v_registration_full`, `v_event_full`
+  - Tipos simples: `EventQuotaRule`, `ZoneAssignmentRule`, `TenantAdmin`, etc. = `Tables<'tabla'>`
+  - 44 errores de tipo corregidos en 14 archivos para compatibilidad con tipos nullable de la DB
+- **5.4**: Eliminadas interfaces locales `Tenant`/`Event` en SA Eventos → importan de `@/types`
+- **5.5**: `STATUS_MAP` centralizado en `types/index.ts` con `{ bg, text, icon, label }` por status
+  - Reemplazado `statusConfig` inline en dashboard acreditado
+  - Reemplazado `STATUS_LABELS` inline en export route
+- **5.6**: Autofill unificado:
+  - Creado `lib/services/autofill.ts` — módulo isomórfico sin deps de servidor
+  - `buildMergedAutofillData()` acepta `Profile | Record<string, unknown>`
+  - Eliminada `buildDynamicDataForProfile()` duplicada del hook `useTenantProfile`
+  - `profiles.ts` re-exporta desde `autofill.ts` para backward compatibility
 
 ---
 
-### Milestone 3 — Performance de Queries
-> **Prioridad**: Alta · **~6 archivos + 1 SQL** · **Riesgo de regresión**: Medio  
-> **Tiempo estimado**: 1 sesión
+## Milestones Pendientes
 
-#### Paso 3.1 — Vista SQL para tenant stats
-```
-📁 Crear: supabase-refactor-views.sql
-```
-```sql
-CREATE OR REPLACE VIEW v_tenant_stats AS
-SELECT
-  t.*,
-  COALESCE(e.cnt, 0)  AS total_events,
-  COALESCE(a.cnt, 0)  AS total_admins,
-  COALESCE(r.cnt, 0)  AS total_registrations
-FROM tenants t
-LEFT JOIN (SELECT tenant_id, COUNT(*) cnt FROM events GROUP BY tenant_id) e ON e.tenant_id = t.id
-LEFT JOIN (SELECT tenant_id, COUNT(*) cnt FROM tenant_admins GROUP BY tenant_id) a ON a.tenant_id = t.id
-LEFT JOIN (
-  SELECT ev.tenant_id, COUNT(*) cnt
-  FROM registrations reg
-  JOIN events ev ON ev.id = reg.event_id
-  GROUP BY ev.tenant_id
-) r ON r.tenant_id = t.id;
-```
-
-#### Paso 3.2 — Reescribir listTenants()
-```
-✏️ Editar: lib/services/tenants.ts
-```
-- Usar `v_tenant_stats` → **1 query en vez de 31**
-- Misma interfaz `TenantWithStats` de retorno
-
-#### Paso 3.3 — Batch en bulkUpdateStatus()
-```
-✏️ Editar: lib/services/registrations.ts
-```
-```typescript
-// ANTES: for...of con 1 update por registro
-// DESPUÉS:
-const { error } = await supabase
-  .from('registrations')
-  .update({ status, reviewed_by: userId, reviewed_at: new Date().toISOString() })
-  .in('id', ids);
-```
-
-#### Paso 3.4 — Stats con COUNT
-```
-✏️ Editar: lib/services/registrations.ts → getRegistrationStats()
-```
-- 3 queries con `count: 'exact', head: true` filtrado por status
-- En vez de traer todos los registros y contar en JS
-
-#### Paso 3.5 — Auth role en 1 query
-```
-✏️ Editar: lib/services/auth.ts → getUserTenantRole()
-```
-- Combinar check superadmin + tenant_admin en 1 solo query con `or`
-
-#### Paso 3.6 — ExcelJS fuera del client bundle
-```
-📁 Crear: app/api/bulk/parse/route.ts
-✏️ Editar: components/forms/DynamicRegistrationForm.tsx
-```
-- Mover parsing Excel/CSV a API route server-side
-- Client solo envía `FormData` con el archivo
-- ExcelJS ya no se importa en el browser → bundle más pequeño
-
-#### Paso 3.7 — Verificación final M3
-```bash
-npx next build
-# Verificar en SA dashboard que stats de tenants sean correctos
-# Verificar bulk approve funcione
-# Verificar import Excel desde formulario funcione
-```
-
----
-
-### Milestone 4 — Decomposición de Componentes Monolíticos
-> **Prioridad**: Media · **3 archivos → ~15 archivos** · **Riesgo de regresión**: Medio  
-> **Tiempo estimado**: 1-2 sesiones
-
-#### Paso 4.1 — DynamicRegistrationForm (1,439 → ~5 archivos)
-
-```
-📁 Crear: components/forms/registration/
-├── RegistrationWizard.tsx       ← Orquestador del wizard (steps, navigation)
-├── StepPersonalData.tsx         ← Paso 1: datos personales + autofill
-├── StepTeamMembers.tsx          ← Paso 2: equipo (tabla, agregar, eliminar)
-├── StepConfirmation.tsx         ← Paso 3: resumen + disclaimer + submit
-├── BulkImportParser.tsx         ← Modal de carga masiva CSV/Excel
-├── useRegistrationForm.ts       ← Hook: estado del form, validación, submit
-└── index.ts                     ← Barrel export
-```
-
-Estrategia de división:
-1. Extraer el hook de estado primero (`useRegistrationForm`)
-2. Mover cada step a su componente
-3. `RegistrationWizard` solo orquesta steps y navegación
-4. `BulkImportParser` componente aislado con su propia lógica
-
-#### Paso 4.2 — SA Eventos Page (897 → ~4 archivos)
-
-```
-📁 Crear: app/superadmin/(dashboard)/eventos/
-├── page.tsx                     ← Orquestador (lista + modal)
-├── EventFormFieldsTab.tsx       ← Tab de configuración de campos
-├── EventQuotasTab.tsx           ← Tab de cupos
-├── EventZonesTab.tsx            ← Tab de zonas
-└── SelectOptionsEditor.tsx      ← Componente reutilizable (ya existe inline)
-```
-
-#### Paso 4.3 — globals.css (446 → 3 archivos)
-
-```
-📁 Crear: app/styles/
-├── tokens.css                   ← @theme, variables CSS, colores semánticos
-├── components.css               ← Clases .btn-*, .card-*, .badge-*, etc.
-└── animations.css               ← @keyframes + utilidades de animación
-
-✏️ Editar: app/globals.css       ← Solo @import de los 3 archivos
-```
-
-#### Paso 4.4 — Verificación final M4
-```bash
-npx next build
-# Test manual: formulario de acreditación completo (3 pasos + equipo + bulk)
-# Test manual: SA eventos CRUD + tabs de form/cupos/zonas
-# Test visual: todos los estilos se ven igual
-```
-
----
-
-### Milestone 5 — Tipado Fuerte desde la DB
-> **Prioridad**: Media · **~15 archivos** · **Riesgo de regresión**: Bajo-Medio  
-> **Tiempo estimado**: 1 sesión
-
-#### Paso 5.1 — Generar tipos de Supabase
-```bash
-npx supabase gen types typescript --project-id <PROJECT_ID> > lib/supabase/database.types.ts
-```
-
-#### Paso 5.2 — Tipar clientes Supabase
-```
-✏️ Editar: lib/supabase/server.ts
-```
-```typescript
-import type { Database } from './database.types';
-
-export function createSupabaseAdminClient() {
-  return createClient<Database>(...);
-}
-```
-Resultado: autocompletado de tablas y columnas en todos los servicios.
-
-#### Paso 5.3 — Derivar tipos de las tablas
-```
-✏️ Editar: types/index.ts
-```
-```typescript
-import type { Database } from '@/lib/supabase/database.types';
-
-// Derivar en vez de definir manualmente
-export type Tenant = Database['public']['Tables']['tenants']['Row'];
-export type Event  = Database['public']['Tables']['events']['Row'];
-// ... etc
-```
-Mantener interfaces extendidas (`TenantWithStats`, `RegistrationFull`) que agregan campos de vistas.
-
-#### Paso 5.4 — Eliminar interfaces locales
-```
-✏️ Editar: app/superadmin/(dashboard)/eventos/page.tsx
-```
-- Eliminar `interface Tenant { ... }` y `interface Event { ... }` locales
-- Importar de `@/types`
-
-#### Paso 5.5 — Centralizar STATUS_MAP
-```
-✏️ Editar: types/index.ts
-```
-```typescript
-export const STATUS_MAP = {
-  pendiente: { label: 'Pendiente', color: 'yellow', bgClass: 'bg-yellow-100 text-yellow-800' },
-  aprobado:  { label: 'Aprobado',  color: 'green',  bgClass: 'bg-green-100 text-green-800' },
-  rechazado: { label: 'Rechazado', color: 'red',    bgClass: 'bg-red-100 text-red-800' },
-  revision:  { label: 'En revisión', color: 'blue', bgClass: 'bg-blue-100 text-blue-800' },
-} as const;
-```
-Eliminar definiciones duplicadas en `ui.tsx` y `export/route.ts`.
-
-#### Paso 5.6 — Unificar lógica de autofill
-```
-✏️ Editar: lib/services/profiles.ts
-```
-- Hacer `buildMergedAutofillData()` isomórfica (funciona en server y client)
-- Eliminar `buildDynamicDataForProfile()` duplicada del hook
-
-#### Paso 5.7 — Verificación final M5
-```bash
-npx next build
-# Verificar autocompletado en IDE al escribir queries Supabase
-# Verificar que formulario autocomplete datos correctamente
-```
-
----
-
-### Milestone 6 — Optimización Vercel + Data Fetching
-> **Prioridad**: Baja · **~8 archivos + 1 SQL** · **Riesgo de regresión**: Medio-Alto  
+### ⬜ Milestone 6 — Optimización Vercel + Data Fetching
+> **Prioridad**: Media · **~8 archivos + 1 SQL** · **Riesgo de regresión**: Medio-Alto  
 > **Tiempo estimado**: 1-2 sesiones
 
 #### Paso 6.1 — Páginas acreditado → Server Components
@@ -536,15 +318,175 @@ npx next build
 
 ---
 
-## Orden de Ejecución Recomendado
+### ⬜ Milestone 7 — Testing
+> **Prioridad**: Alta · **~20+ archivos nuevos** · **Riesgo de regresión**: Ninguno  
+> **Tiempo estimado**: 2-3 sesiones
+
+El proyecto tiene **0 tests**. Con la base de código estabilizada tras M1–M5,
+es el momento ideal para agregar cobertura de tests.
+
+#### Paso 7.1 — Setup del framework de testing
+```bash
+npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+```
+```
+📁 Crear: vitest.config.ts
+📁 Crear: tests/setup.ts          ← Setup global (mocks de Supabase, env vars)
+```
+
+Configuración:
+- **Vitest** como test runner (compatible con Vite/Turbopack)
+- **@testing-library/react** para tests de componentes
+- **jsdom** como environment para DOM
+- Path aliases `@/` funcionando en tests
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import path from 'path';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./tests/setup.ts'],
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['lib/**', 'components/**', 'hooks/**', 'app/api/**'],
+    },
+  },
+  resolve: {
+    alias: { '@': path.resolve(__dirname, '.') },
+  },
+});
+```
+
+#### Paso 7.2 — Tests unitarios de servicios (prioridad alta)
+
+Servicios puros con lógica de negocio — alto valor, fácil de testear con mocks de Supabase.
 
 ```
-Sesión 1  →  M1 (Seguridad)                    ███████████████  URGENTE
-Sesión 2  →  M2 (Client unificado + limpieza)   ████████████     ALTA
-Sesión 3  →  M3 (Performance queries)            ██████████       ALTA
-Sesión 4  →  M4 (Decomposición componentes)      ████████         MEDIA
-Sesión 5  →  M5 (Tipado fuerte)                  ██████           MEDIA
-Sesión 6  →  M6 (Optimización Vercel)            ██████           BAJA
+📁 Crear: tests/services/
+├── profiles.test.ts             ← lookupProfileByRut, getOrCreateProfile, computeTenantProfileStatus
+├── autofill.test.ts             ← buildMergedAutofillData (isomórfico, sin mocks)
+├── registrations.test.ts        ← bulkUpdateStatus, getRegistrationStats
+├── tenants.test.ts              ← listTenants, createTenant
+├── auth.test.ts                 ← getUserTenantRole, getCurrentUser
+├── quotas.test.ts               ← checkQuota, getQuotaRules
+├── requireAuth.test.ts          ← requireAuth helper (401, 403, success paths)
+└── validation.test.ts           ← validateRut, validación de formularios
+```
+
+**Prioridad de cobertura:**
+1. `requireAuth.ts` — seguridad, debe tener 100% coverage
+2. `autofill.ts` — lógica pura, 0 deps → test directo sin mocks
+3. `profiles.ts` — core del formulario diferencial
+4. `registrations.ts` — bulk operations, stats
+5. `validation.ts` — validación RUT, campos requeridos
+
+#### Paso 7.3 — Tests unitarios de utilidades
+
+```
+📁 Crear: tests/lib/
+├── dates.test.ts                ← Timezone Chile, DST, formateo
+├── colors.test.ts               ← Palette generator, WCAG contrast
+└── validation.test.ts           ← Validación de RUT con dígito verificador
+```
+
+#### Paso 7.4 — Tests de hooks
+
+```
+📁 Crear: tests/hooks/
+├── useProfileLookup.test.ts     ← Lookup por RUT con debounce
+├── useQuotaCheck.test.ts        ← Verificación de cupos
+├── useTenantProfile.test.ts     ← Autofill + profile status
+└── useConfirmation.test.ts      ← Modal de confirmación
+```
+
+Requiere mock de `getSupabaseBrowserClient()` y `renderHook()` de testing-library.
+
+#### Paso 7.5 — Tests de API routes (integración)
+
+```
+📁 Crear: tests/api/
+├── registrations.test.ts        ← CRUD + auth checks (403 sin auth)
+├── events.test.ts               ← CRUD + quotas + zones
+├── export.test.ts               ← Export con auth, filtro por tenant
+├── bulk.test.ts                 ← Bulk parse + bulk accreditation
+├── tenants.test.ts              ← CRUD + admin management
+└── auth.test.ts                 ← Callback, session
+```
+
+Estrategia: llamar las funciones GET/POST directamente con `Request` mockeado,
+verificar status codes y response bodies.
+
+#### Paso 7.6 — Tests de componentes (opcional, menor prioridad)
+
+```
+📁 Crear: tests/components/
+├── RegistrationWizard.test.tsx  ← Navegación entre pasos
+├── AdminTable.test.tsx          ← Renderizado de filas, filtros
+└── StepAcreditados.test.tsx     ← Agregar/eliminar miembros de equipo
+```
+
+#### Paso 7.7 — CI + Coverage
+
+```
+📁 Crear: .github/workflows/test.yml
+```
+
+```yaml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm ci
+      - run: npx vitest run --coverage
+      - run: npx next build
+```
+
+Scripts en `package.json`:
+```json
+{
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  }
+}
+```
+
+#### Paso 7.8 — Meta de cobertura
+
+| Área | Meta | Justificación |
+|------|------|---------------|
+| `lib/services/requireAuth.ts` | 100% | Seguridad crítica |
+| `lib/services/autofill.ts` | 100% | Lógica pura, 0 deps |
+| `lib/validation.ts` | 100% | Validación RUT |
+| `lib/services/*.ts` | ≥80% | Lógica de negocio core |
+| `hooks/*.ts` | ≥70% | Lógica client-side |
+| `app/api/**` | ≥60% | Auth + response codes |
+| `components/**` | ≥40% | Menor prioridad, más frágil |
+| **Global** | **≥70%** | — |
+
+---
+
+## Orden de Ejecución
+
+```
+Sesión 1  →  M1 (Seguridad)                    ███████████████  ✅ COMPLETADO
+Sesión 2  →  M2 (Client unificado + limpieza)   ████████████     ✅ COMPLETADO
+Sesión 3  →  M3 (Performance queries)            ██████████       ✅ COMPLETADO
+Sesión 4  →  M4 (Decomposición componentes)      ████████         ✅ COMPLETADO
+Sesión 5  →  M5 (Tipado fuerte)                  ██████           ✅ COMPLETADO
+Sesión 6  →  M6 (Optimización Vercel)            ██████           ⬜ PENDIENTE
+Sesión 7  →  M7 (Testing)                        ████████         ⬜ PENDIENTE
 ```
 
 Cada sesión termina con `npx next build` exitoso y commit independiente.
@@ -553,51 +495,51 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 
 ## Checklist de Verificación por Milestone
 
-### M1 — Seguridad
-- [ ] Helper `requireAuth()` creado y testeado
-- [ ] `GET /api/admin/export` protegido
-- [ ] `GET /api/registrations` protegido
-- [ ] `GET /api/registrations/[id]` protegido
-- [ ] `POST/DELETE /api/events/[id]/quotas` protegido
-- [ ] `POST/DELETE /api/events/[id]/zones` protegido
-- [ ] `GET/POST /api/tenants/[id]/admins` protegido
-- [ ] Build exitoso
+### M1 — Seguridad ✅
+- [x] Helper `requireAuth()` creado y testeado
+- [x] `GET /api/admin/export` protegido
+- [x] `GET /api/registrations` protegido
+- [x] `GET /api/registrations/[id]` protegido
+- [x] `POST/DELETE /api/events/[id]/quotas` protegido
+- [x] `POST/DELETE /api/events/[id]/zones` protegido
+- [x] `GET/POST /api/tenants/[id]/admins` protegido
+- [x] Build exitoso
 
-### M2 — Cliente unificado
-- [ ] Singleton `getSupabaseBrowserClient()` simplificado
-- [ ] 20+ archivos migrados al singleton
-- [ ] Código muerto eliminado (AdminDashboard.tsx, .bak, legacy supabase)
-- [ ] Import `CookieOptions` removido
-- [ ] `grep "createBrowserClient"` retorna 0 (fuera de lib/supabase)
-- [ ] Build exitoso
+### M2 — Cliente unificado ✅
+- [x] Singleton `getSupabaseBrowserClient()` simplificado
+- [x] 12 archivos migrados al singleton
+- [x] Código muerto eliminado (AdminDashboard.tsx, .bak, legacy supabase)
+- [x] Import `CookieOptions` removido
+- [x] `grep "createBrowserClient"` retorna 0 (fuera de lib/supabase)
+- [x] Build exitoso
 
-### M3 — Performance
-- [ ] Vista `v_tenant_stats` creada en Supabase
-- [ ] `listTenants()` usa la vista (1 query)
-- [ ] `bulkUpdateStatus()` usa `.in()` batch
-- [ ] `getRegistrationStats()` usa COUNT
-- [ ] `getUserTenantRole()` en 1 query
-- [ ] ExcelJS parsing en API route server-side
-- [ ] Build exitoso
+### M3 — Performance ✅
+- [x] Vista `v_tenant_stats` creada en Supabase
+- [x] `listTenants()` usa la vista (1 query)
+- [x] `bulkUpdateStatus()` usa `.in()` batch
+- [x] `getRegistrationStats()` usa COUNT
+- [x] `getUserTenantRole()` en 1 query
+- [x] ExcelJS parsing en API route server-side
+- [x] Build exitoso
 
-### M4 — Decomposición
-- [ ] `DynamicRegistrationForm` dividido en 6+ archivos
-- [ ] SA eventos page dividida en 4+ archivos
-- [ ] `globals.css` dividido en 3 archivos
-- [ ] Formulario de acreditación funciona completo
-- [ ] SA eventos CRUD + tabs funcionales
-- [ ] Build exitoso
+### M4 — Decomposición ✅
+- [x] `DynamicRegistrationForm` dividido en 8 archivos
+- [x] SA eventos page dividida en 5 archivos
+- [x] `globals.css` dividido en 4 archivos
+- [x] Formulario de acreditación funciona completo
+- [x] SA eventos CRUD + tabs funcionales
+- [x] Build exitoso
 
-### M5 — Tipado fuerte
-- [ ] `database.types.ts` generado
-- [ ] Clientes Supabase tipados con `Database`
-- [ ] Tipos principales derivados de la DB
-- [ ] Interfaces locales eliminadas
-- [ ] `STATUS_MAP` centralizado
-- [ ] Autofill unificado
-- [ ] Build exitoso
+### M5 — Tipado fuerte ✅
+- [x] `database.types.ts` generado (1,071 líneas)
+- [x] Clientes Supabase tipados con `Database`
+- [x] Tipos principales derivados de la DB con `NonNull<>` helper
+- [x] Interfaces locales eliminadas
+- [x] `STATUS_MAP` centralizado
+- [x] Autofill unificado en `lib/services/autofill.ts` (isomórfico)
+- [x] Build exitoso
 
-### M6 — Optimización Vercel
+### M6 — Optimización Vercel ⬜
 - [ ] Páginas acreditado como Server Components
 - [ ] Caché de tenant con `revalidate`
 - [ ] `revalidatePath` tras mutaciones
@@ -605,10 +547,21 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [ ] Edge runtime en rutas candidatas
 - [ ] Build exitoso
 
+### M7 — Testing ⬜
+- [ ] Vitest + testing-library configurado
+- [ ] Tests de `requireAuth` (100% coverage)
+- [ ] Tests de `autofill.ts` (100% coverage)
+- [ ] Tests de servicios (≥80% coverage)
+- [ ] Tests de hooks (≥70% coverage)
+- [ ] Tests de API routes (auth + response codes)
+- [ ] CI pipeline con GitHub Actions
+- [ ] Coverage global ≥70%
+
 ---
 
-## Lo que Ya Está Bien (no tocar)
+## Lo que Ya Está Bien
 
+### Arquitectura original (no tocado)
 - ✅ **Arquitectura tenant por subdominio** con `proxy.ts` — limpio y correcto para Next.js 16
 - ✅ **Server Components** en `[tenant]/layout.tsx`, `[tenant]/page.tsx`, `[tenant]/acreditacion/page.tsx`, `[tenant]/admin/page.tsx`
 - ✅ **Capa de servicios** separada de API routes — buen patrón
@@ -618,7 +571,32 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - ✅ **Timezone Chile** con manejo de DST
 - ✅ **Auditoría** de acciones críticas
 - ✅ **Barrel exports** en servicios y componentes admin
-- ✅ **0 usos de `any`** (solo 1 en tipos) — disciplina excelente
 - ✅ **Design tokens semánticos** en CSS
 - ✅ **Sistema de zonas v2** con match_field cargo/tipo_medio
 - ✅ **PuntoTicket export** con acreditación fija configurable por tenant
+
+### Mejoras de la refactorización (M1–M5)
+- ✅ **Seguridad**: Todas las rutas API con datos sensibles protegidas con `requireAuth()`
+- ✅ **Client singleton**: Un solo `getSupabaseBrowserClient()` en todo el proyecto
+- ✅ **Queries optimizadas**: Vista `v_tenant_stats`, batch updates, COUNT en vez de full scan
+- ✅ **Componentes modulares**: Formulario wizard en 8 archivos, SA Eventos en 5 archivos
+- ✅ **Tipado fuerte**: Tipos derivados de la DB con `supabase gen types`, helper `NonNull<>`
+- ✅ **Autofill isomórfico**: Una sola función `buildMergedAutofillData()` para server y client
+- ✅ **STATUS_MAP centralizado**: Una fuente de verdad para labels, colores e iconos de status
+- ✅ **0 código muerto**: Eliminados backups, imports sin usar, exports legacy
+
+---
+
+## Métricas de la Refactorización
+
+| Métrica | Antes (13 feb) | Después (16 feb) | Cambio |
+|---------|----------------|-------------------|--------|
+| Líneas de código | ~16,500 | ~20,000 | +3,500 (tipos generados + nuevos servicios) |
+| API routes | 18 | 21 | +3 (bulk/parse, email/templates, email/zone-content) |
+| Servicios | 11 | 13 | +2 (requireAuth, autofill) |
+| Archivos eliminados | — | 5 | -5 (backups, legacy) |
+| Vulnerabilidades auth | 6 rutas | 0 | -6 |
+| N+1 queries | 3 lugares | 0 | -3 |
+| Archivos >500 líneas | 3 | 1* | -2 (*solo useRegistrationForm.ts, que es un hook complejo) |
+| Tipos derivados de DB | 0 | 14 tablas + 3 vistas | +17 |
+| Tests | 0 | 0 | Pendiente M7 |

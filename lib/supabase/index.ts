@@ -5,14 +5,6 @@
  * para uso en diferentes contextos (server, client, middleware).
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-// Cliente básico para compatibilidad con código existente
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 // Re-exportar clientes SSR
 export { 
   createSupabaseServerClient, 
@@ -25,5 +17,8 @@ export {
   createSupabaseBrowserClient, 
   getSupabaseBrowserClient 
 } from './client';
+
+export type { Database } from './database.types';
+export type { Tables, TablesInsert, TablesUpdate } from './database.types';
 
 export { updateSession } from './middleware';

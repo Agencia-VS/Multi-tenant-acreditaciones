@@ -8,9 +8,9 @@ import { getActiveEvent } from '@/lib/services/events';
 import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { notFound } from 'next/navigation';
-import DynamicRegistrationForm from '@/components/forms/DynamicRegistrationForm';
+import { RegistrationWizard as DynamicRegistrationForm } from '@/components/forms/registration';
 import Link from 'next/link';
-import { isDeadlinePast, formatDeadlineChile } from '@/lib/dates';
+import { isAccreditationClosed } from '@/lib/dates';
 import { BackButton } from '@/components/shared/ui';
 
 export default async function AcreditacionPage({
@@ -43,8 +43,12 @@ export default async function AcreditacionPage({
     );
   }
 
-  // Verificar fecha límite (timezone Chile)
-  const pastDeadline = isDeadlinePast(event.fecha_limite_acreditacion);
+  // Verificar si la acreditación está cerrada (override manual + fecha límite)
+  const eventConfig = (event.config || {}) as Record<string, unknown>;
+  const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
+    eventConfig,
+    event.fecha_limite_acreditacion
+  );
 
   return (
     <main className="min-h-screen bg-canvas">
@@ -69,10 +73,9 @@ export default async function AcreditacionPage({
         {pastDeadline ? (
           <div className="text-center py-12">
             <i className="fas fa-lock text-5xl text-danger/40 mb-4" />
-            <h2 className="text-2xl font-bold text-label">Plazo Cerrado</h2>
+            <h2 className="text-2xl font-bold text-label">Acreditación Cerrada</h2>
             <p className="text-body mt-2">
-              El plazo para solicitar acreditación cerró el{' '}
-              {formatDeadlineChile(event.fecha_limite_acreditacion!)}.
+              {closedReason || 'La acreditación no está disponible en este momento.'}
             </p>
           </div>
         ) : (

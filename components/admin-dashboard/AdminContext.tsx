@@ -135,9 +135,29 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     }
   }, [events]);
 
-  // ─── Status change (single) ───────────────────────
+  // ─── Helper: recompute stats from registrations list ─
+  const recomputeStats = useCallback((regs: RegistrationFull[]) => {
+    setStats({
+      total: regs.length,
+      pendientes: regs.filter(r => r.status === 'pendiente').length,
+      aprobados: regs.filter(r => r.status === 'aprobado').length,
+      rechazados: regs.filter(r => r.status === 'rechazado').length,
+      revision: regs.filter(r => r.status === 'revision').length,
+      checked_in: regs.filter(r => r.checked_in).length,
+    });
+  }, []);
+
+  // ─── Status change (single) — optimistic ──────────
   const handleStatusChange = useCallback(async (regId: string, status: RegistrationStatus, motivo?: string) => {
+    // Optimistic: update local state immediately
+    const prevRegs = registrations;
+    const updated = registrations.map(r =>
+      r.id === regId ? { ...r, status, motivo_rechazo: motivo || r.motivo_rechazo, processed_at: new Date().toISOString() } : r
+    );
+    setRegistrations(updated);
+    recomputeStats(updated);
     setProcessing(regId);
+
     try {
       const res = await fetch(`/api/registrations/${regId}`, {
         method: 'PATCH',
@@ -146,17 +166,50 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       });
       if (res.ok) {
         showSuccess(`Registro ${status === 'aprobado' ? 'aprobado' : status === 'rechazado' ? 'rechazado' : 'actualizado'} correctamente`);
-        fetchData();
       } else {
+        // Rollback on failure
+        setRegistrations(prevRegs);
+        recomputeStats(prevRegs);
         const d = await res.json();
         showError(d.error || 'Error al actualizar');
+      }
+    } catch {
+      // Rollback on error
+      setRegistrations(prevRegs);
+      recomputeStats(prevRegs);
+      showError('Error de conexión');
+    } finally {
+      setProcessing(null);
+    }
+  }, [registrations, recomputeStats, showSuccess, showError]);
+
+  // ─── Send email (single) ──────────────────────────
+  const sendEmail = useCallback(async (regId: string) => {
+    const reg = registrations.find(r => r.id === regId);
+    if (!reg) return;
+    if (reg.status !== 'aprobado' && reg.status !== 'rechazado') {
+      showError('Solo se puede enviar email a registros aprobados o rechazados');
+      return;
+    }
+    setProcessing(regId);
+    try {
+      const res = await fetch(`/api/registrations/${regId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: reg.status, send_email: true }),
+      });
+      if (res.ok) {
+        showSuccess(`Email de ${reg.status === 'aprobado' ? 'aprobación' : 'rechazo'} enviado a ${reg.profile_nombre}`);
+      } else {
+        const d = await res.json();
+        showError(d.error || 'Error al enviar email');
       }
     } catch {
       showError('Error de conexión');
     } finally {
       setProcessing(null);
     }
-  }, [fetchData, showSuccess, showError]);
+  }, [registrations, showSuccess, showError]);
 
   // ─── Bulk action ──────────────────────────────────
   const handleBulkAction = useCallback(async (payload: BulkActionPayload) => {
@@ -239,7 +292,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         // Update locally without full refetch for snappy UX
         setRegistrations(prev => prev.map(r =>
           r.id === regId
-            ? { ...r, datos_extra: { ...r.datos_extra, zona } }
+            ? { ...r, datos_extra: { ...((r.datos_extra || {}) as Record<string, unknown>), zona } }
             : r
         ));
         showSuccess(`Zona asignada: ${zona}`);
@@ -273,7 +326,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     activeTab, setActiveTab, filters, setFilters,
     selectedIds, setSelectedIds, loading, processing,
     fetchData, selectEvent, handleStatusChange, handleBulkAction, handleDelete,
-    updateRegistrationZona,
+    updateRegistrationZona, sendEmail,
     toggleSelect, toggleSelectAll,
     showSuccess, showError,
   };

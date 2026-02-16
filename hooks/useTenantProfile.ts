@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { Profile, FormFieldDefinition, TenantProfileStatus } from '@/types';
+import { buildMergedAutofillData } from '@/lib/services/autofill';
 
 interface TenantProfileState {
   profile: Partial<Profile> | null;
@@ -137,7 +138,7 @@ export function useTenantProfile() {
 
   /**
    * Construye dynamicData para un acreditado basándose en datos de perfil.
-   * Cascade: datos del perfil para el tenant → datos globales.
+   * Delega a la función isomórfica de lib/services/profiles.
    */
   const buildDynamicDataForProfile = useCallback((
     profileDatosBase: Record<string, unknown> | undefined | null,
@@ -145,28 +146,7 @@ export function useTenantProfile() {
     formFields: FormFieldDefinition[]
   ): Record<string, string> => {
     if (!profileDatosBase) return {};
-    const tenantMap = (profileDatosBase._tenant || {}) as Record<string, Record<string, unknown>>;
-    const tenantData = tenantMap[tenantId] || {};
-
-    const result: Record<string, string> = {};
-    for (const field of formFields) {
-      let val: unknown;
-      // 1. Tenant-specific
-      val = tenantData[field.key];
-      // 2. Flat legacy
-      if (val === undefined || val === null || val === '') {
-        val = profileDatosBase[field.key];
-      }
-      // 3. Profile field mapping
-      if ((val === undefined || val === null || val === '') && field.profile_field) {
-        const pfKey = field.profile_field.replace(/^datos_base\./, '');
-        val = tenantData[pfKey] ?? profileDatosBase[pfKey];
-      }
-      if (val !== undefined && val !== null && val !== '') {
-        result[field.key] = String(val);
-      }
-    }
-    return result;
+    return buildMergedAutofillData(profileDatosBase, tenantId, formFields);
   }, []);
 
   return {

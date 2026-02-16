@@ -5,7 +5,7 @@
  * Solo muestra eventos con acreditación abierta (fecha_limite_acreditacion no vencida)
  */
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/ui';
 import { isDeadlinePast, formatDeadlineChile } from '@/lib/dates';
@@ -25,10 +25,7 @@ export default function NuevaSolicitudPage() {
 
   useEffect(() => {
     const loadEvents = async () => {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = getSupabaseBrowserClient();
 
       const { data } = await supabase
         .from('events')

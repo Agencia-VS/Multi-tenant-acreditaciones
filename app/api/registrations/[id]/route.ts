@@ -9,8 +9,9 @@ import { updateRegistrationStatus, getRegistrationFull } from '@/lib/services';
 import { sendApprovalEmail, sendRejectionEmail } from '@/lib/services/email';
 import { logAuditAction } from '@/lib/services/audit';
 import { getCurrentUser } from '@/lib/services/auth';
+import { requireAuth } from '@/lib/services/requireAuth';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { RegistrationStatus } from '@/types';
+import type { RegistrationStatus, Tenant } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
@@ -41,10 +42,10 @@ export async function PATCH(
         .eq('id', id)
         .single();
 
-      const merged = { ...(existing?.datos_extra || {}), ...datos_extra };
+      const merged = { ...((existing?.datos_extra || {}) as Record<string, unknown>), ...datos_extra };
       const { error } = await supabase
         .from('registrations')
-        .update({ datos_extra: merged })
+        .update({ datos_extra: merged as any })
         .eq('id', id);
 
       if (error) {
@@ -75,7 +76,7 @@ export async function PATCH(
         const { data: tenant } = await supabase
           .from('tenants')
           .select('*')
-          .eq('id', fullReg.tenant_id)
+          .eq('id', fullReg.tenant_id!)
           .single();
 
         if (tenant) {
@@ -83,10 +84,10 @@ export async function PATCH(
             // Re-fetch para tener el qr_token actualizado
             const updatedReg = await getRegistrationFull(id);
             if (updatedReg) {
-              await sendApprovalEmail(updatedReg, tenant);
+              await sendApprovalEmail(updatedReg, tenant as Tenant);
             }
           } else if (status === 'rechazado') {
-            await sendRejectionEmail(fullReg, tenant, motivo_rechazo);
+            await sendRejectionEmail(fullReg, tenant as Tenant, motivo_rechazo);
           }
         }
       }
@@ -111,10 +112,13 @@ export async function PATCH(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth: requiere usuario autenticado (admin o superadmin)
+    await requireAuth(request);
+
     const { id } = await params;
     const registration = await getRegistrationFull(id);
     
@@ -124,6 +128,7 @@ export async function GET(
 
     return NextResponse.json(registration);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

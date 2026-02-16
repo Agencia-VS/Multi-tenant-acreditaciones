@@ -9,8 +9,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listRegistrations, getTenantById } from '@/lib/services';
-import type { RegistrationStatus, TenantConfig } from '@/types';
+import { listRegistrations } from '@/lib/services';
+import { requireAuth } from '@/lib/services/requireAuth';
+import type { RegistrationStatus } from '@/types';
+import { STATUS_MAP } from '@/types';
 import ExcelJS from 'exceljs';
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -60,6 +62,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'event_id o tenant_id requerido' }, { status: 400 });
     }
 
+    // Auth: requiere admin_tenant o superadmin
+    await requireAuth(request, { role: 'admin_tenant', tenantId: tenantId || undefined });
+
     const { data: registrations } = await listRegistrations({
       event_id: eventId || undefined,
       tenant_id: tenantId || undefined,
@@ -70,51 +75,50 @@ export async function GET(request: NextRequest) {
     });
 
     // ─────────────────────────────────────────────────────
-    // PuntoTicket XLSX  (7 columnas — solo aprobados)
-    // Nombre | Apellido | RUT | Empresa | Área | Acreditación | Patente
+    // PuntoTicket XLSX  (7 columnas)
+    // Nombre | Apellido | RUT | Empresa | Area claro arena/Cruzados | Zona | Patente
     //
-    // Acreditación:
-    //   Si el tenant tiene puntoticket_acreditacion_fija → se usa siempre
-    //   Sino → datos_extra.zona || cargo || ''
+    // Exporta según los filtros activos del dashboard (status, tipo_medio, search).
+    // Si no hay filtro de status, exporta todos.
     // ─────────────────────────────────────────────────────
     if (format === 'puntoticket') {
-      const approved = registrations.filter(r => r.status === 'aprobado');
-
-      // Cargar config del tenant para acreditación fija
-      let tenantConfig: TenantConfig = {};
-      const tid = tenantId || (approved[0] as unknown as Record<string, unknown>)?.tenant_id as string | undefined;
-      if (tid) {
-        const tenant = await getTenantById(tid);
-        if (tenant?.config) tenantConfig = tenant.config as TenantConfig;
-      }
-      const acreditacionFija = tenantConfig.puntoticket_acreditacion_fija || '';
+      // Usar los registros ya filtrados por listRegistrations (respeta filtros del dashboard)
+      const rows = registrations;
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Accredia';
       const sheet = workbook.addWorksheet('Acreditaciones');
 
       sheet.columns = [
-        { header: 'Nombre',         key: 'nombre',        width: 22 },
-        { header: 'Apellido',       key: 'apellido',      width: 22 },
-        { header: 'RUT',            key: 'rut',           width: 16 },
-        { header: 'Empresa',        key: 'empresa',       width: 25 },
-        { header: 'Área',           key: 'area',          width: 22 },
-        { header: 'Acreditación',   key: 'acreditacion',  width: 22 },
-        { header: 'Patente',        key: 'patente',       width: 14 },
+        { header: 'Nombre',                       key: 'nombre',   width: 22 },
+        { header: 'Apellido',                     key: 'apellido', width: 22 },
+        { header: 'RUT',                          key: 'rut',      width: 16 },
+        { header: 'Empresa',                      key: 'empresa',  width: 25 },
+        { header: 'Area claro arena/Cruzados',    key: 'area',     width: 28 },
+        { header: 'Zona',                         key: 'zona',     width: 22 },
+        { header: 'Patente',                      key: 'patente',  width: 14 },
       ];
 
       styleHeader(sheet.getRow(1), 'FF6b21a8');
 
-      approved.forEach(r => {
+      rows.forEach(r => {
         const rec = r as unknown as Record<string, unknown>;
+
+        // Columna "Area claro arena/Cruzados":
+        //   - Tenant cruzados → siempre "CRUZADOS"
+        //   - Otros tenants → tipo_medio del registro
+        const areaValue = r.tenant_slug === 'cruzados'
+          ? 'CRUZADOS'
+          : (r.tipo_medio || extractField(rec, 'area') || '');
+
         sheet.addRow({
-          nombre:       r.profile_nombre || '',
-          apellido:     r.profile_apellido || '',
-          rut:          r.rut || '',
-          empresa:      r.organizacion || extractField(rec, 'empresa') || '',
-          area:         extractField(rec, 'area') || r.tipo_medio || '',
-          acreditacion: acreditacionFija || extractField(rec, 'zona') || r.cargo || '',
-          patente:      extractField(rec, 'patente') || '',
+          nombre:   r.profile_nombre || '',
+          apellido: r.profile_apellido || '',
+          rut:      r.rut || '',
+          empresa:  r.organizacion || extractField(rec, 'empresa') || '',
+          area:     areaValue,
+          zona:     extractField(rec, 'zona') || '',
+          patente:  extractField(rec, 'patente') || '',
         });
       });
 
@@ -122,7 +126,7 @@ export async function GET(request: NextRequest) {
       sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const eventName = approved[0]?.event_nombre?.replace(/[^a-zA-Z0-9]/g, '_') || 'export';
+      const eventName = rows[0]?.event_nombre?.replace(/[^a-zA-Z0-9]/g, '_') || 'export';
       return new NextResponse(buffer as unknown as BodyInit, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -161,12 +165,9 @@ export async function GET(request: NextRequest) {
 
     styleHeader(sheet.getRow(1), 'FF1a1a2e');
 
-    const STATUS_LABELS: Record<string, string> = {
-      pendiente: 'Pendiente',
-      aprobado: 'Aprobado',
-      rechazado: 'Rechazado',
-      revision: 'En revisión',
-    };
+    const STATUS_LABELS = Object.fromEntries(
+      Object.entries(STATUS_MAP).map(([k, v]) => [k, v.label])
+    ) as Record<string, string>;
 
     registrations.forEach((r) => {
       const rec = r as unknown as Record<string, unknown>;
@@ -186,7 +187,7 @@ export async function GET(request: NextRequest) {
         rut:              r.rut || '',
         email:            r.profile_email || '',
         cargo:            r.cargo || '',
-        tipo_credencial:  r.tipo_medio || '',
+        tipo_credencial:  extractField(rec, 'tipo_credencial') || '',
         n_credencial:     extractField(rec, 'n_credencial') || '',
         empresa:          r.organizacion || extractField(rec, 'empresa') || '',
         area:             extractField(rec, 'area') || r.tipo_medio || '',
@@ -214,6 +215,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

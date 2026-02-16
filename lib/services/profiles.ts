@@ -8,6 +8,10 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Profile, RegistrationFormData } from '@/types';
 
+// Import + re-export isomorphic autofill (no server deps)
+import { buildMergedAutofillData } from './autofill';
+export { buildMergedAutofillData };
+
 /**
  * Busca un perfil por RUT. Si existe, retorna datos precargados.
  * Esta es la base del "Formulario Diferencial".
@@ -179,11 +183,11 @@ export async function updateProfileDatosBase(
     .eq('id', profileId)
     .single();
   
-  const merged = { ...(existing?.datos_base || {}), ...datosBase };
+  const merged = { ...((existing?.datos_base || {}) as Record<string, unknown>), ...datosBase };
   
   const { data, error } = await supabase
     .from('profiles')
-    .update({ datos_base: merged })
+    .update({ datos_base: merged as any })
     .eq('id', profileId)
     .select()
     .single();
@@ -249,7 +253,7 @@ export async function saveTenantProfileData(
 
   const { error } = await supabase
     .from('profiles')
-    .update({ datos_base: flatMerge })
+    .update({ datos_base: flatMerge as any })
     .eq('id', profileId);
 
   if (error) throw new Error(`Error guardando datos de tenant: ${error.message}`);
@@ -278,69 +282,7 @@ export async function getTenantProfileData(
   return tenantMap[tenantId] || null;
 }
 
-/**
- * Construye datos de autofill mergeados para un formulario específico.
- * Cascade: tenant-specific → flat datos_base → profile fixed fields
- *
- * Esta función se usa tanto en backend como puede exportarse para el frontend.
- */
-export function buildMergedAutofillData(
-  profile: Profile,
-  tenantId: string,
-  formFields: import('@/types').FormFieldDefinition[]
-): Record<string, string> {
-  const datosBase = profile.datos_base || {};
-  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
-  const tenantData = tenantMap[tenantId] || {};
-
-  // Mapeo de profile fixed fields a form field keys
-  const profileFieldMap: Record<string, unknown> = {
-    rut: profile.rut,
-    nombre: profile.nombre,
-    apellido: profile.apellido,
-    email: profile.email,
-    telefono: profile.telefono,
-    nacionalidad: profile.nacionalidad,
-    cargo: profile.cargo,
-    medio: profile.medio,
-    tipo_medio: profile.tipo_medio,
-  };
-
-  const result: Record<string, string> = {};
-
-  for (const field of formFields) {
-    let val: unknown;
-
-    // 1. Tenant-specific data (highest priority)
-    val = tenantData[field.key];
-
-    // 2. Flat datos_base (legacy)
-    if (val === undefined || val === null || val === '') {
-      val = datosBase[field.key];
-    }
-
-    // 3. Profile field mapping (e.g. "datos_base.talla_polera" → datosBase.talla_polera)
-    if ((val === undefined || val === null || val === '') && field.profile_field) {
-      const pfKey = field.profile_field.replace(/^datos_base\./, '');
-      // Check tenant data first
-      val = tenantData[pfKey];
-      // Then flat
-      if (val === undefined || val === null || val === '') {
-        val = datosBase[pfKey];
-      }
-      // Then profile fixed fields
-      if (val === undefined || val === null || val === '') {
-        val = profileFieldMap[pfKey];
-      }
-    }
-
-    if (val !== undefined && val !== null && val !== '') {
-      result[field.key] = String(val);
-    }
-  }
-
-  return result;
-}
+// buildMergedAutofillData lives in ./autofill.ts (isomorphic, no server deps)
 
 /**
  * Calcula los campos faltantes de un perfil para un contexto tenant/evento.

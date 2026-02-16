@@ -23,7 +23,7 @@ export async function logAuditAction(
       action,
       entity_type: entityType,
       entity_id: entityId,
-      metadata: metadata || {},
+      metadata: (metadata || {}) as any,
     });
   } catch {
     // No bloquear el flujo principal por error de auditoría

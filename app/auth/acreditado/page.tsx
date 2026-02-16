@@ -7,7 +7,7 @@
  */
 import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { BackButton } from '@/components/shared/ui';
 
@@ -35,10 +35,7 @@ function AcreditadoAuthContent() {
   const [transitioning, setTransitioning] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = getSupabaseBrowserClient();
 
   const switchMode = (newMode: 'login' | 'register') => {
     if (newMode === mode) return;

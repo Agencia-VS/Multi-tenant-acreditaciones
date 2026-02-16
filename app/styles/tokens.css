@@ -1,0 +1,124 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Wise Design Foundations — Tokens
+
+   Color Token Architecture:
+   - @theme registers semantic tokens → Tailwind generates utility classes
+   - :root sets fallback values (blue-accent neutral theme)
+   - Tenant layouts override --color-* for brand-specific theming
+
+   Utility mapping (old → new):
+   text-gray-900  → text-heading    |  bg-blue-600  → bg-brand
+   text-gray-600  → text-body       |  text-blue-600 → text-brand
+   text-gray-400  → text-muted      |  bg-white     → bg-surface
+   text-gray-700  → text-label      |  bg-gray-50   → bg-canvas
+   border-gray-200 → border-edge    |  bg-gray-100  → bg-subtle
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Content / Text hierarchy ── */
+  --color-heading: #111111;
+  --color-body: #2B2B2B;
+  --color-muted: #888888;
+  --color-label: #2B2B2B;
+
+  /* ── Interactive / Brand ── */
+  --color-brand: #00C48C;
+  --color-brand-hover: #00A676;
+  --color-on-brand: #ffffff;
+  --color-accent: #00C48C;
+  --color-accent-light: #E6FBF3;
+
+  /* ── Surfaces ── */
+  --color-surface: #ffffff;
+  --color-canvas: #F2F2F2;
+  --color-subtle: #E8E8E8;
+
+  /* ── Borders ── */
+  --color-edge: #DEDEDE;
+  --color-field-border: #CCCCCC;
+
+  /* ── Status / Sentiment ── */
+  --color-success: #059669;
+  --color-success-light: #D4F5E9;
+  --color-success-dark: #065f46;
+  --color-warn: #d97706;
+  --color-warn-light: #fef3c7;
+  --color-warn-dark: #92400e;
+  --color-danger: #dc2626;
+  --color-danger-light: #fee2e2;
+  --color-danger-dark: #991b1b;
+  --color-info-light: #E6FBF3;
+  --color-info-dark: #00785A;
+
+  /* ── Motion / Transitions (Wise: Snappy 60%, Fluid 30%, Intuitive 10%) ── */
+  --duration-snappy: 200ms;
+  --duration-fluid: 400ms;
+  --duration-intuitive: 300ms;
+  --ease-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-fluid: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-intuitive: cubic-bezier(0.2, 0, 0.4, 1);
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Spacing semantic tokens ── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-section: 32px;
+
+  /* ── Component sizing ── */
+  --size-icon: 24px;
+  --size-btn-sm: 32px;
+  --size-btn-md: 48px;
+  --size-btn-lg: 56px;
+  --size-avatar-sm: 40px;
+  --size-avatar-md: 48px;
+  --size-avatar-lg: 56px;
+}
+
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-heading);
+
+  /* Focus State System vars */
+  --focus-color: var(--color-brand, #00C48C);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-input-width: 3px;
+}
+
+/* ─── Accesibilidad: base legible y responsive ─── */
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1280px) {
+  html {
+    font-size: 20px;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-barlow-condensed);
+  overflow-x: hidden;
+  font-size: 1rem;
+  -webkit-text-size-adjust: 100%;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}

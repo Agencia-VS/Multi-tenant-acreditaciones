@@ -6,8 +6,10 @@ export { createRegistration, createBulkRegistrations, listRegistrations, updateR
 export { checkQuota, getQuotaRulesWithUsage, upsertQuotaRule, deleteQuotaRule } from './quotas';
 export { resolveZone, getZoneRules, upsertZoneRule, deleteZoneRule } from './zones';
 export { getTenantBySlug, getTenantById, listTenants, createTenant, updateTenant, createTenantAdmin, listTenantAdmins, listActiveTenants } from './tenants';
-export { getActiveEvent, getEventById, getEventFull, listEventsByTenant, listAllEvents, createEvent, updateEvent, deactivateEvent } from './events';
+export { getActiveEvent, getEventById, getEventFull, listEventsByTenant, listAllEvents, createEvent, updateEvent, deactivateEvent, deleteEvent } from './events';
 export { getTeamMembers, addTeamMember, removeTeamMember, updateTeamMember } from './teams';
 export { sendApprovalEmail, sendRejectionEmail, sendBulkApprovalEmails } from './email';
 export { logAuditAction, getAuditLogs } from './audit';
 export { getCurrentUser, isSuperAdmin, isTenantAdmin, getUserTenantRole, hasAccessToTenant } from './auth';
+export { requireAuth } from './requireAuth';
+export type { AuthResult, RequireAuthOptions, AuthRole } from './requireAuth';

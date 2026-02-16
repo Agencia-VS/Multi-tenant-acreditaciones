@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { StatusBadge } from '@/components/shared/ui';
 import type { RegistrationFull } from '@/types';
@@ -12,11 +11,14 @@ interface AdminRowProps {
 }
 
 export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps) {
-  const { selectedIds, toggleSelect, handleStatusChange, processing, tenant, updateRegistrationZona } = useAdmin();
+  const { selectedIds, toggleSelect, handleStatusChange, sendEmail, processing, tenant, selectedEvent, updateRegistrationZona } = useAdmin();
   const isProcessing = processing === reg.id;
 
-  // Get zone options from tenant config
-  const zonaOptions = ((tenant?.config as Record<string, unknown>)?.zonas as string[]) || [];
+  // Get zone options: event config first, then tenant config fallback
+  const zonaOptions =
+    ((selectedEvent?.config as Record<string, unknown>)?.zonas as string[]) ||
+    ((tenant?.config as Record<string, unknown>)?.zonas as string[]) ||
+    [];
 
   return (
     <tr className={`border-b border-edge transition ${selectedIds.has(reg.id) ? 'bg-accent-light/50' : 'hover:bg-canvas/50'}`}>
@@ -41,7 +43,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
           {reg.profile_foto ? (
             <img src={reg.profile_foto} alt="" className="w-8 h-8 rounded-full object-cover" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand to-brand-hover flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-xs font-bold">
               {reg.profile_nombre?.[0]}{reg.profile_apellido?.[0]}
             </div>
           )}
@@ -65,7 +67,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
       {/* Cargo */}
       <td className="p-3 text-base text-body">{reg.cargo || <span className="text-muted">—</span>}</td>
 
-      {/* Zona — editable dropdown */}
+      {/* Zona — always a select dropdown */}
       <td className="p-3">
         {zonaOptions.length > 0 ? (
           <select
@@ -80,13 +82,10 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
             <option value="">Sin zona</option>
             {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
           </select>
-        ) : (reg.datos_extra as Record<string, unknown>)?.zona ? (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-sm font-medium text-purple-700">
-            <i className="fas fa-map-signs mr-1 text-xs" />
-            {String((reg.datos_extra as Record<string, unknown>).zona)}
-          </span>
         ) : (
-          <span className="text-muted text-sm">—</span>
+          <span className="text-xs text-muted italic" title="Configura zonas en Configuración del evento">
+            Sin zonas
+          </span>
         )}
       </td>
 
@@ -144,15 +143,19 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
             </>
           )}
 
-          {/* Resend email for approved */}
-          {reg.status === 'aprobado' && reg.profile_email && (
+          {/* Send email for approved/rejected */}
+          {(reg.status === 'aprobado' || reg.status === 'rechazado') && reg.profile_email && (
             <button
-              onClick={() => handleStatusChange(reg.id, 'aprobado')}
+              onClick={() => sendEmail(reg.id)}
               disabled={isProcessing}
-              className="p-1.5 text-muted hover:text-purple-600 hover:bg-purple-50 rounded-lg transition disabled:opacity-50"
-              title="Reenviar email"
+              className="p-1.5 text-muted hover:text-[#9333ea] hover:bg-[#faf5ff] rounded-lg transition disabled:opacity-50"
+              title={`Enviar email de ${reg.status === 'aprobado' ? 'aprobación' : 'rechazo'}`}
             >
-              <i className="fas fa-envelope text-sm" />
+              {isProcessing ? (
+                <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <i className="fas fa-envelope text-sm" />
+              )}
             </button>
           )}
         </div>

@@ -5,8 +5,9 @@
  * Compatible con Next.js 14+ App Router.
  */
 
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import type { Database } from './database.types';
 
 /**
  * Crea un cliente Supabase para uso en Server Components.
@@ -15,7 +16,7 @@ import { cookies } from 'next/headers';
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -43,7 +44,7 @@ export async function createSupabaseServerClient() {
  * ⚠️ Solo usar en el servidor, nunca exponer al cliente.
  */
 export function createSupabaseAdminClient() {
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {

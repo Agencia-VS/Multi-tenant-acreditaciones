@@ -4,7 +4,7 @@
  * SuperAdmin — Configuración general de la plataforma
  */
 import { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function ConfiguracionPage() {
   const [newEmail, setNewEmail] = useState('');
@@ -19,10 +19,7 @@ export default function ConfiguracionPage() {
     setMessage('');
 
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = getSupabaseBrowserClient();
 
       // Create user via auth admin (this requires service role)
       const res = await fetch('/api/superadmin/stats', {

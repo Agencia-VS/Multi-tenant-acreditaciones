@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuotaRulesWithUsage, upsertQuotaRule, deleteQuotaRule, checkQuota } from '@/lib/services';
+import { requireAuth } from '@/lib/services/requireAuth';
 
 export async function GET(
   request: NextRequest,
@@ -41,6 +42,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth: requiere admin_tenant o superadmin
+    await requireAuth(request, { role: 'admin_tenant' });
+
     const { id: eventId } = await params;
     const body = await request.json();
     const { tipo_medio, max_per_organization, max_global } = body;
@@ -58,6 +62,7 @@ export async function POST(
 
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -67,6 +72,9 @@ export async function POST(
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Auth: requiere admin_tenant o superadmin
+    await requireAuth(request, { role: 'admin_tenant' });
+
     const { searchParams } = new URL(request.url);
     const ruleId = searchParams.get('rule_id');
     
@@ -77,6 +85,7 @@ export async function DELETE(request: NextRequest) {
     await deleteQuotaRule(ruleId);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

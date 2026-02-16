@@ -7,11 +7,11 @@ import type { UIMessage } from '@/types';
 /* ─────────────────────────── StatusBadge ─────────────────────────── */
 
 export function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pendiente: 'bg-warn-light text-warn-dark',
-    aprobado: 'bg-success-light text-success-dark',
-    rechazado: 'bg-danger-light text-danger-dark',
-    revision: 'bg-info-light text-info-dark',
+  const config: Record<string, { bg: string; icon: string }> = {
+    pendiente: { bg: 'bg-[#fef3c7] text-[#92400e] border border-[#f59e0b]/40', icon: 'fa-clock' },
+    aprobado:  { bg: 'bg-[#d1fae5] text-[#065f46] border border-[#059669]/40', icon: 'fa-check-circle' },
+    rechazado: { bg: 'bg-[#fee2e2] text-[#991b1b] border border-[#dc2626]/40', icon: 'fa-times-circle' },
+    revision:  { bg: 'bg-[#dbeafe] text-[#1e40af] border border-[#3b82f6]/40', icon: 'fa-search' },
   };
 
   const labels: Record<string, string> = {
@@ -21,8 +21,11 @@ export function StatusBadge({ status }: { status: string }) {
     revision: 'En Revisión',
   };
 
+  const { bg, icon } = config[status] || { bg: 'bg-subtle text-body', icon: 'fa-question-circle' };
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${colors[status] || 'bg-subtle text-body'}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold ${bg}`}>
+      <i className={`fas ${icon} text-xs`} />
       {labels[status] || status}
     </span>
   );
@@ -298,12 +301,12 @@ export function Card({ children, className = '' }: { children: React.ReactNode; 
 
 export function StatCard({ label, value, icon, color = 'blue' }: { label: string; value: number | string; icon?: string; color?: string }) {
   const colors: Record<string, string> = {
-    blue: 'from-brand to-brand-hover',
-    green: 'from-success to-success-dark',
-    yellow: 'from-warn to-warn-dark',
-    red: 'from-danger to-danger-dark',
-    purple: 'from-purple-500 to-purple-600',
-    gray: 'from-body to-heading',
+    blue: 'from-[#00C48C] to-[#00A676]',
+    green: 'from-[#059669] to-[#065f46]',
+    yellow: 'from-[#d97706] to-[#92400e]',
+    red: 'from-[#dc2626] to-[#991b1b]',
+    purple: 'from-[#9333ea] to-[#7e22ce]',
+    gray: 'from-[#6b7280] to-[#374151]',
   };
 
   return (

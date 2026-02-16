@@ -1,0 +1,207 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   COMPONENT STYLES — Wise Design Foundations
+   
+   Focus states, layout utilities, field styling, markup system,
+   glassmorphism, and mobile-first responsive rules.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Compact padding helpers ─── */
+.compact-card { padding: 1rem !important; }
+.compact-form { padding: 1.25rem !important; }
+
+@media (min-width: 768px) {
+  .compact-card { padding: 1.25rem !important; }
+  .compact-form { padding: 1.5rem !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOCUS STATE SYSTEM — Wise Design Foundations
+   
+   Principles:
+   1. Highly visible — above WCAG 2 focus appearance criteria
+   2. Branded — uses tenant's interactive-primary (forest/dark)
+   3. Never distracting — :focus-visible only (keyboard, not click)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*:focus {
+  outline: none;
+}
+
+/* Buttons — 2px border + 2px transparent offset */
+button:focus-visible,
+[role="button"]:focus-visible,
+summary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: inherit;
+}
+
+/* Form inputs — 3px border, high contrast, no offset */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--focus-color) !important;
+  box-shadow: 0 0 0 var(--focus-input-width) var(--focus-color) !important;
+  --tw-ring-color: transparent;
+}
+
+/* Links — 2px border, 4px radius, 2px inner padding */
+a:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Interactive icons in circular containers */
+.focus-round:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: 9999px;
+}
+
+/* Tabs/navigation */
+[role="tab"]:focus-visible,
+.nav-tab:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* Dark/inverted surfaces — bright accent focus */
+.dark-surface button:focus-visible,
+.dark-surface a:focus-visible,
+.dark-surface input:focus-visible,
+.dark-surface select:focus-visible,
+.dark-surface [role="button"]:focus-visible {
+  --focus-color: var(--color-accent, #00C48C);
+}
+
+/* ── Skip-to-content link (a11y best practice) ── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: var(--focus-color);
+  color: white;
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  transition: top 0.2s;
+}
+.skip-link:focus-visible {
+  top: 0;
+  outline: 2px solid var(--tenant-light, #9ca3af);
+  outline-offset: 2px;
+}
+
+/* ── Glassmorphism & Hero ── */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.hero-overlay {
+  background: linear-gradient(135deg, 
+      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.10) 0%, 
+      rgba(var(--tenant-secundario-rgb, 107, 114, 128), 0.08) 50%,
+      rgba(var(--tenant-primario-rgb, 55, 65, 81), 0.15) 100%);
+}
+
+.minimal-line {
+  height: 2px;
+  background: linear-gradient(90deg, 
+      transparent 0%, 
+      var(--tenant-light) 50%, 
+      transparent 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MARKUP SYSTEM — Wise Design Foundations
+   ═══════════════════════════════════════════════════════════════════════ */
+.markup-important { color: var(--color-heading); font-weight: 600; }
+.markup-positive  { color: var(--color-success); font-weight: 600; }
+.markup-negative  { color: var(--color-danger); font-weight: 600; }
+.markup-strike    { text-decoration: line-through; }
+.markup-link      { color: var(--color-brand); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOTION UTILITIES — Wise: "snappy, fluid, intuitive"
+   ═══════════════════════════════════════════════════════════════════════ */
+.transition-snappy {
+  transition-duration: var(--duration-snappy);
+  transition-timing-function: var(--ease-snappy);
+}
+.transition-fluid {
+  transition-duration: var(--duration-fluid);
+  transition-timing-function: var(--ease-fluid);
+}
+.transition-intuitive {
+  transition-duration: var(--duration-intuitive);
+  transition-timing-function: var(--ease-intuitive);
+}
+
+/* Default interactive transitions */
+button, a, [role="button"] {
+  transition-duration: var(--duration-snappy);
+  transition-timing-function: var(--ease-snappy);
+}
+input, select, textarea {
+  transition-duration: var(--duration-snappy);
+  transition-timing-function: var(--ease-snappy);
+}
+
+/* ── Shared input field styling (token-based) ── */
+.field-input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-field-border);
+  color: var(--color-heading);
+  background: var(--color-surface);
+  transition: border-color var(--duration-snappy) var(--ease-snappy),
+              box-shadow var(--duration-snappy) var(--ease-snappy);
+}
+.field-input:focus-visible {
+  border-color: var(--focus-color) !important;
+  box-shadow: 0 0 0 var(--focus-input-width) var(--focus-color) !important;
+  outline: none;
+}
+.field-input::placeholder {
+  color: var(--color-muted);
+}
+.field-input-error {
+  border-color: var(--color-danger) !important;
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-label);
+  margin-bottom: 0.25rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE-FIRST RESPONSIVE UTILITIES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Touch-friendly tap targets — minimum 44px */
+@media (max-width: 767px) {
+  button, a, [role="button"], select {
+    min-height: 44px;
+  }
+  .field-input {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+  }
+  .field-label {
+    font-size: 0.8rem;
+  }
+}

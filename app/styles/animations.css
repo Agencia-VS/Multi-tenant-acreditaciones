@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATIONS — Wise Design Foundations
+   
+   @keyframes definitions + utility classes.
+   Motion tokens: snappy (200ms), fluid (400ms), intuitive (300ms)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Float (hero decorations) ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ── Fade-in with stagger delays (landing page) ── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) forwards;
+}
+.animate-fade-in-delay-1 {
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.15s forwards;
+}
+.animate-fade-in-delay-2 {
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.3s forwards;
+}
+.animate-fade-in-delay-3 {
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.45s forwards;
+}
+.animate-fade-in-delay-4 {
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.6s forwards;
+}
+.animate-fade-in-delay-5 {
+  animation: fadeIn var(--duration-fluid, 400ms) var(--ease-fluid) 0.75s forwards;
+}
+
+/* ── Pulse suave para CTA ── */
+@keyframes subtlePulse {
+  0%, 100% { box-shadow: 0 0 20px var(--tenant-light, rgba(107, 114, 128, 0.3)); }
+  50% { box-shadow: 0 0 40px var(--tenant-light, rgba(107, 114, 128, 0.5)); }
+}
+.btn-glow {
+  animation: subtlePulse 3s ease-in-out infinite;
+}
+.btn-glow:hover {
+  box-shadow: 0 0 30px var(--tenant-light, rgba(107, 114, 128, 0.6)),
+              0 0 60px var(--tenant-primario, rgba(55, 65, 81, 0.3));
+}
+
+/* ── Slide-up for highlight ── */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ── Mobile sidebar slide ── */
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+.sidebar-enter {
+  animation: slideInLeft 0.25s var(--ease-snappy) forwards;
+}
+.sidebar-exit {
+  animation: slideOutLeft 0.2s var(--ease-snappy) forwards;
+}

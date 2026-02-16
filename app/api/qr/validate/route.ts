@@ -23,25 +23,27 @@ export async function POST(request: NextRequest) {
     // Usar la función SQL para validar y hacer check-in
     const { data, error } = await supabase.rpc('validate_qr_checkin', {
       p_qr_token: qr_token,
-      p_scanner_user_id: user?.id || null,
+      p_scanner_user_id: user?.id,
     });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const result = data as { valid?: boolean; registration_id?: string; status?: string; nombre?: string } | null;
+
     // Auditoría si fue check-in exitoso
-    if (data?.valid && data?.registration_id) {
+    if (result?.valid && result?.registration_id) {
       await logAuditAction(
         user?.id || null,
         'registration.checked_in',
         'registration',
-        data.registration_id,
-        { qr_status: data.status, nombre: data.nombre }
+        result.registration_id,
+        { qr_status: result.status, nombre: result.nombre }
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },

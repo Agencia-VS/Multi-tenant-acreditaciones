@@ -48,26 +48,26 @@ export async function GET() {
     // Agrupar por tenant (usar el primer evento activo de cada tenant)
     const tenantMap = new Map<string, typeof events[0]>();
     for (const event of events) {
-      if (!tenantMap.has(event.tenant_id)) {
-        tenantMap.set(event.tenant_id, event);
+      if (!tenantMap.has(event.tenant_id!)) {
+        tenantMap.set(event.tenant_id!, event);
       }
     }
 
     const tenantStatuses: TenantProfileStatus[] = [];
 
     for (const [tenantId, event] of tenantMap.entries()) {
-      const formFields = (event.form_fields || []) as FormFieldDefinition[];
+      const formFields = (event.form_fields || []) as unknown as FormFieldDefinition[];
       
       // Skip tenants without dynamic form fields
       if (formFields.length === 0) {
         tenantStatuses.push({
           tenantId,
-          tenantSlug: event.tenant_slug,
-          tenantNombre: event.tenant_nombre,
+          tenantSlug: event.tenant_slug ?? '',
+          tenantNombre: event.tenant_nombre ?? '',
           tenantShield: event.tenant_shield,
           tenantColor: event.tenant_color_primario || '#00C48C',
-          eventId: event.id,
-          eventNombre: event.nombre,
+          eventId: event.id ?? undefined,
+          eventNombre: event.nombre ?? undefined,
           eventFecha: event.fecha,
           formFields: [],
           totalRequired: 0,
@@ -89,12 +89,12 @@ export async function GET() {
 
       tenantStatuses.push({
         tenantId,
-        tenantSlug: event.tenant_slug,
-        tenantNombre: event.tenant_nombre,
+        tenantSlug: event.tenant_slug ?? '',
+        tenantNombre: event.tenant_nombre ?? '',
         tenantShield: event.tenant_shield,
         tenantColor: event.tenant_color_primario || '#00C48C',
-        eventId: event.id,
-        eventNombre: event.nombre,
+        eventId: event.id ?? undefined,
+        eventNombre: event.nombre ?? undefined,
         eventFecha: event.fecha,
         formFields,
         totalRequired: status.totalRequired,

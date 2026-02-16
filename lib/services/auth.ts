@@ -42,20 +42,19 @@ export async function isTenantAdmin(userId: string, tenantId: string): Promise<b
 
 /**
  * Obtener el rol del usuario en un tenant
+ * Combina superadmin + tenant_admin check en queries paralelas
  */
 export async function getUserTenantRole(userId: string, tenantId: string): Promise<string> {
-  // Primero verificar si es superadmin
-  if (await isSuperAdmin(userId)) return 'superadmin';
-  
   const supabase = createSupabaseAdminClient();
-  const { data } = await supabase
-    .from('tenant_admins')
-    .select('rol')
-    .eq('user_id', userId)
-    .eq('tenant_id', tenantId)
-    .single();
-  
-  return data?.rol || 'none';
+
+  // Verificar superadmin y tenant_admin en paralelo (1 round-trip)
+  const [superadminResult, tenantAdminResult] = await Promise.all([
+    supabase.from('superadmins').select('id').eq('user_id', userId).single(),
+    supabase.from('tenant_admins').select('rol').eq('user_id', userId).eq('tenant_id', tenantId).single(),
+  ]);
+
+  if (superadminResult.data) return 'superadmin';
+  return tenantAdminResult.data?.rol || 'none';
 }
 
 /**

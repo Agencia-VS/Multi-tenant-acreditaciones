@@ -5,7 +5,7 @@
  * Adapta colores y logo al tenant
  */
 import { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { BackButton } from '@/components/shared/ui';
 
@@ -40,10 +40,7 @@ export default function AdminLoginForm({
     setLoading(true);
 
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = getSupabaseBrowserClient();
 
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,

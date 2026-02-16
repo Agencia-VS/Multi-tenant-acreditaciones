@@ -9,7 +9,7 @@ import { sendBulkApprovalEmails } from '@/lib/services/email';
 import { getCurrentUser } from '@/lib/services/auth';
 import { logAuditAction } from '@/lib/services/audit';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { RegistrationFull, RegistrationStatus } from '@/types';
+import type { RegistrationFull, RegistrationStatus, Tenant } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
         const { data: tenant } = await supabase
           .from('tenants')
           .select('*')
-          .eq('id', fullRegs[0].tenant_id)
+          .eq('id', fullRegs[0].tenant_id!)
           .single();
 
         if (tenant) {
-          const emailResult = await sendBulkApprovalEmails(fullRegs, tenant);
+          const emailResult = await sendBulkApprovalEmails(fullRegs, tenant as Tenant);
           return NextResponse.json({
             ...result,
             emails: emailResult,

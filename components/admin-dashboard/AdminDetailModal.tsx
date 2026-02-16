@@ -12,13 +12,18 @@ interface AdminDetailModalProps {
 }
 
 export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModalProps) {
-  const { handleStatusChange, handleDelete, processing, tenant, updateRegistrationZona } = useAdmin();
+  const { handleStatusChange, handleDelete, sendEmail, processing, tenant, selectedEvent, updateRegistrationZona } = useAdmin();
   const [rejectMotivo, setRejectMotivo] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'delete' | 'email' | null>(null);
 
   if (!reg) return null;
   const isProcessing = processing === reg.id;
-  const zonaOptions = ((tenant?.config as Record<string, unknown>)?.zonas as string[]) || [];
+  // Get zone options: event config first, then tenant config fallback
+  const zonaOptions =
+    ((selectedEvent?.config as Record<string, unknown>)?.zonas as string[]) ||
+    ((tenant?.config as Record<string, unknown>)?.zonas as string[]) ||
+    [];
   const currentZona = (reg.datos_extra as Record<string, unknown>)?.zona as string || '';
 
   const handleReject = () => {
@@ -31,14 +36,19 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
 
   const handleApprove = () => {
     handleStatusChange(reg.id, 'aprobado');
+    setConfirmAction(null);
     onClose();
   };
 
   const handleDeleteReg = () => {
-    if (confirm('¿Eliminar este registro permanentemente?')) {
-      handleDelete(reg.id);
-      onClose();
-    }
+    handleDelete(reg.id);
+    setConfirmAction(null);
+    onClose();
+  };
+
+  const handleSendEmail = () => {
+    sendEmail(reg.id);
+    setConfirmAction(null);
   };
 
   const infoPairs = [
@@ -57,7 +67,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
         {reg.profile_foto ? (
           <img src={reg.profile_foto} alt="" className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
         ) : (
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand to-brand-hover flex items-center justify-center text-white text-xl font-bold shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-xl font-bold shadow-sm">
             {reg.profile_nombre?.[0]}{reg.profile_apellido?.[0]}
           </div>
         )}
@@ -109,9 +119,15 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
               {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
             </select>
           ) : (
-            <span className="text-sm font-medium text-purple-700">{currentZona || '—'}</span>
+            <span className="text-sm text-purple-400 italic">No hay zonas configuradas</span>
           )}
         </div>
+        {zonaOptions.length === 0 && (
+          <p className="text-xs text-purple-500 mt-2">
+            <i className="fas fa-info-circle mr-1" />
+            Configura zonas en Configuración del evento o desde Superadmin → Eventos → Zonas.
+          </p>
+        )}
       </div>
 
       {/* Event info */}
@@ -166,9 +182,9 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
         {reg.status === 'pendiente' && (
           <>
             <button
-              onClick={handleApprove}
+              onClick={() => setConfirmAction('approve')}
               disabled={isProcessing}
-              className="flex-1 py-2.5 bg-success text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-[#059669] text-white rounded-xl font-medium hover:bg-[#047857] disabled:opacity-50 transition flex items-center justify-center gap-2"
             >
               <i className="fas fa-check" /> Aprobar
             </button>
@@ -212,13 +228,77 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
           </>
         )}
 
+        {/* Send email (for approved/rejected) */}
+        {(reg.status === 'aprobado' || reg.status === 'rechazado') && reg.profile_email && (
+          <button
+            onClick={() => setConfirmAction('email')}
+            disabled={isProcessing}
+            className="flex-1 py-2.5 bg-[#7c3aed] text-white rounded-xl font-medium hover:bg-[#6d28d9] disabled:opacity-50 transition flex items-center justify-center gap-2"
+          >
+            <i className="fas fa-envelope" /> Enviar email de {reg.status === 'aprobado' ? 'aprobación' : 'rechazo'}
+          </button>
+        )}
+
         <button
-          onClick={handleDeleteReg}
+          onClick={() => setConfirmAction('delete')}
           className="px-4 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition flex items-center gap-2"
         >
           <i className="fas fa-trash text-sm" /> Eliminar
         </button>
       </div>
+
+      {/* Inline confirmation dialogs */}
+      {confirmAction === 'approve' && (
+        <div className="mt-4 p-4 bg-[#d1fae5] border border-[#059669]/30 rounded-xl">
+          <p className="text-sm text-[#065f46] mb-3">
+            <i className="fas fa-info-circle mr-1" />
+            ¿Aprobar la acreditación de <strong>{reg.profile_nombre} {reg.profile_apellido}</strong>? Se enviará un email de confirmación.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={handleApprove} disabled={isProcessing} className="px-4 py-2 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] disabled:opacity-50 transition">
+              Sí, aprobar
+            </button>
+            <button onClick={() => setConfirmAction(null)} className="px-4 py-2 bg-white text-body rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmAction === 'email' && (
+        <div className="mt-4 p-4 bg-[#faf5ff] border border-[#7c3aed]/30 rounded-xl">
+          <p className="text-sm text-[#5b21b6] mb-3">
+            <i className="fas fa-envelope mr-1" />
+            ¿Enviar email de {reg.status === 'aprobado' ? 'aprobación' : 'rechazo'} a <strong>{reg.profile_email}</strong>?
+          </p>
+          <div className="flex gap-2">
+            <button onClick={handleSendEmail} disabled={isProcessing} className="px-4 py-2 bg-[#7c3aed] text-white rounded-lg text-sm font-medium hover:bg-[#6d28d9] disabled:opacity-50 transition">
+              Sí, enviar
+            </button>
+            <button onClick={() => setConfirmAction(null)} className="px-4 py-2 bg-white text-body rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmAction === 'delete' && (
+        <div className="mt-4 p-4 bg-[#fee2e2] border border-[#dc2626]/30 rounded-xl">
+          <p className="text-sm text-[#991b1b] mb-1">
+            <i className="fas fa-exclamation-triangle mr-1" />
+            ¿Eliminar este registro permanentemente?
+          </p>
+          <p className="text-xs text-[#991b1b]/70 mb-3">Esta acción no se puede deshacer.</p>
+          <div className="flex gap-2">
+            <button onClick={handleDeleteReg} disabled={isProcessing} className="px-4 py-2 bg-[#dc2626] text-white rounded-lg text-sm font-medium hover:bg-[#b91c1c] disabled:opacity-50 transition">
+              Sí, eliminar
+            </button>
+            <button onClick={() => setConfirmAction(null)} className="px-4 py-2 bg-white text-body rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

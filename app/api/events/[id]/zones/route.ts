@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getZoneRules, upsertZoneRule, deleteZoneRule, resolveZone } from '@/lib/services/zones';
+import { requireAuth } from '@/lib/services/requireAuth';
 import type { ZoneMatchField } from '@/types';
 
 export async function GET(
@@ -41,6 +42,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth: requiere admin_tenant o superadmin
+    await requireAuth(request, { role: 'admin_tenant' });
+
     const { id: eventId } = await params;
     const body = await request.json();
     const { cargo, zona, match_field } = body;
@@ -52,6 +56,7 @@ export async function POST(
     const rule = await upsertZoneRule(eventId, cargo, zona, (match_field as ZoneMatchField) || 'cargo');
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -61,6 +66,9 @@ export async function POST(
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Auth: requiere admin_tenant o superadmin
+    await requireAuth(request, { role: 'admin_tenant' });
+
     const { searchParams } = new URL(request.url);
     const ruleId = searchParams.get('rule_id');
 
@@ -71,6 +79,7 @@ export async function DELETE(request: NextRequest) {
     await deleteZoneRule(ruleId);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

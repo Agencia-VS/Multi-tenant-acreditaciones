@@ -38,50 +38,24 @@ export async function getTenantById(id: string): Promise<Tenant | null> {
 
 /**
  * Listar todos los tenants (para super admin)
+ * Usa la vista v_tenant_stats para obtener conteos en 1 sola query
  */
 export async function listTenants(): Promise<TenantWithStats[]> {
   const supabase = createSupabaseAdminClient();
   
-  const { data: tenants, error } = await supabase
-    .from('tenants')
+  const { data, error } = await supabase
+    .from('v_tenant_stats')
     .select('*')
     .order('nombre');
 
   if (error) throw new Error(`Error listando tenants: ${error.message}`);
 
-  // Obtener conteos para cada tenant
-  const result: TenantWithStats[] = [];
-  
-  for (const tenant of tenants || []) {
-    const [events, admins] = await Promise.all([
-      supabase.from('events').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
-      supabase.from('tenant_admins').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
-    ]);
-
-    // Contar registros de todos los eventos del tenant
-    const { data: eventIds } = await supabase
-      .from('events')
-      .select('id')
-      .eq('tenant_id', tenant.id);
-
-    let totalRegistrations = 0;
-    if (eventIds && eventIds.length > 0) {
-      const { count } = await supabase
-        .from('registrations')
-        .select('*', { count: 'exact', head: true })
-        .in('event_id', eventIds.map((e) => e.id));
-      totalRegistrations = count || 0;
-    }
-
-    result.push({
-      ...(tenant as Tenant),
-      total_events: events.count || 0,
-      total_registrations: totalRegistrations,
-      total_admins: admins.count || 0,
-    });
-  }
-
-  return result;
+  return (data || []).map((t) => ({
+    ...(t as unknown as Tenant),
+    total_events: Number(t.total_events) || 0,
+    total_registrations: Number(t.total_registrations) || 0,
+    total_admins: Number(t.total_admins) || 0,
+  })) as TenantWithStats[];
 }
 
 /**
@@ -102,7 +76,7 @@ export async function createTenant(data: TenantFormData): Promise<Tenant> {
       color_dark: data.color_dark || '#0f0f1a',
       shield_url: data.shield_url || null,
       background_url: data.background_url || null,
-      config: data.config || {},
+      config: (data.config || {}) as any,
     })
     .select()
     .single();

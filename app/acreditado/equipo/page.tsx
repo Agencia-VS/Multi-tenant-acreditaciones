@@ -401,7 +401,7 @@ export default function EquipoPage() {
               >
                 <div className="flex items-center gap-4">
                   {/* Avatar */}
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand to-brand-hover flex items-center justify-center text-on-brand font-bold text-lg flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-on-brand font-bold text-lg flex-shrink-0">
                     {mp?.nombre?.charAt(0)}{mp?.apellido?.charAt(0)}
                   </div>
 

@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createEvent, updateEvent, deactivateEvent, listEventsByTenant, listAllEvents, getActiveEvent } from '@/lib/services';
+import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent } from '@/lib/services';
 import { logAuditAction, getCurrentUser } from '@/lib/services';
 
 export async function GET(request: NextRequest) {
@@ -109,7 +109,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID de evento es requerido' }, { status: 400 });
     }
 
-    await deactivateEvent(eventId);
+    const hardDelete = searchParams.get('action') === 'delete';
+
+    if (hardDelete) {
+      await deleteEvent(eventId);
+      await logAuditAction(user.id, 'event.updated', 'event', eventId, { action: 'deleted' });
+    } else {
+      await deactivateEvent(eventId);
+      await logAuditAction(user.id, 'event.updated', 'event', eventId, { action: 'deactivated' });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

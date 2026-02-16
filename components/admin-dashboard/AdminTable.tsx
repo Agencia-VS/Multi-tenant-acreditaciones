@@ -19,6 +19,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
 
   const [showBulkRejectInput, setShowBulkRejectInput] = useState(false);
   const [bulkRejectMotivo, setBulkRejectMotivo] = useState('');
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const ids = Array.from(selectedIds);
   const hasSel = ids.length > 0;
@@ -48,7 +49,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               <button
                 onClick={() => handleBulkAction({ action: 'approve', registration_ids: ids })}
                 disabled={processing === 'bulk'}
-                className="px-3 py-1.5 bg-success text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition flex items-center gap-1"
+                className="px-3 py-1.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] disabled:opacity-50 transition flex items-center gap-1"
               >
                 <i className="fas fa-check" /> Aprobar
               </button>
@@ -96,17 +97,32 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               </button>
 
               <button
-                onClick={() => {
-                  if (confirm(`¿Eliminar ${ids.length} registros?`)) {
-                    handleBulkAction({ action: 'delete', registration_ids: ids });
-                  }
-                }}
+                onClick={() => setShowBulkDeleteConfirm(true)}
                 disabled={processing === 'bulk'}
                 className="px-3 py-1.5 bg-heading text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition flex items-center gap-1"
               >
                 <i className="fas fa-trash" /> Eliminar
               </button>
             </div>
+
+            {/* Bulk delete confirmation */}
+            {showBulkDeleteConfirm && (
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-xs text-danger font-medium">¿Eliminar {ids.length} registros?</span>
+                <button
+                  onClick={() => { handleBulkAction({ action: 'delete', registration_ids: ids }); setShowBulkDeleteConfirm(false); }}
+                  className="px-2 py-1 bg-danger text-white rounded text-xs font-medium hover:bg-danger/90 transition"
+                >
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  className="px-2 py-1 text-body hover:text-label text-xs"
+                >
+                  No
+                </button>
+              </div>
+            )}
 
             {processing === 'bulk' && (
               <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />

@@ -1,15 +1,27 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useAdmin } from './AdminContext';
 
 export default function AdminStats() {
-  const { stats, loading } = useAdmin();
+  const { stats, loading, registrations } = useAdmin();
+
+  // Zone breakdown for approved registrations
+  const zoneCounts = useMemo(() => {
+    const approved = registrations.filter(r => r.status === 'aprobado');
+    const map: Record<string, number> = {};
+    approved.forEach(r => {
+      const zona = (r.datos_extra as Record<string, unknown>)?.zona as string || 'Sin zona';
+      map[zona] = (map[zona] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [registrations]);
 
   const cards = [
-    { label: 'Total', value: stats.total, icon: 'fa-users', gradient: 'from-brand to-brand-hover', bg: 'bg-accent-light' },
-    { label: 'Pendientes', value: stats.pendientes, icon: 'fa-clock', gradient: 'from-warn to-warn-dark', bg: 'bg-warn-light' },
-    { label: 'Aprobados', value: stats.aprobados, icon: 'fa-check-circle', gradient: 'from-success to-success-dark', bg: 'bg-success-light' },
-    { label: 'Rechazados', value: stats.rechazados, icon: 'fa-times-circle', gradient: 'from-danger to-danger-dark', bg: 'bg-danger-light' },
+    { label: 'Total', value: stats.total, icon: 'fa-users', gradient: 'from-[#00C48C] to-[#00A676]', bg: 'bg-[#e6faf3]' },
+    { label: 'Pendientes', value: stats.pendientes, icon: 'fa-clock', gradient: 'from-[#d97706] to-[#92400e]', bg: 'bg-[#fef3c7]' },
+    { label: 'Aprobados', value: stats.aprobados, icon: 'fa-check-circle', gradient: 'from-[#059669] to-[#065f46]', bg: 'bg-[#D4F5E9]' },
+    { label: 'Rechazados', value: stats.rechazados, icon: 'fa-times-circle', gradient: 'from-[#dc2626] to-[#991b1b]', bg: 'bg-[#fee2e2]' },
   ];
 
   if (loading) {
@@ -41,10 +53,26 @@ export default function AdminStats() {
               <i className={`fas ${card.icon} text-white text-lg`} />
             </div>
           </div>
+
+          {/* Zone breakdown for Aprobados */}
+          {card.label === 'Aprobados' && zoneCounts.length > 0 && stats.aprobados > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {zoneCounts.map(([zona, count]) => (
+                <span
+                  key={zona}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#d1fae5] text-[#065f46] text-xs font-medium"
+                >
+                  {zona} <span className="font-bold">{count}</span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Check-in count */}
           {card.label === 'Aprobados' && stats.checked_in > 0 && (
-            <p className="text-sm text-muted mt-2">
+            <p className="text-sm text-muted mt-1">
               <i className="fas fa-qrcode mr-1" />
-              {stats.checked_in} check-ins realizados
+              {stats.checked_in} check-ins
             </p>
           )}
         </div>

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRegistration, listRegistrations, getEventById } from '@/lib/services';
 import { getCurrentUser } from '@/lib/services/auth';
+import { requireAuth } from '@/lib/services/requireAuth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { logAuditAction } from '@/lib/services/audit';
 import { isDeadlinePast } from '@/lib/dates';
@@ -76,11 +77,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Auth: requiere admin_tenant o superadmin
     const { searchParams } = new URL(request.url);
-    
+    const tenantId = searchParams.get('tenant_id') || undefined;
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
+
     const filters = {
       event_id: searchParams.get('event_id') || undefined,
-      tenant_id: searchParams.get('tenant_id') || undefined,
+      tenant_id: tenantId,
       status: (searchParams.get('status') as 'pendiente' | 'aprobado' | 'rechazado' | 'revision') || undefined,
       tipo_medio: searchParams.get('tipo_medio') || undefined,
       organizacion: searchParams.get('organizacion') || undefined,
@@ -92,6 +96,7 @@ export async function GET(request: NextRequest) {
     const result = await listRegistrations(filters);
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

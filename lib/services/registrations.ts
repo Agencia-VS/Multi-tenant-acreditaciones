@@ -76,7 +76,7 @@ export async function createRegistration(
       tipo_medio: formData.tipo_medio || null,
       cargo: formData.cargo || null,
       submitted_by: submittedByProfileId || null,
-      datos_extra: datosExtra,
+      datos_extra: datosExtra as any,
       status: 'pendiente',
     })
     .select()
@@ -103,7 +103,7 @@ export async function createRegistration(
           }
         }
 
-        const formKeys = (eventData.form_fields || []).map((f: { key: string }) => f.key);
+        const formKeys = ((eventData.form_fields || []) as unknown as Array<{ key: string }>).map(f => f.key);
         await saveTenantProfileData(profile.id, eventData.tenant_id, cleanData, formKeys);
       } else {
         // Fallback: guardar en flat (legacy)
@@ -235,26 +235,53 @@ export async function updateRegistrationStatus(
 
 /**
  * Aprobar múltiples registros de un golpe (Bulk Approve)
+ * Usa batch update con .in() para eficiencia
  */
 export async function bulkUpdateStatus(
   registrationIds: string[],
   status: RegistrationStatus,
   processedByUserId: string
 ): Promise<{ success: number; errors: string[] }> {
-  const results = { success: 0, errors: [] as string[] };
+  const supabase = createSupabaseAdminClient();
 
-  for (const id of registrationIds) {
-    try {
-      await updateRegistrationStatus(id, status, processedByUserId);
-      results.success++;
-    } catch (error) {
-      results.errors.push(
-        `${id}: ${error instanceof Error ? error.message : 'Error'}`
-      );
+  // Batch update en 1 sola query
+  const { error, count } = await supabase
+    .from('registrations')
+    .update({
+      status,
+      processed_by: processedByUserId,
+      processed_at: new Date().toISOString(),
+    })
+    .in('id', registrationIds);
+
+  if (error) {
+    return { success: 0, errors: [`Batch update failed: ${error.message}`] };
+  }
+
+  // Si se aprueba, generar QR tokens para eventos que lo tengan habilitado
+  if (status === 'aprobado') {
+    for (const id of registrationIds) {
+      try {
+        const { data: reg } = await supabase
+          .from('registrations')
+          .select('event_id')
+          .eq('id', id)
+          .single();
+        if (reg) {
+          const { data: event } = await supabase
+            .from('events')
+            .select('qr_enabled')
+            .eq('id', reg.event_id)
+            .single();
+          if (event?.qr_enabled) {
+            await supabase.rpc('generate_qr_token', { p_registration_id: id });
+          }
+        }
+      } catch { /* no bloquear */ }
     }
   }
 
-  return results;
+  return { success: count || registrationIds.length, errors: [] };
 }
 
 /**
@@ -291,41 +318,27 @@ export async function getRegistrationsByProfile(profileId: string): Promise<Regi
 
 /**
  * Obtener estadísticas de registros para un evento
+ * Usa COUNT con head:true para eficiencia (no trae datos)
  */
 export async function getRegistrationStats(eventId: string) {
   const supabase = createSupabaseAdminClient();
   
-  const { data, error } = await supabase
-    .from('registrations')
-    .select('status')
-    .eq('event_id', eventId);
+  // Contar por status en paralelo usando head:true (solo counts, sin data)
+  const [total, pendientes, aprobados, rechazados, revision, checkedIn] = await Promise.all([
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId),
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('status', 'pendiente'),
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('status', 'aprobado'),
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('status', 'rechazado'),
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('status', 'revision'),
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('checked_in', true),
+  ]);
 
-  if (error) throw new Error(`Error obteniendo stats: ${error.message}`);
-
-  const stats = {
-    total: data?.length || 0,
-    pendientes: 0,
-    aprobados: 0,
-    rechazados: 0,
-    revision: 0,
-    checked_in: 0,
+  return {
+    total: total.count || 0,
+    pendientes: pendientes.count || 0,
+    aprobados: aprobados.count || 0,
+    rechazados: rechazados.count || 0,
+    revision: revision.count || 0,
+    checked_in: checkedIn.count || 0,
   };
-
-  data?.forEach((r) => {
-    if (r.status === 'pendiente') stats.pendientes++;
-    if (r.status === 'aprobado') stats.aprobados++;
-    if (r.status === 'rechazado') stats.rechazados++;
-    if (r.status === 'revision') stats.revision++;
-  });
-
-  // Contar check-ins
-  const { count } = await supabase
-    .from('registrations')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('checked_in', true);
-
-  stats.checked_in = count || 0;
-
-  return stats;
 }

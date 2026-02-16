@@ -66,19 +66,19 @@ export async function checkQuota(
       used_org: orgCount,
       max_org: rule.max_per_organization,
       used_global: globalCount,
-      max_global: rule.max_global,
+      max_global: rule.max_global ?? 0,
       message: `Se alcanzó el límite de ${rule.max_per_organization} cupos de ${tipoMedio} para ${organizacion}`,
     };
   }
 
   // Verificar límite global
-  if (rule.max_global > 0 && globalCount >= rule.max_global) {
+  if ((rule.max_global ?? 0) > 0 && globalCount >= (rule.max_global ?? 0)) {
     return {
       available: false,
       used_org: orgCount,
       max_org: rule.max_per_organization,
       used_global: globalCount,
-      max_global: rule.max_global,
+      max_global: rule.max_global ?? 0,
       message: `Se alcanzó el límite global de ${rule.max_global} cupos para ${tipoMedio}`,
     };
   }
@@ -88,7 +88,7 @@ export async function checkQuota(
     used_org: orgCount,
     max_org: rule.max_per_organization,
     used_global: globalCount,
-    max_global: rule.max_global,
+      max_global: rule.max_global ?? 0,
     message: `Cupo disponible: ${orgCount}/${rule.max_per_organization} por organización`,
   };
 }

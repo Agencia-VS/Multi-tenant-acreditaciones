@@ -4,7 +4,7 @@
  * Acreditado Home — Da la bienvenida y muestra eventos activos
  */
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/ui';
 import { isDeadlinePast, formatDeadlineChile } from '@/lib/dates';
@@ -30,10 +30,7 @@ export default function AcreditadoHomePage() {
   }, []);
 
   const loadData = async () => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = getSupabaseBrowserClient();
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();

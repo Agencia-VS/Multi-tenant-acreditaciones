@@ -1,7 +1,71 @@
 // ============================================================================
 // ACCREDIA v2 — Tipos del Sistema
-// Mapeo directo del schema de base de datos + tipos de UI
+// Derivados de la DB via `supabase gen types` + tipos de UI
 // ============================================================================
+
+import type { Tables } from '@/lib/supabase/database.types';
+
+// ─── Helper: convierte campos null de la DB a sus defaults de app ──────────
+type NonNull<T, K extends keyof T> = Omit<T, K> & { [P in K]: NonNullable<T[P]> };
+
+// ─── Tipos derivados de la DB ──────────────────────────────────────────────
+
+/** Perfil global — derivado de `profiles` */
+export type Profile = NonNull<Tables<'profiles'>,
+  'created_at' | 'updated_at'
+> & {
+  datos_base: Record<string, unknown>;
+};
+
+/** Tenant — derivado de `tenants` (colores tienen DEFAULT en DB) */
+export type Tenant = NonNull<Tables<'tenants'>,
+  'activo' | 'color_primario' | 'color_secundario' | 'color_light' | 'color_dark' | 'created_at' | 'updated_at'
+> & {
+  config: Record<string, unknown>;
+};
+
+/** Evento — derivado de `events` */
+export type Event = NonNull<Tables<'events'>,
+  'is_active' | 'qr_enabled' | 'created_at' | 'updated_at'
+> & {
+  form_fields: FormFieldDefinition[];
+  config: Record<string, unknown>;
+};
+
+/** Registration — derivado de `registrations` */
+export type Registration = NonNull<Tables<'registrations'>,
+  'status' | 'checked_in' | 'created_at' | 'updated_at'
+> & {
+  datos_extra: Record<string, unknown>;
+};
+
+/** Regla de cupo — derivado de `event_quota_rules` */
+export type EventQuotaRule = Tables<'event_quota_rules'>;
+
+/** Regla de zona — derivado de `event_zone_rules` */
+export type ZoneAssignmentRule = Tables<'event_zone_rules'>;
+
+/** Admin de Tenant — derivado de `tenant_admins` */
+export type TenantAdmin = Tables<'tenant_admins'>;
+
+/** SuperAdmin — derivado de `superadmins` */
+export type SuperAdmin = Tables<'superadmins'>;
+
+/** Miembro del equipo — derivado de `team_members` */
+export type TeamMember = Tables<'team_members'> & {
+  member_profile?: Profile;
+};
+
+/** Template de email — derivado de `email_templates` */
+export type EmailTemplate = Tables<'email_templates'>;
+
+/** Contenido de email por zona — derivado de `email_zone_content` */
+export type EmailZoneContent = Tables<'email_zone_content'>;
+
+/** Log de auditoría — derivado de `audit_logs` */
+export type AuditLog = Tables<'audit_logs'> & {
+  metadata: Record<string, unknown>;
+};
 
 // ─── Enums y Constantes ────────────────────────────────────────────────────
 
@@ -62,73 +126,24 @@ export const CARGOS = [
 
 export type Cargo = (typeof CARGOS)[number];
 
-// Colores de estado para UI
-export const STATUS_COLORS: Record<RegistrationStatus, { bg: string; text: string; label: string }> = {
-  pendiente: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pendiente' },
-  aprobado: { bg: 'bg-green-100', text: 'text-green-800', label: 'Aprobado' },
-  rechazado: { bg: 'bg-red-100', text: 'text-red-800', label: 'Rechazado' },
-  revision: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'En Revisión' },
-};
+// ─── Status — Mapa centralizado para toda la UI ───────────────────────────
 
-// ─── Modelos de Base de Datos ──────────────────────────────────────────────
+export const STATUS_MAP: Record<RegistrationStatus, {
+  label: string;
+  bg: string;
+  text: string;
+  icon: string;
+}> = {
+  pendiente: { label: 'Pendiente',    bg: 'bg-warn-light',    text: 'text-warn-dark',    icon: 'fas fa-clock' },
+  aprobado:  { label: 'Aprobado',     bg: 'bg-success-light', text: 'text-success-dark', icon: 'fas fa-check-circle' },
+  rechazado: { label: 'Rechazado',    bg: 'bg-danger-light',  text: 'text-danger-dark',  icon: 'fas fa-times-circle' },
+  revision:  { label: 'En Revisión',  bg: 'bg-info-light',    text: 'text-info-dark',    icon: 'fas fa-search' },
+} as const;
 
-/** Perfil global del usuario — Identidad Única */
-export interface Profile {
-  id: string;
-  user_id: string | null;
-  rut: string;
-  nombre: string;
-  apellido: string;
-  email: string | null;
-  telefono: string | null;
-  nacionalidad: string | null;
-  foto_url: string | null;
-  cargo: string | null;
-  medio: string | null;
-  tipo_medio: string | null;
-  datos_base: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
+/** @deprecated Usa STATUS_MAP en su lugar */
+export const STATUS_COLORS = STATUS_MAP;
 
-/** Tenant — Organización/Cliente */
-export interface Tenant {
-  id: string;
-  nombre: string;
-  slug: string;
-  activo: boolean;
-  logo_url: string | null;
-  color_primario: string;
-  color_secundario: string;
-  color_light: string;
-  color_dark: string;
-  shield_url: string | null;
-  background_url: string | null;
-  config: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Evento — Evento por tenant con form dinámico */
-export interface Event {
-  id: string;
-  tenant_id: string;
-  nombre: string;
-  descripcion: string | null;
-  fecha: string | null;
-  hora: string | null;
-  venue: string | null;
-  is_active: boolean;
-  fecha_limite_acreditacion: string | null;
-  opponent_name: string | null;
-  opponent_logo_url: string | null;
-  league: string | null;
-  qr_enabled: boolean;
-  form_fields: FormFieldDefinition[];
-  config: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
+// ─── Definición de campo dinámico del formulario ───────────────────────────
 
 /** Definición de campo dinámico del formulario */
 export interface FormFieldDefinition {
@@ -143,6 +158,25 @@ export interface FormFieldDefinition {
   help_text?: string;
   order?: number;
 }
+
+// ─── Tipos derivados de Vistas ─────────────────────────────────────────────
+
+/** Registration con datos expandidos (vista v_registration_full) */
+export type RegistrationFull = NonNull<Tables<'v_registration_full'>,
+  'id' | 'event_id' | 'profile_id' | 'status' | 'checked_in' | 'created_at' | 'updated_at'
+> & {
+  datos_extra: Record<string, unknown>;
+  profile_datos_base: Record<string, unknown>;
+};
+
+/** Evento con datos del tenant (vista v_event_full) */
+export type EventFull = NonNull<Tables<'v_event_full'>,
+  'id' | 'tenant_id' | 'nombre' | 'is_active' | 'qr_enabled' | 'created_at' | 'updated_at'
+> & {
+  form_fields: FormFieldDefinition[];
+  config: Record<string, unknown>;
+  tenant_config: Record<string, unknown>;
+};
 
 // ─── Tenant-Context Profile Data ───────────────────────────────────────────
 
@@ -197,16 +231,6 @@ export interface TenantProfileStatus {
   removedKeys: string[];
 }
 
-/** Regla de cupo por tipo de medio */
-export interface EventQuotaRule {
-  id: string;
-  event_id: string;
-  tipo_medio: string;
-  max_per_organization: number;
-  max_global: number;
-  created_at: string;
-}
-
 /** Resultado de verificación de cupo */
 export interface QuotaCheckResult {
   available: boolean;
@@ -215,117 +239,6 @@ export interface QuotaCheckResult {
   used_global: number;
   max_global: number;
   message: string;
-}
-
-/** Registration — El "Ticket" de acreditación */
-export interface Registration {
-  id: string;
-  event_id: string;
-  profile_id: string;
-  organizacion: string | null;
-  tipo_medio: string | null;
-  cargo: string | null;
-  status: RegistrationStatus;
-  motivo_rechazo: string | null;
-  submitted_by: string | null;
-  datos_extra: Record<string, unknown>;
-  qr_token: string | null;
-  qr_generated_at: string | null;
-  checked_in: boolean;
-  checked_in_at: string | null;
-  checked_in_by: string | null;
-  processed_by: string | null;
-  processed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Registration con datos expandidos (vista) */
-export interface RegistrationFull extends Registration {
-  rut: string;
-  profile_nombre: string;
-  profile_apellido: string;
-  profile_email: string | null;
-  profile_telefono: string | null;
-  profile_foto: string | null;
-  profile_medio: string | null;
-  profile_datos_base: Record<string, unknown>;
-  event_nombre: string;
-  event_fecha: string | null;
-  event_venue: string | null;
-  event_qr_enabled: boolean;
-  tenant_id: string;
-  tenant_nombre: string;
-  tenant_slug: string;
-  tenant_logo: string | null;
-}
-
-/** Evento con datos del tenant (vista) */
-export interface EventFull extends Event {
-  tenant_nombre: string;
-  tenant_slug: string;
-  tenant_logo: string | null;
-  tenant_color_primario: string;
-  tenant_color_secundario: string;
-  tenant_color_light: string;
-  tenant_color_dark: string;
-  tenant_shield: string | null;
-  tenant_background: string | null;
-  tenant_config: Record<string, unknown>;
-}
-
-/** Miembro del equipo de un Manager */
-export interface TeamMember {
-  id: string;
-  manager_id: string;
-  member_profile_id: string;
-  alias: string | null;
-  notas: string | null;
-  created_at: string;
-  member_profile?: Profile;
-}
-
-/** SuperAdmin */
-export interface SuperAdmin {
-  id: string;
-  user_id: string;
-  email: string;
-  nombre: string | null;
-  created_at: string;
-}
-
-/** Admin de Tenant */
-export interface TenantAdmin {
-  id: string;
-  user_id: string;
-  tenant_id: string;
-  rol: AdminRole;
-  nombre: string | null;
-  email: string | null;
-  created_at: string;
-}
-
-/** Log de auditoría */
-export interface AuditLog {
-  id: string;
-  user_id: string | null;
-  action: AuditAction | string;
-  entity_type: string | null;
-  entity_id: string | null;
-  metadata: Record<string, unknown>;
-  ip_address: string | null;
-  created_at: string;
-}
-
-/** Template de email */
-export interface EmailTemplate {
-  id: string;
-  tenant_id: string | null;
-  tipo: EmailTemplateType;
-  subject: string | null;
-  body_html: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 // ─── Tipos de Formulario / UI ──────────────────────────────────────────────
@@ -427,6 +340,7 @@ export interface EventFormData {
   league?: string;
   qr_enabled?: boolean;
   form_fields?: FormFieldDefinition[];
+  config?: EventConfig;
 }
 
 export interface DashboardStats {
@@ -461,7 +375,7 @@ export interface NavItem {
 
 // ─── Tipos Admin Dashboard ────────────────────────────────────────────────
 
-export type AdminTab = 'acreditaciones' | 'configuracion';
+export type AdminTab = 'acreditaciones' | 'configuracion' | 'mail';
 
 export interface AdminFilterState {
   search: string;
@@ -509,21 +423,18 @@ export interface PuntoTicketRow {
 /** Campo fuente para regla de zona */
 export type ZoneMatchField = 'cargo' | 'tipo_medio';
 
-/** Regla de auto-asignación de zona (cargo→zona ó tipo_medio→zona) */
-export interface ZoneAssignmentRule {
-  id: string;
-  event_id: string;
-  match_field: ZoneMatchField;
-  cargo: string;  // match_value — the value to match against the field
-  zona: string;
-  created_at: string;
-}
-
 /** Typed tenant config */
 export interface TenantConfig {
   acreditacion_masiva_enabled?: boolean;
-  zonas?: string[];  // zona options available for this tenant
+  zonas?: string[];  // zona options available for this tenant (fallback)
   puntoticket_acreditacion_fija?: string;  // fixed value for PT "Acreditación" column
+  [key: string]: unknown;
+}
+
+/** Typed event config */
+export interface EventConfig {
+  zonas?: string[];              // zone options for this event
+  acreditacion_abierta?: boolean; // manual override to keep accreditation open
   [key: string]: unknown;
 }
 
@@ -552,6 +463,7 @@ export interface AdminContextType {
   handleBulkAction: (payload: BulkActionPayload) => Promise<void>;
   handleDelete: (regId: string) => Promise<void>;
   updateRegistrationZona: (regId: string, zona: string) => Promise<void>;
+  sendEmail: (regId: string) => Promise<void>;
   toggleSelect: (id: string) => void;
   toggleSelectAll: () => void;
   

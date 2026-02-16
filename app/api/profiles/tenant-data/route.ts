@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         .select('form_fields')
         .eq('id', eventId)
         .single();
-      formFields = (event?.form_fields || []) as FormFieldDefinition[];
+      formFields = (event?.form_fields || []) as unknown as FormFieldDefinition[];
     } else {
       // Buscar evento activo del tenant
       const { data: event } = await supabase
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         .limit(1)
         .single();
       if (event) {
-        formFields = (event.form_fields || []) as FormFieldDefinition[];
+        formFields = (event.form_fields || []) as unknown as FormFieldDefinition[];
         resolvedEventId = event.id;
       }
     }

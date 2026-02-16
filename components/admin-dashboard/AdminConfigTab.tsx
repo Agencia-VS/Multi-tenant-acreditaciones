@@ -11,6 +11,7 @@ export default function AdminConfigTab() {
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
 
   // Form state for create/edit
   const [form, setForm] = useState({
@@ -26,6 +27,10 @@ export default function AdminConfigTab() {
     qr_enabled: false,
   });
 
+  // Zonas state (stored in event.config.zonas)
+  const [zonas, setZonas] = useState<string[]>([]);
+  const [newZona, setNewZona] = useState('');
+
   useEffect(() => {
     if (editEvent) {
       setForm({
@@ -40,23 +45,45 @@ export default function AdminConfigTab() {
         fecha_limite_acreditacion: isoToLocalDatetime(editEvent.fecha_limite_acreditacion),
         qr_enabled: editEvent.qr_enabled || false,
       });
+      // Load zonas from event config
+      const eventConfig = (editEvent.config || {}) as Record<string, unknown>;
+      setZonas((eventConfig.zonas as string[]) || []);
     }
   }, [editEvent]);
 
+  const addZona = () => {
+    const trimmed = newZona.trim();
+    if (trimmed && !zonas.includes(trimmed)) {
+      setZonas(prev => [...prev, trimmed]);
+      setNewZona('');
+    }
+  };
+
+  const removeZona = (z: string) => {
+    setZonas(prev => prev.filter(item => item !== z));
+  };
+
   const resetForm = () => {
     setForm({ nombre: '', fecha: '', hora: '', venue: '', opponent_name: '', opponent_logo_url: '', league: '', descripcion: '', fecha_limite_acreditacion: '', qr_enabled: false });
+    setZonas([]);
+    setNewZona('');
   };
 
   const handleCreateEvent = async () => {
     if (!form.nombre.trim() || !tenant) return;
     setSaving(true);
     try {
+      // Build event config with zonas
+      const eventConfig: Record<string, unknown> = {};
+      if (zonas.length > 0) eventConfig.zonas = zonas;
+
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           tenant_id: tenant.id,
+          config: eventConfig,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion
             ? localToChileISO(form.fecha_limite_acreditacion)
             : null,
@@ -83,11 +110,18 @@ export default function AdminConfigTab() {
     if (!editEvent) return;
     setSaving(true);
     try {
+      // Merge zonas into existing event config
+      const existingConfig = (editEvent.config || {}) as Record<string, unknown>;
+      const updatedConfig = { ...existingConfig, zonas: zonas.length > 0 ? zonas : undefined };
+      // Clean undefined keys
+      if (!updatedConfig.zonas) delete updatedConfig.zonas;
+
       const res = await fetch(`/api/events?id=${editEvent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          config: updatedConfig,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion
             ? localToChileISO(form.fecha_limite_acreditacion)
             : null,
@@ -124,6 +158,22 @@ export default function AdminConfigTab() {
       }
     } catch {
       showError('Error actualizando evento');
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/events?id=${eventId}&action=delete`, { method: 'DELETE' });
+      if (res.ok) {
+        showSuccess('Evento eliminado');
+        setDeletingEventId(null);
+        window.location.reload();
+      } else {
+        const d = await res.json();
+        showError(d.error || 'Error eliminando evento');
+      }
+    } catch {
+      showError('Error de conexión');
     }
   };
 
@@ -237,6 +287,52 @@ export default function AdminConfigTab() {
           </label>
         </div>
       </div>
+
+      {/* Zonas del evento */}
+      <div>
+        <label className="text-xs text-body mb-1 block">
+          <i className="fas fa-map-signs mr-1 text-purple-500" />
+          Zonas de acceso
+        </label>
+        <p className="text-xs text-muted mb-2">Define las zonas disponibles para este evento. El admin podrá asignar zona manualmente a cada acreditado.</p>
+
+        {/* Current zonas */}
+        {zonas.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {zonas.map(z => (
+              <span key={z} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 text-sm font-medium text-purple-700 border border-purple-200">
+                {z}
+                <button
+                  type="button"
+                  onClick={() => removeZona(z)}
+                  className="text-purple-400 hover:text-purple-700 transition"
+                >
+                  <i className="fas fa-times text-xs" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Add new zona */}
+        <div className="flex gap-2">
+          <input
+            value={newZona}
+            onChange={e => setNewZona(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addZona(); } }}
+            placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
+            className="flex-1 px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
+          />
+          <button
+            type="button"
+            onClick={addZona}
+            disabled={!newZona.trim()}
+            className="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition flex items-center gap-1"
+          >
+            <i className="fas fa-plus text-xs" /> Agregar
+          </button>
+        </div>
+      </div>
     </div>
   );
 
@@ -312,6 +408,33 @@ export default function AdminConfigTab() {
                   >
                     <i className="fas fa-pen text-sm" />
                   </button>
+
+                  {/* Delete */}
+                  {deletingEventId === ev.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-danger font-medium">¿Eliminar?</span>
+                      <button
+                        onClick={() => handleDeleteEvent(ev.id)}
+                        className="px-2 py-1 bg-danger text-white rounded text-xs font-medium hover:bg-danger/90 transition"
+                      >
+                        Sí
+                      </button>
+                      <button
+                        onClick={() => setDeletingEventId(null)}
+                        className="px-2 py-1 text-body hover:text-label text-xs"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingEventId(ev.id)}
+                      className="p-1.5 text-muted hover:text-danger hover:bg-red-50 rounded-lg transition"
+                      title="Eliminar evento"
+                    >
+                      <i className="fas fa-trash text-sm" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

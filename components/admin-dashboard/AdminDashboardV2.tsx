@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { AdminProvider, useAdmin } from './AdminContext';
 import AdminHeader from './AdminHeader';
 import AdminStats from './AdminStats';
+import AdminAccreditationControl from './AdminAccreditationControl';
 import AdminFilters from './AdminFilters';
 import AdminExportActions from './AdminExportActions';
 import AdminTable from './AdminTable';
 import AdminDetailModal from './AdminDetailModal';
 import AdminRejectModal from './AdminRejectModal';
 import AdminConfigTab from './AdminConfigTab';
+import AdminMailTab from './AdminMailTab';
 import type { RegistrationFull } from '@/types';
 
 function AdminDashboardInner() {
@@ -27,6 +29,9 @@ function AdminDashboardInner() {
             {/* Stats */}
             <AdminStats />
 
+            {/* Accreditation Control */}
+            <AdminAccreditationControl />
+
             {/* Filters + Export row */}
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1">
@@ -43,9 +48,11 @@ function AdminDashboardInner() {
               onReject={reg => setRejectReg(reg)}
             />
           </div>
-        ) : (
+        ) : activeTab === 'configuracion' ? (
           <AdminConfigTab />
-        )}
+        ) : activeTab === 'mail' ? (
+          <AdminMailTab />
+        ) : null}
       </div>
 
       {/* Modals */}

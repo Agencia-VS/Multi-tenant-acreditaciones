@@ -259,14 +259,14 @@ export default function TenantsPage() {
                 </label>
               </div>
 
-              {/* ═══ Zonas del Tenant ═══ */}
+              {/* ═══ Zonas del Tenant (fallback) ═══ */}
               <div className="mt-4 p-4 bg-canvas rounded-xl">
                 <h4 className="text-sm font-semibold text-label mb-1">
                   <i className="fas fa-map-signs mr-2 text-muted" />
-                  Zonas disponibles
+                  Zonas por defecto del Tenant
                 </h4>
                 <p className="text-xs text-muted mb-3">
-                  Zonas que el admin podrá asignar desde su dashboard (desplegable). Ej: Prensa, VIP, Staff, Cancha.
+                  Zonas de fallback a nivel tenant. Las zonas específicas de cada evento se configuran en <strong>Eventos → Zonas</strong>.
                 </p>
                 <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-lg border border-field-border bg-surface mb-2">
                   {((form.config?.zonas as string[]) || []).map((zona, i) => (

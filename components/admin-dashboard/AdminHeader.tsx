@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAdmin } from './AdminContext';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { AdminTab } from '@/types';
 
 export default function AdminHeader() {
@@ -13,15 +13,13 @@ export default function AdminHeader() {
   const tabs: { key: AdminTab; label: string; icon: string }[] = [
     { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge' },
     { key: 'configuracion', label: 'Configuración', icon: 'fa-cog' },
+    { key: 'mail', label: 'Mail', icon: 'fa-envelope' },
   ];
 
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = getSupabaseBrowserClient();
       await supabase.auth.signOut();
       // Redirect to tenant login
       const slug = window.location.pathname.split('/')[1];

@@ -4,7 +4,6 @@
  * SuperAdmin Dashboard — Estadísticas globales
  */
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { LoadingSpinner, StatusBadge } from '@/components/shared/ui';
 

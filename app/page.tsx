@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface Tenant {
   id: string;
@@ -20,10 +20,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const loadTenants = async () => {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = getSupabaseBrowserClient();
       const { data } = await supabase
         .from('tenants')
         .select('id, nombre, slug, shield_url, color_primario')

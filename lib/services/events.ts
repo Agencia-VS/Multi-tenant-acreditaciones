@@ -107,7 +107,8 @@ export async function createEvent(data: EventFormData): Promise<Event> {
       opponent_logo_url: data.opponent_logo_url || null,
       league: data.league || null,
       qr_enabled: data.qr_enabled || false,
-      form_fields: data.form_fields || [],
+      form_fields: (data.form_fields || []) as any,
+      config: (data.config || {}) as any,
       is_active: true,
     })
     .select()
@@ -134,7 +135,7 @@ export async function updateEvent(eventId: string, data: Partial<EventFormData>)
 
   const { data: event, error } = await supabase
     .from('events')
-    .update(sanitized)
+    .update(sanitized as any)
     .eq('id', eventId)
     .select()
     .single();
@@ -144,7 +145,7 @@ export async function updateEvent(eventId: string, data: Partial<EventFormData>)
 }
 
 /**
- * Desactivar un evento
+ * Desactivar un evento (soft delete)
  */
 export async function deactivateEvent(eventId: string): Promise<void> {
   const supabase = createSupabaseAdminClient();
@@ -155,4 +156,47 @@ export async function deactivateEvent(eventId: string): Promise<void> {
     .eq('id', eventId);
 
   if (error) throw new Error(`Error desactivando evento: ${error.message}`);
+}
+
+/**
+ * Eliminar un evento y todos sus datos relacionados (hard delete)
+ * Orden: registrations → quota rules → zone rules → form configs → evento
+ */
+export async function deleteEvent(eventId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+
+  // 1. Delete registrations
+  const { error: regErr } = await supabase
+    .from('registrations')
+    .delete()
+    .eq('event_id', eventId);
+  if (regErr) throw new Error(`Error eliminando registros: ${regErr.message}`);
+
+  // 2. Delete quota rules
+  const { error: quotaErr } = await supabase
+    .from('event_quota_rules')
+    .delete()
+    .eq('event_id', eventId);
+  if (quotaErr) throw new Error(`Error eliminando cupos: ${quotaErr.message}`);
+
+  // 3. Delete zone rules
+  const { error: zoneErr } = await supabase
+    .from('event_zone_rules')
+    .delete()
+    .eq('event_id', eventId);
+  if (zoneErr) throw new Error(`Error eliminando reglas de zona: ${zoneErr.message}`);
+
+  // 4. Delete form configs (if table exists)
+  await (supabase as any)
+    .from('form_configs')
+    .delete()
+    .eq('event_id', eventId)
+    .then(() => {}); // Ignore if table doesn't exist
+
+  // 5. Delete the event itself
+  const { error: evErr } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId);
+  if (evErr) throw new Error(`Error eliminando evento: ${evErr.message}`);
 }

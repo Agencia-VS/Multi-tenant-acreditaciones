@@ -126,6 +126,41 @@ export function isDeadlinePast(deadlineISO: string | null | undefined): boolean 
 }
 
 /**
+ * Determina si la acreditación está cerrada, considerando:
+ *  1. Override manual en event.config.acreditacion_abierta (prioridad máxima)
+ *  2. Fecha límite de acreditación (si no hay override)
+ * 
+ * Retorna { closed: boolean, reason: string }
+ */
+export function isAccreditationClosed(
+  eventConfig: Record<string, unknown> | null | undefined,
+  fechaLimite: string | null | undefined
+): { closed: boolean; reason: string } {
+  // 1. Override manual tiene prioridad
+  const manualOverride = eventConfig?.acreditacion_abierta;
+  if (typeof manualOverride === 'boolean') {
+    if (manualOverride) {
+      return { closed: false, reason: 'Abierto manualmente por el administrador' };
+    } else {
+      return { closed: true, reason: 'Cerrado manualmente por el administrador' };
+    }
+  }
+
+  // 2. Fecha límite
+  if (fechaLimite) {
+    const past = isDeadlinePast(fechaLimite);
+    if (past) {
+      return {
+        closed: true,
+        reason: `El plazo para solicitar acreditación cerró el ${formatDeadlineChile(fechaLimite)}`,
+      };
+    }
+  }
+
+  return { closed: false, reason: '' };
+}
+
+/**
  * Formatea una fecha deadline para mostrar al usuario en Chile.
  */
 export function formatDeadlineChile(deadlineISO: string | null | undefined): string {
