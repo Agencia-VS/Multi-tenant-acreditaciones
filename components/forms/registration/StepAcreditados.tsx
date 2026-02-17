@@ -268,7 +268,12 @@ export default function StepAcreditados({
           )}
 
           {/* ── Tabla de Carga Masiva ── */}
-          {bulkRows.length > 0 && (
+          {bulkRows.length > 0 && (() => {
+            // Collect unique extras keys across all rows for dynamic columns
+            const extraKeys = Array.from(
+              new Set(bulkRows.flatMap(r => Object.keys(r.extras || {})))
+            );
+            return (
             <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden">
               <div className="px-4 sm:px-5 py-3 bg-surface/60 border-b border-edge/50 flex items-center justify-between">
                 <p className="text-sm font-semibold text-heading flex items-center gap-2">
@@ -291,6 +296,9 @@ export default function StepAcreditados({
                       <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Apellido</th>
                       <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">RUT</th>
                       <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Patente</th>
+                      {extraKeys.map(k => (
+                        <th key={k} className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">{k}</th>
+                      ))}
                       <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Empresa</th>
                       <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Tipo Medio</th>
                       <th className="px-2 py-2 w-8"></th>
@@ -309,8 +317,11 @@ export default function StepAcreditados({
                           )}
                         </td>
                         <td className="px-3 sm:px-4 py-2 text-muted">{row.patente || '—'}</td>
-                        <td className="px-3 sm:px-4 py-2 text-muted italic">{responsable.organizacion}</td>
-                        <td className="px-3 sm:px-4 py-2 text-muted italic">{tipoMedio}</td>
+                        {extraKeys.map(k => (
+                          <td key={k} className="px-3 sm:px-4 py-2 text-muted">{row.extras?.[k] || '—'}</td>
+                        ))}
+                        <td className="px-3 sm:px-4 py-2 text-muted italic">{row.extras?.organizacion || responsable.organizacion}</td>
+                        <td className="px-3 sm:px-4 py-2 text-muted italic">{row.extras?.tipo_medio || tipoMedio}</td>
                         <td className="px-2 py-2">
                           <button
                             type="button"
@@ -328,10 +339,11 @@ export default function StepAcreditados({
               </div>
               <div className="px-4 sm:px-5 py-2 bg-surface/40 border-t border-edge/50 text-xs text-muted flex items-center gap-2">
                 <i className="fas fa-info-circle" />
-                Empresa, tipo de medio y zona se asignan automáticamente desde los pasos 1 y 2.
+                Empresa, tipo de medio y zona se asignan automáticamente desde los pasos 1 y 2 si no vienen en el archivo.
               </div>
             </div>
-          )}
+            );
+          })()}
         </>
       )}
 

@@ -427,6 +427,11 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       id: crypto.randomUUID(),
       nombre: r.nombre || '', apellido: r.apellido || '',
       rut: r.rut || '', patente: r.patente || '',
+      extras: Object.fromEntries(
+        Object.entries(r)
+          .filter(([k, v]) => !['nombre', 'apellido', 'rut', 'patente'].includes(k) && v)
+          .map(([k, v]) => [k, v!])
+      ),
     }));
 
     setBulkRows(prev => [...prev, ...newBulkRows]);
@@ -436,7 +441,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   const downloadTemplate = async () => {
     const color = tenantColors.primario.replace('#', '');
-    const url = `/api/bulk/parse?tenant=${tenantSlug}&color=${color}`;
+    const url = `/api/bulk/parse?tenant=${tenantSlug}&color=${color}&event_id=${eventId}`;
     const a = document.createElement('a');
     a.href = url;
     a.download = `plantilla-carga-masiva-${tenantSlug}.xlsx`;
@@ -520,8 +525,20 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       try {
         const bulkPayloadRows = bulkRows.map(row => ({
           rut: sanitize(row.rut), nombre: sanitize(row.nombre), apellido: sanitize(row.apellido),
-          organizacion: sanitize(responsable.organizacion), tipo_medio: tipoMedio,
+          organizacion: row.extras?.organizacion || row.extras?.empresa
+            ? sanitize(row.extras.organizacion || row.extras.empresa)
+            : sanitize(responsable.organizacion),
+          tipo_medio: row.extras?.tipo_medio ? sanitize(row.extras.tipo_medio) : tipoMedio,
+          email: row.extras?.email ? sanitize(row.extras.email) : undefined,
+          telefono: row.extras?.telefono ? sanitize(row.extras.telefono) : undefined,
+          cargo: row.extras?.cargo ? sanitize(row.extras.cargo) : undefined,
           patente: row.patente || undefined,
+          // Campos extra dinámicos (zona, area, campos custom, etc.)
+          ...Object.fromEntries(
+            Object.entries(row.extras || {})
+              .filter(([k]) => !['organizacion', 'empresa', 'tipo_medio', 'email', 'telefono', 'cargo'].includes(k))
+              .map(([k, v]) => [k, sanitize(v)])
+          ),
           responsable_rut: sanitize(responsable.rut),
           responsable_nombre: sanitize(responsable.nombre),
           responsable_apellido: sanitize(responsable.apellido),

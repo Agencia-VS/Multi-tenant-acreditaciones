@@ -28,6 +28,8 @@ export interface BulkImportRow {
   apellido: string;
   rut: string;
   patente: string;
+  /** Campos extra importados del archivo (email, cargo, telefono, etc.) */
+  extras: Record<string, string>;
 }
 
 export interface RegistrationFormProps {

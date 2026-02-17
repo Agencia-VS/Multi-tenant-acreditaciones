@@ -5,7 +5,7 @@
  * Crear/editar eventos con form_fields dinámicos y cupos
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField, EventType, EventDayFormData } from '@/types';
+import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField, EventType, EventDayFormData, BulkTemplateColumn } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
@@ -14,6 +14,7 @@ import EventFormFieldsTab from './EventFormFieldsTab';
 import EventQuotasTab from './EventQuotasTab';
 import EventZonesTab from './EventZonesTab';
 import EventDaysTab from './EventDaysTab';
+import EventBulkTemplateTab from './EventBulkTemplateTab';
 
 type SAEvent = BaseEvent & { tenant?: Tenant };
 
@@ -43,7 +44,7 @@ export default function EventosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SAEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'cupos' | 'zonas' | 'dias'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'bulk' | 'cupos' | 'zonas' | 'dias'>('general');
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const { toast, showSuccess, showError, dismiss } = useToast();
@@ -72,6 +73,8 @@ export default function EventosPage() {
   // Zonas configuradas para el evento (event.config.zonas)
   const [eventZonas, setEventZonas] = useState<string[]>([]);
   const [newEventZona, setNewEventZona] = useState('');
+  // Columnas del template de carga masiva
+  const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
 
   const loadData = useCallback(async () => {
     const [tenantsRes, eventsRes] = await Promise.all([
@@ -112,9 +115,10 @@ export default function EventosPage() {
     }));
     setFormFields(source.form_fields?.length ? source.form_fields : DEFAULT_FORM_FIELDS);
 
-    // Load event config zonas
+    // Load event config zonas & bulk template columns
     const evConfig = (source.config || {}) as Record<string, unknown>;
     setEventZonas((evConfig.zonas as string[]) || []);
+    setBulkTemplateColumns((evConfig.bulk_template_columns as BulkTemplateColumn[]) || []);
 
     // Load event days structure (without dates)
     if ((source as BaseEvent & { event_type?: string }).event_type === 'multidia') {
@@ -189,6 +193,7 @@ export default function EventosPage() {
     setZoneRules([]);
     setEventZonas([]);
     setNewEventZona('');
+    setBulkTemplateColumns([]);
     setActiveTab('general');
     setShowForm(true);
   };
@@ -237,6 +242,7 @@ export default function EventosPage() {
     const evConfig = (event.config || {}) as Record<string, unknown>;
     setEventZonas((evConfig.zonas as string[]) || []);
     setNewEventZona('');
+    setBulkTemplateColumns((evConfig.bulk_template_columns as BulkTemplateColumn[]) || []);
 
     // Load quota rules (API returns array directly, not { rules: [...] })
     try {
@@ -283,8 +289,13 @@ export default function EventosPage() {
     try {
       // Merge zonas into existing event config (preserving other config keys like acreditacion_abierta)
       const existingConfig = editing ? ((editing.config || {}) as Record<string, unknown>) : {};
-      const eventConfig = { ...existingConfig, zonas: eventZonas.length > 0 ? eventZonas : undefined };
+      const eventConfig = {
+        ...existingConfig,
+        zonas: eventZonas.length > 0 ? eventZonas : undefined,
+        bulk_template_columns: bulkTemplateColumns.length > 0 ? bulkTemplateColumns : undefined,
+      };
       if (!eventConfig.zonas) delete eventConfig.zonas;
+      if (!eventConfig.bulk_template_columns) delete eventConfig.bulk_template_columns;
 
       const body = {
         ...eventForm,
@@ -456,7 +467,7 @@ export default function EventosPage() {
 
             {/* Tabs */}
             <div className="px-8 pt-4 flex gap-1 border-b overflow-x-auto">
-              {(['general', 'form', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : [])] as const).map((tab) => (
+              {(['general', 'form', 'bulk', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : [])] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as typeof activeTab)}
@@ -468,6 +479,7 @@ export default function EventosPage() {
                 >
                   {tab === 'general' && <><i className="fas fa-info-circle mr-2" />General</>}
                   {tab === 'form' && <><i className="fas fa-list-alt mr-2" />Formulario ({formFields.length})</>}
+                  {tab === 'bulk' && <><i className="fas fa-file-excel mr-2" />Template Masivo ({bulkTemplateColumns.length})</>}
                   {tab === 'cupos' && <><i className="fas fa-chart-pie mr-2" />Cupos ({quotaRules.length})</>}
                   {tab === 'zonas' && <><i className="fas fa-map-signs mr-2" />Zonas ({zoneRules.length})</>}
                   {tab === 'dias' && <><i className="fas fa-calendar-week mr-2" />Días ({eventDays.length})</>}
@@ -663,6 +675,15 @@ export default function EventosPage() {
                   addField={addField}
                   updateField={updateField}
                   removeField={removeField}
+                />
+              )}
+
+              {/* Bulk Template Tab */}
+              {activeTab === 'bulk' && (
+                <EventBulkTemplateTab
+                  columns={bulkTemplateColumns}
+                  formFields={formFields}
+                  onChange={setBulkTemplateColumns}
                 />
               )}
 

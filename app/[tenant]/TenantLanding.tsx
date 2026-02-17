@@ -165,12 +165,12 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
           {(tenant.logo_url || tenant.shield_url) && (
             <img
               src={tenant.shield_url || tenant.logo_url!}
-              alt={tenant.nombre}
+              alt={tenant.slug}
               className="h-8 sm:h-9 w-auto object-contain drop-shadow-lg"
             />
           )}
           <span className="text-sm font-bold text-white/80 hidden sm:inline tracking-tight">
-            {tenant.nombre}
+            {tenant.slug.replace(/-/g, ' ').toUpperCase()}
           </span>
         </div>
 

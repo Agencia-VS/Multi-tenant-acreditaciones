@@ -460,10 +460,20 @@ export interface TenantConfig {
   [key: string]: unknown;
 }
 
+/** Columna del template de carga masiva */
+export interface BulkTemplateColumn {
+  key: string;        // key interna (ej: 'nombre', 'rut', 'cargo')
+  header: string;     // nombre visible en el Excel (ej: 'Nombre', 'RUT')
+  required: boolean;  // si es requerido en la importación
+  example?: string;   // valor de ejemplo en la fila demo
+  width?: number;     // ancho de columna en Excel
+}
+
 /** Typed event config */
 export interface EventConfig {
   zonas?: string[];              // zone options for this event
   acreditacion_abierta?: boolean; // manual override to keep accreditation open
+  bulk_template_columns?: BulkTemplateColumn[]; // columnas dinámicas para carga masiva
   [key: string]: unknown;
 }
 
