@@ -234,9 +234,6 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
               {!isMultidia && formattedDate && <Chip icon="fa-calendar">{formattedDate}</Chip>}
               {event.hora && <Chip icon="fa-clock">{event.hora.substring(0, 5)} hrs</Chip>}
               {event.venue && <Chip icon="fa-location-dot">{event.venue}</Chip>}
-              {isMultidia && (
-                <Chip icon="fa-layer-group">Multidía</Chip>
-              )}
             </div>
 
             {isMatchEvent ? (
@@ -249,7 +246,7 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                       <img
                         src={tenant.shield_url}
                         alt={tenant.nombre}
-                        className="w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 object-contain hover:scale-105 transition-fluid"
+                        className="w-24 h-24 sm:w-32 sm:h-32 md:w-44 md:h-44 object-contain hover:scale-105 transition-fluid"
                         style={{ filter: `drop-shadow(0 0 24px ${p.interactiveAccent}30)` }}
                       />
                       <h1 className=" font-semibold text-white uppercase tracking-wider hidden sm:block">{tenant.nombre}</h1>
@@ -266,14 +263,14 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                       <img
                         src={event.opponent_logo_url}
                         alt={event.opponent_name || 'Rival'}
-                        className="w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 object-contain hover:scale-105 transition-fluid drop-shadow-2xl"
+                        className="w-24 h-24 sm:w-32 sm:h-32 md:w-44 md:h-44 object-contain hover:scale-105 transition-fluid drop-shadow-2xl"
                       />
                       <h1 className=" font-semibold text-white uppercase tracking-wider hidden sm:block">{event.opponent_name}</h1>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
                       <div
-                        className="w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-full flex items-center justify-center backdrop-blur-sm"
+                        className="w-24 h-24 sm:w-32 sm:h-32 md:w-44 md:h-44 rounded-full flex items-center justify-center backdrop-blur-sm"
                         style={{ background: `${p.forest}50`, border: `2px solid ${p.bright}30` }}
                       >
                         <span className="text-white text-3xl sm:text-5xl font-bold drop-shadow-lg">
@@ -287,15 +284,25 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
               </div>
             ) : isMultidia ? (
               /* ── MODO MULTIDÍA ── */
-              <div className="flex flex-col items-center gap-6 opacity-0 animate-fade-in">
-                {(tenant.shield_url || tenant.logo_url) && (
-                  <img
-                    src={tenant.shield_url || tenant.logo_url!}
-                    alt={tenant.nombre}
-                    className="w-20 h-20 sm:w-28 sm:h-28 object-contain"
-                    style={{ filter: `drop-shadow(0 0 24px ${p.interactiveAccent}25)` }}
-                  />
-                )}
+              <div className="flex flex-col items-center gap-8 opacity-0 animate-fade-in">
+                {/* Logos — grandes, identidad visual del evento */}
+                <div className="flex items-center gap-6 sm:gap-10">
+                  {(tenant.shield_url || tenant.logo_url) && (
+                    <img
+                      src={tenant.shield_url || tenant.logo_url!}
+                      alt={tenant.nombre}
+                      className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-contain hover:scale-105 transition-fluid"
+                      style={{ filter: `drop-shadow(0 0 28px ${p.interactiveAccent}30)` }}
+                    />
+                  )}
+                  {event.opponent_logo_url && (
+                    <img
+                      src={event.opponent_logo_url}
+                      alt={event.nombre}
+                      className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-contain hover:scale-105 transition-fluid drop-shadow-2xl rounded-xl"
+                    />
+                  )}
+                </div>
 
                 <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white drop-shadow-lg text-center leading-tight max-w-3xl">
                   {event.nombre}
@@ -309,59 +316,55 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
 
                 {/* Days preview card */}
                 <div
-                  className="rounded-2xl px-6 py-4 backdrop-blur-md max-w-md w-full"
+                  className="rounded-2xl px-6 py-5 backdrop-blur-md max-w-md w-full"
                   style={{ background: `${p.forest}80`, border: `1px solid ${p.bright}20` }}
                 >
-                  <p className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: `${p.bright}80` }}>
+                  <p className="text-xs uppercase tracking-widest font-semibold mb-3 text-center" style={{ color: `${p.bright}80` }}>
                     <i className="fas fa-calendar-week mr-1.5" />
-                    Jornadas del evento
+                    Evento multidía
                   </p>
-                  <p className="text-sm text-white/70 text-center">
+                  {formattedDateRange && (
+                    <p className="text-lg font-bold text-white text-center mb-2">
+                      <i className="fas fa-calendar-range mr-2 text-sm" style={{ color: p.interactiveAccent }} />
+                      {formattedDateRange}
+                    </p>
+                  )}
+                  <p className="text-sm text-white/60 text-center">
                     Las jornadas disponibles se mostrarán al momento de inscribirse.
                   </p>
                 </div>
-
-                <p className="text-xs" style={{ color: '#FFFFFF60' }}>
-                  <i className="fas fa-building mr-1.5" />
-                  Organiza <span className="font-semibold text-white/70">{tenant.nombre}</span>
-                </p>
               </div>
             ) : (
               /* ── MODO GENÉRICO ── */
-              <div className="flex flex-col items-center gap-5 opacity-0 animate-fade-in">
-                {/* Logos */}
-                <div className="flex items-center gap-5">
+              <div className="flex flex-col items-center gap-8 opacity-0 animate-fade-in">
+                {/* Logos — grandes, identidad visual del evento/organización */}
+                <div className="flex items-center gap-6 sm:gap-10">
                   {(tenant.shield_url || tenant.logo_url) && (
                     <img
                       src={tenant.shield_url || tenant.logo_url!}
                       alt={tenant.nombre}
-                      className="w-20 h-20 sm:w-28 sm:h-28 object-contain"
-                      style={{ filter: `drop-shadow(0 0 24px ${p.interactiveAccent}25)` }}
+                      className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-contain hover:scale-105 transition-fluid"
+                      style={{ filter: `drop-shadow(0 0 28px ${p.interactiveAccent}30)` }}
                     />
                   )}
                   {event.opponent_logo_url && (
                     <img
                       src={event.opponent_logo_url}
                       alt={event.nombre}
-                      className="w-20 h-20 sm:w-28 sm:h-28 object-contain drop-shadow-2xl rounded-xl"
+                      className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-contain hover:scale-105 transition-fluid drop-shadow-2xl rounded-xl"
                     />
                   )}
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white drop-shadow-lg text-center leading-tight max-w-3xl">
+                {/* <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white drop-shadow-lg text-center leading-tight max-w-3xl">
                   {event.nombre}
-                </h1>
+                </h1> */}
 
-                {event.descripcion && (
+                {/* {event.descripcion && (
                   <p className="text-sm sm:text-base text-center max-w-xl leading-relaxed" style={{ color: '#FFFFFFB0' }}>
                     {event.descripcion}
                   </p>
-                )}
-
-                <p className="text-xs" style={{ color: '#FFFFFF60' }}>
-                  <i className="fas fa-building mr-1.5" />
-                  Organiza <span className="font-semibold text-white/70">{tenant.nombre}</span>
-                </p>
+                )} */}
               </div>
             )}
 

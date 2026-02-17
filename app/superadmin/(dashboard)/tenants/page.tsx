@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { Toast, useToast, PageHeader, Modal, LoadingSpinner, FormActions } from '@/components/shared/ui';
+import ImageUploadField from '@/components/shared/ImageUploadField';
 
 interface Tenant {
   id: string;
@@ -163,35 +164,31 @@ export default function TenantsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-label mb-1">Logo URL</label>
-                  <input
-                    type="url"
-                    value={form.logo_url}
-                    onChange={(e) => setForm(prev => ({ ...prev, logo_url: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-label mb-1">Escudo URL</label>
-                  <input
-                    type="url"
-                    value={form.shield_url}
-                    onChange={(e) => setForm(prev => ({ ...prev, shield_url: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-label mb-1">Background URL</label>
-                <input
-                  type="url"
-                  value={form.background_url}
-                  onChange={(e) => setForm(prev => ({ ...prev, background_url: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
+                <ImageUploadField
+                  label="Logo"
+                  value={form.logo_url}
+                  onChange={(url) => setForm(prev => ({ ...prev, logo_url: url }))}
+                  folder="tenants"
+                  rounded
+                  previewSize="md"
+                />
+                <ImageUploadField
+                  label="Escudo"
+                  value={form.shield_url}
+                  onChange={(url) => setForm(prev => ({ ...prev, shield_url: url }))}
+                  folder="tenants"
+                  rounded
+                  previewSize="md"
                 />
               </div>
+
+              <ImageUploadField
+                label="Background"
+                value={form.background_url}
+                onChange={(url) => setForm(prev => ({ ...prev, background_url: url }))}
+                folder="tenants"
+                previewSize="lg"
+              />
 
               <div className="grid grid-cols-4 gap-4">
                 {(['color_primario', 'color_secundario', 'color_light', 'color_dark'] as const).map((key) => (

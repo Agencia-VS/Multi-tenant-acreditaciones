@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAdmin } from './AdminContext';
 import { Modal, EmptyState } from '@/components/shared/ui';
+import ImageUploadField from '@/components/shared/ImageUploadField';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
 import type { Event, FormFieldDefinition, ZoneMatchField } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
@@ -374,15 +375,14 @@ export default function AdminConfigTab() {
             className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
         </div>
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Logo rival (URL)</label>
-          <input
-            value={form.opponent_logo_url}
-            onChange={e => setForm(f => ({ ...f, opponent_logo_url: e.target.value }))}
-            placeholder="https://..."
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
+        <ImageUploadField
+          label="Logo rival"
+          value={form.opponent_logo_url}
+          onChange={(url) => setForm(f => ({ ...f, opponent_logo_url: url }))}
+          folder="events"
+          rounded
+          previewSize="sm"
+        />
       </div>
 
       <div>

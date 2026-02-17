@@ -9,6 +9,7 @@ import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField, E
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
+import ImageUploadField from '@/components/shared/ImageUploadField';
 import EventFormFieldsTab from './EventFormFieldsTab';
 import EventQuotasTab from './EventQuotasTab';
 import EventZonesTab from './EventZonesTab';
@@ -630,15 +631,14 @@ export default function EventosPage() {
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-label mb-1">Logo Rival URL</label>
-                      <input
-                        type="url"
-                        value={eventForm.opponent_logo_url}
-                        onChange={(e) => setEventForm(prev => ({ ...prev, opponent_logo_url: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
-                      />
-                    </div>
+                    <ImageUploadField
+                      label="Logo Rival"
+                      value={eventForm.opponent_logo_url}
+                      onChange={(url) => setEventForm(prev => ({ ...prev, opponent_logo_url: url }))}
+                      folder="events"
+                      rounded
+                      previewSize="sm"
+                    />
                   </div>
 
                   <label className="flex items-center gap-3 py-2">
