@@ -29,6 +29,7 @@ describe('buildMergedAutofillData', () => {
       cargo: 'Periodista',
       medio: 'Radio ABC',
       tipo_medio: 'Radial',
+      foto_url: null,
       datos_base: {},
       created_at: '',
       updated_at: '',
@@ -56,7 +57,7 @@ describe('buildMergedAutofillData', () => {
     const profile: Profile = {
       id: 'p-1', rut: '12345678-9', nombre: 'Juan', apellido: 'Pérez',
       email: 'jp@test.com', telefono: null, nacionalidad: null,
-      cargo: null, medio: null, tipo_medio: null,
+      cargo: null, medio: null, tipo_medio: null, foto_url: null,
       datos_base: {
         talla_polera: 'M',
         _tenant: {
@@ -76,7 +77,7 @@ describe('buildMergedAutofillData', () => {
     const profile: Profile = {
       id: 'p-1', rut: '12345678-9', nombre: 'Juan', apellido: 'Pérez',
       email: null, telefono: null, nacionalidad: null,
-      cargo: null, medio: null, tipo_medio: null,
+      cargo: null, medio: null, tipo_medio: null, foto_url: null,
       datos_base: { talla_polera: 'S' },
       created_at: '', updated_at: '', user_id: null,
     };
@@ -91,7 +92,7 @@ describe('buildMergedAutofillData', () => {
     const profile: Profile = {
       id: 'p-1', rut: '12345678-9', nombre: 'Juan', apellido: 'Pérez',
       email: null, telefono: null, nacionalidad: null,
-      cargo: null, medio: null, tipo_medio: null,
+      cargo: null, medio: null, tipo_medio: null, foto_url: null,
       datos_base: {},
       created_at: '', updated_at: '', user_id: null,
     };
@@ -125,7 +126,7 @@ describe('buildMergedAutofillData', () => {
     const profile: Profile = {
       id: 'p-1', rut: '12345678-9', nombre: 'Juan', apellido: 'Pérez',
       email: 'jp@test.com', telefono: null, nacionalidad: null,
-      cargo: 'Periodista', medio: null, tipo_medio: null,
+      cargo: 'Periodista', medio: null, tipo_medio: null, foto_url: null,
       datos_base: { talla_polera: 'M' },
       created_at: '', updated_at: '', user_id: null,
     };
@@ -139,7 +140,7 @@ describe('buildMergedAutofillData', () => {
     const profile: Profile = {
       id: 'p-1', rut: '12345678-9', nombre: 'Juan', apellido: 'Pérez',
       email: 'jp@test.com', telefono: '+56912345678', nacionalidad: null,
-      cargo: null, medio: null, tipo_medio: null,
+      cargo: null, medio: null, tipo_medio: null, foto_url: null,
       datos_base: {},
       created_at: '', updated_at: '', user_id: null,
     };
@@ -155,7 +156,7 @@ describe('buildMergedAutofillData', () => {
     const profile: Profile = {
       id: 'p-1', rut: '12345678-9', nombre: 'Juan', apellido: '',
       email: null, telefono: null, nacionalidad: null,
-      cargo: null, medio: null, tipo_medio: null,
+      cargo: null, medio: null, tipo_medio: null, foto_url: null,
       datos_base: { x: null, y: '' },
       created_at: '', updated_at: '', user_id: null,
     };

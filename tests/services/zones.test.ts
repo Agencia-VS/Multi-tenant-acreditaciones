@@ -101,7 +101,7 @@ describe('getZoneRules', () => {
   });
 
   it('throws on supabase error', async () => {
-    mockFrom.mockReturnValue(listChain(null, { message: 'DB down' }));
+    mockFrom.mockReturnValue(listChain([], { message: 'DB down' }));
 
     await expect(getZoneRules('e-1')).rejects.toThrow('Error obteniendo reglas de zona: DB down');
   });
