@@ -5,8 +5,6 @@ import { AdminProvider, useAdmin } from './AdminContext';
 import AdminHeader from './AdminHeader';
 import AdminStats from './AdminStats';
 import AdminAccreditationControl from './AdminAccreditationControl';
-import AdminFilters from './AdminFilters';
-import AdminExportActions from './AdminExportActions';
 import AdminTable from './AdminTable';
 import AdminDetailModal from './AdminDetailModal';
 import AdminRejectModal from './AdminRejectModal';
@@ -32,17 +30,7 @@ function AdminDashboardInner() {
             {/* Accreditation Control */}
             <AdminAccreditationControl />
 
-            {/* Filters + Export row */}
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <AdminFilters />
-              </div>
-              <div className="flex items-start">
-                <AdminExportActions />
-              </div>
-            </div>
-
-            {/* Table */}
+            {/* Table (includes inline filters + export + thead — all sticky) */}
             <AdminTable
               onViewDetail={reg => setDetailReg(reg)}
               onReject={reg => setRejectReg(reg)}

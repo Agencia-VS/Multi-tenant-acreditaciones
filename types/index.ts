@@ -409,6 +409,8 @@ export interface AdminFilterState {
   status: RegistrationStatus | '';
   tipo_medio: string;
   event_id: string;
+  /** Día seleccionado para eventos multidía (filtra check-in por jornada) */
+  event_day_id: string;
 }
 
 export interface AdminStats {
@@ -472,6 +474,8 @@ export interface AdminContextType {
   selectedEvent: EventFull | null;
   registrations: RegistrationFull[];
   stats: AdminStats;
+  /** Jornadas del evento seleccionado (solo multidía) */
+  eventDays: import('./index').EventDay[];
   
   // UI state
   activeTab: AdminTab;
@@ -497,4 +501,7 @@ export interface AdminContextType {
   // Toast
   showSuccess: (text: string) => void;
   showError: (text: string) => void;
+
+  /** Es evento multidía */
+  isMultidia: boolean;
 }

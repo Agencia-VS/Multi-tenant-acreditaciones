@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import type {
   Tenant, Event, EventFull, RegistrationFull, RegistrationStatus,
   AdminTab, AdminFilterState, AdminStats, AdminContextType, BulkActionPayload,
+  EventDay, EventType,
 } from '@/types';
 import { useToast } from '@/components/shared/ui';
 
@@ -23,7 +24,7 @@ interface AdminProviderProps {
 }
 
 const EMPTY_STATS: AdminStats = { total: 0, pendientes: 0, aprobados: 0, rechazados: 0, revision: 0, checked_in: 0 };
-const INITIAL_FILTERS: AdminFilterState = { search: '', status: '', tipo_medio: '', event_id: '' };
+const INITIAL_FILTERS: AdminFilterState = { search: '', status: '', tipo_medio: '', event_id: '', event_day_id: '' };
 
 export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }: AdminProviderProps) {
   // ─── State ─────────────────────────────────────────
@@ -38,7 +39,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-
+  const [eventDays, setEventDays] = useState<EventDay[]>([]);
   const { showSuccess, showError, toast, dismiss } = useToast();
 
   // ─── Debounce search ─────────────────────────────
@@ -88,6 +89,32 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       } catch { /* ignore */ }
     })();
   }, [tenantSlug]);
+
+  // ─── Derived: is multidia ─────────────────────────
+  const isMultidia = ((selectedEvent as unknown as Record<string, unknown>)?.event_type as EventType) === 'multidia';
+
+  // ─── Fetch event days when selected event is multidia ──
+  useEffect(() => {
+    if (!isMultidia || !selectedEvent?.id) {
+      setEventDays([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/events/${selectedEvent.id}/days`);
+        if (res.ok) {
+          const days: EventDay[] = await res.json();
+          setEventDays(days);
+          // Auto-select today's day if available
+          const today = new Date().toISOString().slice(0, 10);
+          const todayDay = days.find(d => d.fecha === today);
+          if (todayDay) {
+            setFilters(f => ({ ...f, event_day_id: todayDay.id }));
+          }
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [selectedEvent?.id, isMultidia]);
 
   // ─── Fetch registrations whenever event/filters change ──────────
   const fetchData = useCallback(async () => {
@@ -323,6 +350,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
   // ─── Context value ─────────────────────────────────
   const value: AdminContextType = {
     tenant, events, selectedEvent, registrations, stats,
+    eventDays, isMultidia,
     activeTab, setActiveTab, filters, setFilters,
     selectedIds, setSelectedIds, loading, processing,
     fetchData, selectEvent, handleStatusChange, handleBulkAction, handleDelete,
