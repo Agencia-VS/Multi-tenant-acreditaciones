@@ -35,7 +35,10 @@ export function createEmptyAcreditado(): AcreditadoData {
   };
 }
 
-export function validateAcreditado(a: AcreditadoData): Record<string, string> {
+export function validateAcreditado(
+  a: AcreditadoData,
+  formFields: FormFieldDefinition[] = []
+): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!a.rut.trim()) errors.rut = 'RUT es requerido';
   else if (!validateRut(a.rut)) errors.rut = 'RUT inválido';
@@ -43,7 +46,13 @@ export function validateAcreditado(a: AcreditadoData): Record<string, string> {
   if (!a.apellido.trim()) errors.apellido = 'Apellido es requerido';
   if (!a.email.trim()) errors.email = 'Email es requerido';
   else if (!validateEmail(a.email)) errors.email = 'Email inválido';
-  if (!a.cargo) errors.cargo = 'Cargo es requerido';
+
+  // Cargo: solo validar si está configurado como requerido en form_fields
+  const cargoField = formFields.find(f => f.key === 'cargo');
+  if (cargoField?.required && !a.cargo) {
+    errors.cargo = 'Cargo es requerido';
+  }
+
   return errors;
 }
 
@@ -52,10 +61,12 @@ export function validateAcreditado(a: AcreditadoData): Record<string, string> {
    ═══════════════════════════════════════════════════════ */
 
 const BASE_FIELD_KEYS = new Set([
-  'rut', 'nombre', 'apellido', 'email', 'telefono', 'cargo',
+  'rut', 'nombre', 'apellido', 'email', 'telefono',
   'nombre_completo', 'name', 'first_name', 'last_name',
   'correo', 'mail', 'phone', 'celular', 'fono',
   'organizacion', 'medio', 'tipo_medio',
+  // Nota: 'cargo' ya NO está aquí — se renderiza condicionalmente
+  // según form_fields del evento, no hardcodeado.
 ]);
 
 /* ═══════════════════════════════════════════════════════
@@ -110,16 +121,24 @@ export default function AcreditadoRow({
   const locked = data.isResponsable;
 
   // Filter dynamic fields that duplicate base fields
-  const extraFields = formFields.filter(f => !BASE_FIELD_KEYS.has(f.key.toLowerCase()));
+  // Also exclude 'cargo' from dynamic — it has its own conditional rendering below
+  const extraFields = formFields.filter(
+    f => !BASE_FIELD_KEYS.has(f.key.toLowerCase()) && f.key !== 'cargo'
+  );
+
+  // Cargo field config from form_fields (null if not configured)
+  const cargoFieldConfig = useMemo(
+    () => formFields.find(f => f.key === 'cargo') ?? null,
+    [formFields]
+  );
 
   // Derive cargo options from event form config (fallback to hardcoded)
   const cargosOptions = useMemo(() => {
-    const cargoField = formFields.find(f => f.key === 'cargo');
-    if (cargoField?.options && cargoField.options.length > 0) {
-      return cargoField.options;
+    if (cargoFieldConfig?.options && cargoFieldConfig.options.length > 0) {
+      return cargoFieldConfig.options;
     }
     return [...CARGOS];
-  }, [formFields]);
+  }, [cargoFieldConfig]);
 
   return (
     <div
@@ -269,20 +288,24 @@ export default function AcreditadoRow({
             />
           </div>
 
-          {/* Cargo */}
-          <div>
-            <label className="field-label">Cargo *</label>
-            <select
-              value={data.cargo}
-              onChange={(e) => handleChange('cargo', e.target.value)}
-              onBlur={() => handleBlur('cargo')}
-              className={`field-input ${errors.cargo ? 'field-input-error' : ''}`}
-            >
-              <option value="">Selecciona...</option>
-              {cargosOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            {errors.cargo && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" />{errors.cargo}</p>}
-          </div>
+          {/* Cargo — solo si está configurado en form_fields del evento */}
+          {cargoFieldConfig && (
+            <div>
+              <label className="field-label">
+                {cargoFieldConfig.label || 'Cargo'} {cargoFieldConfig.required && '*'}
+              </label>
+              <select
+                value={data.cargo}
+                onChange={(e) => handleChange('cargo', e.target.value)}
+                onBlur={() => handleBlur('cargo')}
+                className={`field-input ${errors.cargo ? 'field-input-error' : ''}`}
+              >
+                <option value="">Selecciona...</option>
+                {cargosOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {errors.cargo && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" />{errors.cargo}</p>}
+            </div>
+          )}
         </div>
 
         {/* Dynamic Fields — only extras, never base-field duplicates */}

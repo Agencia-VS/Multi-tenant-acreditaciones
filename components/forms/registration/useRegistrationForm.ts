@@ -261,6 +261,9 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     return result;
   };
 
+  // Check if cargo is configured in this event's form_fields
+  const eventHasCargo = formFields.some(f => f.key === 'cargo');
+
   const handleIncluirme = () => {
     if (incluirmeDone) return;
     const me: AcreditadoData = {
@@ -270,7 +273,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       apellido: responsable.apellido,
       email: responsable.email,
       telefono: responsable.telefono,
-      cargo: (userProfile?.cargo as string) || '',
+      cargo: eventHasCargo ? ((userProfile?.cargo as string) || '') : '',
       dynamicData: buildDynamicData(userProfile?.datos_base as Record<string, unknown> | null),
       isResponsable: true,
     };
@@ -292,7 +295,8 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     const newA: AcreditadoData = {
       id: crypto.randomUUID(),
       rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
-      email: p.email || '', telefono: p.telefono || '', cargo: p.cargo || '',
+      email: p.email || '', telefono: p.telefono || '',
+      cargo: eventHasCargo ? (p.cargo || '') : '',
       dynamicData: buildDynamicData(p.datos_base),
       isResponsable: false,
     };
@@ -324,7 +328,8 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       newAcreditados.push({
         id: crypto.randomUUID(),
         rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
-        email: p.email || '', telefono: p.telefono || '', cargo: p.cargo || '',
+        email: p.email || '', telefono: p.telefono || '',
+        cargo: eventHasCargo ? (p.cargo || '') : '',
         dynamicData: buildDynamicData(p.datos_base),
         isResponsable: false,
       });
@@ -363,7 +368,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const handleAcreditadoBlur = (index: number, field: string) => {
     const a = acreditados[index];
     if (!a) return;
-    const allErrors = validateAcreditado(a);
+    const allErrors = validateAcreditado(a, formFields);
     const fieldError = allErrors[field];
     setAcreditadoErrors(prev => {
       const current = prev[a.id] || {};
@@ -450,7 +455,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     const allErrors: Record<string, Record<string, string>> = {};
     let hasErrors = false;
     for (const a of acreditados) {
-      const errs = validateAcreditado(a);
+      const errs = validateAcreditado(a, formFields);
       if (Object.keys(errs).length > 0) { allErrors[a.id] = errs; hasErrors = true; }
     }
     setAcreditadoErrors(allErrors);
