@@ -4,7 +4,7 @@
 > **Stack**: Next.js 16 (App Router + Turbopack) · TypeScript · Tailwind CSS v4 · Supabase · Vercel  
 > **Fecha de auditoría**: 13 de febrero de 2026  
 > **Última actualización**: 16 de febrero de 2026  
-> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 0 tests  
+> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 76 tests  
 
 ---
 
@@ -27,7 +27,7 @@ M3 (Performance queries)       ██████████       ✅ COMPLETA
 M4 (Decomposición)             ████████         ✅ COMPLETADO — 15 feb 2026
 M5 (Tipado fuerte)             ██████           ✅ COMPLETADO — 16 feb 2026
 M6 (Optimización Vercel)       ██████           ✅ COMPLETADO — 17 feb 2026
-M7 (Testing)                   ████████         ⬜ PENDIENTE (nuevo)
+M7 (Testing)                   ████████         🔄 FASE 1 COMPLETADA — 17 feb 2026
 ```
 
 ---
@@ -555,12 +555,16 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] Edge runtime en stats y QR validate
 - [x] Build exitoso
 
-### M7 — Testing ⬜
-- [ ] Vitest + testing-library configurado
-- [ ] Tests de `requireAuth` (100% coverage)
-- [ ] Tests de `autofill.ts` (100% coverage)
-- [ ] Tests de servicios (≥80% coverage)
-- [ ] Tests de hooks (≥70% coverage)
+### M7 — Testing ✅ (Fase 1 — 17 feb 2026)
+- [x] Vitest + testing-library + jsdom configurado
+- [x] Tests de `requireAuth` — 8 paths, 100% branch coverage
+- [x] Tests de `autofill.ts` — 9 tests, 100% lógica pura
+- [x] Tests de `validation.ts` — 27 tests (RUT, email, teléfono, sanitize)
+- [x] Tests de `dates.ts` — 18 tests (timezone Chile, deadline, formatting)
+- [x] Tests de `colors.ts` — 5 tests (palette generation, CSS vars)
+- [x] Tests de `quotas.ts` — 4 tests (motor de cupos con mocks)
+- [x] Tests de `useConfirmation` hook — 4 tests
+- [x] **76 tests passing, 7 suites, build exitoso**
 - [ ] Tests de API routes (auth + response codes)
 - [ ] CI pipeline con GitHub Actions
 - [ ] Coverage global ≥70%
