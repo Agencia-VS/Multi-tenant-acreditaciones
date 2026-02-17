@@ -5,6 +5,7 @@ export { default as AdminStats } from './AdminStats';
 export { default as AdminAccreditationControl } from './AdminAccreditationControl';
 export { default as AdminFilters } from './AdminFilters';
 export { default as AdminExportActions } from './AdminExportActions';
+export { default as ExportColumnPicker } from './ExportColumnPicker';
 export { default as AdminTable } from './AdminTable';
 export { default as AdminRow } from './AdminRow';
 export { default as AdminDetailModal } from './AdminDetailModal';

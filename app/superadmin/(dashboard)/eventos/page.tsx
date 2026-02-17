@@ -90,6 +90,80 @@ export default function EventosPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Clone event: load all config from a source event
+  const handleCloneFrom = async (sourceEventId: string) => {
+    if (!sourceEventId) return;
+    const source = events.find(e => e.id === sourceEventId);
+    if (!source) return;
+
+    // Populate form fields from source (keep tenant_id, clear name/date)
+    setEventForm(prev => ({
+      ...prev,
+      descripcion: source.descripcion || '',
+      venue: source.venue || '',
+      league: source.league || '',
+      opponent_name: '',
+      opponent_logo_url: '',
+      qr_enabled: source.qr_enabled,
+      event_type: (source as BaseEvent & { event_type?: EventType }).event_type || 'simple',
+      fecha_inicio: '',
+      fecha_fin: '',
+    }));
+    setFormFields(source.form_fields?.length ? source.form_fields : DEFAULT_FORM_FIELDS);
+
+    // Load event config zonas
+    const evConfig = (source.config || {}) as Record<string, unknown>;
+    setEventZonas((evConfig.zonas as string[]) || []);
+
+    // Load event days structure (without dates)
+    if ((source as BaseEvent & { event_type?: string }).event_type === 'multidia') {
+      try {
+        const daysRes = await fetch(`/api/events/${source.id}/days`);
+        if (daysRes.ok) {
+          const daysData = await daysRes.json();
+          const daysArr = Array.isArray(daysData) ? daysData : [];
+          setEventDays(daysArr.map((d: { label: string; orden: number }, i: number) => ({
+            fecha: '',
+            label: d.label || `Día ${i + 1}`,
+            orden: d.orden,
+          })));
+        }
+      } catch { /* ignore */ }
+    } else {
+      setEventDays([]);
+    }
+
+    // Load quota rules
+    try {
+      const res = await fetch(`/api/events/${source.id}/quotas`);
+      if (res.ok) {
+        const data = await res.json();
+        const rules = Array.isArray(data) ? data : (data.rules || []);
+        setQuotaRules(rules.map((r: QuotaRule) => ({
+          tipo_medio: r.tipo_medio,
+          max_per_organization: r.max_per_organization,
+          max_global: r.max_global,
+        })));
+      }
+    } catch { /* ignore */ }
+
+    // Load zone rules
+    try {
+      const zRes = await fetch(`/api/events/${source.id}/zones`);
+      if (zRes.ok) {
+        const zData = await zRes.json();
+        const zArr = Array.isArray(zData) ? zData : [];
+        setZoneRules(zArr.map((r: { match_field?: string; cargo: string; zona: string }) => ({
+          match_field: (r.match_field as ZoneMatchField) || 'cargo',
+          cargo: r.cargo,
+          zona: r.zona,
+        })));
+      }
+    } catch { /* ignore */ }
+
+    showSuccess(`Configuración copiada de "${source.nombre}"`);
+  };
+
   const handleNew = () => {
     setEditing(null);
     setEventForm({
@@ -416,6 +490,33 @@ export default function EventosPage() {
                       {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                     </select>
                   </div>
+
+                  {/* Clone from previous event */}
+                  {!editing && eventForm.tenant_id && (
+                    <div className="p-3 rounded-lg bg-info-light border border-brand/20">
+                      <label className="block text-sm font-medium text-brand mb-1">
+                        <i className="fas fa-copy mr-1.5" />Copiar configuración de evento anterior
+                      </label>
+                      <select
+                        value=""
+                        onChange={(e) => handleCloneFrom(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-brand/30 text-heading bg-white text-sm"
+                      >
+                        <option value="">Crear desde cero (sin copiar)</option>
+                        {events
+                          .filter(e => e.tenant_id === eventForm.tenant_id)
+                          .map(e => (
+                            <option key={e.id} value={e.id}>
+                              {e.nombre}{e.fecha ? ` — ${new Date(e.fecha).toLocaleDateString('es-CL')}` : ''}
+                            </option>
+                          ))
+                        }
+                      </select>
+                      <p className="text-xs text-brand/70 mt-1">
+                        Copia formulario, cupos, zonas y tipo de evento. Nombre, fecha y rival quedan vacíos.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Tipo de evento */}
                   <div>

@@ -2,6 +2,7 @@
  * API: Admin Export
  * GET — Exportar registros a Excel/CSV/PuntoTicket
  * Supports filters: event_id, tenant_id, status, tipo_medio, search, format
+ * Supports columns: comma-separated column keys to include (xlsx format only)
  *
  * Formatos:
  *   xlsx        → Excel completo (18 columnas) para gestión interna del admin
@@ -14,6 +15,35 @@ import { requireAuth } from '@/lib/services/requireAuth';
 import type { RegistrationStatus } from '@/types';
 import { STATUS_MAP } from '@/types';
 import ExcelJS from 'exceljs';
+
+/* ── Column definitions for xlsx format ───────────────── */
+
+interface ColumnDef {
+  key: string;
+  header: string;
+  width: number;
+}
+
+const ALL_XLSX_COLUMNS: ColumnDef[] = [
+  { key: 'nombre',           header: 'Nombre',                 width: 20 },
+  { key: 'primer_apellido',  header: 'Primer Apellido',        width: 18 },
+  { key: 'segundo_apellido', header: 'Segundo Apellido',       width: 18 },
+  { key: 'rut',              header: 'RUT',                    width: 15 },
+  { key: 'email',            header: 'Email',                  width: 28 },
+  { key: 'cargo',            header: 'Cargo',                  width: 18 },
+  { key: 'tipo_credencial',  header: 'Tipo Credencial',        width: 18 },
+  { key: 'n_credencial',     header: 'N° Credencial',          width: 14 },
+  { key: 'empresa',          header: 'Empresa',                width: 25 },
+  { key: 'area',             header: 'Área',                   width: 20 },
+  { key: 'zona',             header: 'Zona',                   width: 20 },
+  { key: 'estado',           header: 'Estado',                 width: 14 },
+  { key: 'resp_nombre',      header: 'Responsable',            width: 20 },
+  { key: 'resp_primer_ap',   header: 'Primer Apellido Resp.',  width: 18 },
+  { key: 'resp_segundo_ap',  header: 'Segundo Apellido Resp.', width: 18 },
+  { key: 'resp_rut',         header: 'RUT Responsable',        width: 15 },
+  { key: 'resp_email',       header: 'Email Responsable',      width: 28 },
+  { key: 'resp_telefono',    header: 'Teléfono Responsable',   width: 18 },
+];
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -54,6 +84,7 @@ export async function GET(request: NextRequest) {
     const eventId = searchParams.get('event_id');
     const tenantId = searchParams.get('tenant_id');
     const format = searchParams.get('format') || 'xlsx';
+    const columnsParam = searchParams.get('columns'); // comma-separated column keys
     const statusFilter = searchParams.get('status') as RegistrationStatus | null;
     const tipoMedioFilter = searchParams.get('tipo_medio');
     const searchFilter = searchParams.get('search');
@@ -136,32 +167,26 @@ export async function GET(request: NextRequest) {
     }
 
     // ─────────────────────────────────────────────────────
-    // Excel Admin completo (18 columnas — todos los estados)
+    // Excel Admin (filterable columns — defaults to all 18)
     // ─────────────────────────────────────────────────────
+    const validKeys = new Set(ALL_XLSX_COLUMNS.map(c => c.key));
+    const selectedColumns: ColumnDef[] = columnsParam
+      ? columnsParam.split(',').filter(k => validKeys.has(k)).map(k => ALL_XLSX_COLUMNS.find(c => c.key === k)!)
+      : ALL_XLSX_COLUMNS;
+
+    if (selectedColumns.length === 0) {
+      return NextResponse.json({ error: 'No valid columns specified' }, { status: 400 });
+    }
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Accredia';
     const sheet = workbook.addWorksheet('Acreditaciones');
 
-    sheet.columns = [
-      { header: 'Nombre',                key: 'nombre',              width: 20 },
-      { header: 'Primer Apellido',       key: 'primer_apellido',     width: 18 },
-      { header: 'Segundo Apellido',      key: 'segundo_apellido',    width: 18 },
-      { header: 'RUT',                   key: 'rut',                 width: 15 },
-      { header: 'Email',                 key: 'email',               width: 28 },
-      { header: 'Cargo',                 key: 'cargo',               width: 18 },
-      { header: 'Tipo Credencial',       key: 'tipo_credencial',     width: 18 },
-      { header: 'N° Credencial',         key: 'n_credencial',        width: 14 },
-      { header: 'Empresa',               key: 'empresa',             width: 25 },
-      { header: 'Área',                  key: 'area',                width: 20 },
-      { header: 'Zona',                  key: 'zona',                width: 20 },
-      { header: 'Estado',                key: 'estado',              width: 14 },
-      { header: 'Responsable',           key: 'resp_nombre',         width: 20 },
-      { header: 'Primer Apellido Resp.', key: 'resp_primer_ap',      width: 18 },
-      { header: 'Segundo Apellido Resp.',key: 'resp_segundo_ap',     width: 18 },
-      { header: 'RUT Responsable',       key: 'resp_rut',            width: 15 },
-      { header: 'Email Responsable',     key: 'resp_email',          width: 28 },
-      { header: 'Teléfono Responsable',  key: 'resp_telefono',       width: 18 },
-    ];
+    sheet.columns = selectedColumns.map(c => ({
+      header: c.header,
+      key: c.key,
+      width: c.width,
+    }));
 
     styleHeader(sheet.getRow(1), 'FF1a1a2e');
 
@@ -202,7 +227,8 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    sheet.autoFilter = { from: 'A1', to: 'R1' };
+    const lastCol = String.fromCharCode(64 + selectedColumns.length); // A=1, B=2, etc.
+    sheet.autoFilter = { from: 'A1', to: `${lastCol}1` };
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
     const buffer = await workbook.xlsx.writeBuffer();
