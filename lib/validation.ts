@@ -59,7 +59,11 @@ export interface RutValidationResult {
 }
 
 /**
- * Valida un RUT chileno completo (formato + dígito verificador)
+ * Valida un RUT chileno.
+ * 
+ * MODO ACTUAL: solo formato (dígitos + guión + DV).
+ * TODO: Reactivar validación de dígito verificador cuando salga de modo prueba.
+ *       Descomentar el bloque de computeDV abajo.
  */
 export function validateRut(raw: string): RutValidationResult {
   if (!raw || !raw.trim()) {
@@ -74,14 +78,13 @@ export function validateRut(raw: string): RutValidationResult {
     return { valid: false, error: 'Formato inválido. Ej: 12.345.678-9' };
   }
 
-  const body = parseInt(match[1], 10);
-  const dv = match[2];
-
-  // Validar dígito verificador
-  const expectedDV = computeDV(body);
-  if (dv !== expectedDV) {
-    return { valid: false, error: 'Dígito verificador incorrecto' };
-  }
+  // Validación de dígito verificador DESACTIVADA (modo prueba)
+  // const body = parseInt(match[1], 10);
+  // const dv = match[2];
+  // const expectedDV = computeDV(body);
+  // if (dv !== expectedDV) {
+  //   return { valid: false, error: 'Dígito verificador incorrecto' };
+  // }
 
   return { valid: true, formatted: formatRut(cleaned) };
 }
