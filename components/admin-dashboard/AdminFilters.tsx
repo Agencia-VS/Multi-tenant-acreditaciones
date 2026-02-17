@@ -1,7 +1,6 @@
 'use client';
 
 import { useAdmin } from './AdminContext';
-import { TIPOS_MEDIO } from '@/types';
 
 export default function AdminFilters() {
   const { events, filters, setFilters, fetchData, registrations, selectedIds } = useAdmin();
@@ -60,19 +59,7 @@ export default function AdminFilters() {
           <option value="aprobado">✅ Aprobados</option>
           <option value="rechazado">❌ Rechazados</option>
           <option value="revision">🔍 En Revisión</option>
-        </select>
-
-        {/* Tipo Medio filter */}
-        <select
-          value={filters.tipo_medio}
-          onChange={e => updateFilter('tipo_medio', e.target.value)}
-          className="px-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
-        >
-          <option value="">Todos los medios</option>
-          {TIPOS_MEDIO.map(tm => (
-            <option key={tm} value={tm}>{tm}</option>
-          ))}
-        </select>
+        </select> 
 
         {/* Refresh */}
         <button
@@ -98,12 +85,6 @@ export default function AdminFilters() {
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-sm rounded-full">
               Estado: {filters.status}
               <button onClick={() => updateFilter('status', '')} className="hover:text-purple-900"><i className="fas fa-times text-[10px]" /></button>
-            </span>
-          )}
-          {filters.tipo_medio && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-success-light text-success-dark text-sm rounded-full">
-              Medio: {filters.tipo_medio}
-              <button onClick={() => updateFilter('tipo_medio', '')} className="hover:text-success-dark"><i className="fas fa-times text-[10px]" /></button>
             </span>
           )}
           <button

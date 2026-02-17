@@ -4,7 +4,29 @@ import { useState, useEffect } from 'react';
 import { useAdmin } from './AdminContext';
 import { Modal, EmptyState } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
-import type { Event } from '@/types';
+import type { Event, FormFieldDefinition, ZoneMatchField } from '@/types';
+import { TIPOS_MEDIO, CARGOS } from '@/types';
+
+/** Campos por defecto para eventos nuevos creados desde cero */
+const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
+  { key: 'nombre', label: 'Nombre', type: 'text', required: true, profile_field: 'nombre' },
+  { key: 'apellido', label: 'Primer Apellido', type: 'text', required: true, profile_field: 'apellido' },
+  { key: 'segundo_apellido', label: 'Segundo Apellido', type: 'text', required: false, profile_field: 'datos_base.segundo_apellido' },
+  { key: 'rut', label: 'RUT', type: 'text', required: true, profile_field: 'rut' },
+  { key: 'email', label: 'Email', type: 'email', required: true, profile_field: 'email' },
+  { key: 'telefono', label: 'Teléfono', type: 'tel', required: false, profile_field: 'telefono' },
+  { key: 'medio', label: 'Medio de Comunicación', type: 'text', required: true, profile_field: 'medio' },
+  { key: 'tipo_medio', label: 'Tipo de Medio', type: 'select', required: true, profile_field: 'tipo_medio', options: [...TIPOS_MEDIO] },
+  { key: 'cargo', label: 'Cargo', type: 'select', required: true, profile_field: 'cargo', options: [...CARGOS] },
+  { key: 'foto_url', label: 'Foto', type: 'file', required: true, profile_field: 'foto_url' },
+];
+
+interface QuotaRule {
+  id?: string;
+  tipo_medio: string;
+  max_per_organization: number;
+  max_global: number;
+}
 
 export default function AdminConfigTab() {
   const { tenant, events, selectedEvent, selectEvent, showSuccess, showError, fetchData } = useAdmin();
@@ -12,6 +34,10 @@ export default function AdminConfigTab() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  // Clone from past event
+  const [cloneSourceId, setCloneSourceId] = useState<string>('');
+  const [cloning, setCloning] = useState(false);
 
   // Form state for create/edit
   const [form, setForm] = useState({
@@ -26,6 +52,13 @@ export default function AdminConfigTab() {
     fecha_limite_acreditacion: '',
     qr_enabled: false,
   });
+
+  // Campos del formulario dinámico
+  const [formFields, setFormFields] = useState<FormFieldDefinition[]>(DEFAULT_FORM_FIELDS);
+  // Cupos
+  const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
+  // Reglas de zona
+  const [zoneRules, setZoneRules] = useState<{ id?: string; match_field: ZoneMatchField; cargo: string; zona: string }[]>([]);
 
   // Zonas state (stored in event.config.zonas)
   const [zonas, setZonas] = useState<string[]>([]);
@@ -65,8 +98,81 @@ export default function AdminConfigTab() {
 
   const resetForm = () => {
     setForm({ nombre: '', fecha: '', hora: '', venue: '', opponent_name: '', opponent_logo_url: '', league: '', descripcion: '', fecha_limite_acreditacion: '', qr_enabled: false });
+    setFormFields(DEFAULT_FORM_FIELDS);
+    setQuotaRules([]);
+    setZoneRules([]);
     setZonas([]);
     setNewZona('');
+    setCloneSourceId('');
+  };
+
+  /** Clonar configuración desde un evento anterior del mismo tenant */
+  const handleCloneFrom = async (sourceEventId: string) => {
+    setCloneSourceId(sourceEventId);
+    if (!sourceEventId) {
+      // Seleccionó "Desde cero" — resetear a defaults
+      setFormFields(DEFAULT_FORM_FIELDS);
+      setQuotaRules([]);
+      setZoneRules([]);
+      setZonas([]);
+      setForm(f => ({ ...f, descripcion: '', venue: '', league: '', opponent_name: '', opponent_logo_url: '', qr_enabled: false }));
+      return;
+    }
+    const source = events.find(e => e.id === sourceEventId);
+    if (!source) return;
+
+    setCloning(true);
+    try {
+      // Copiar campos básicos (no nombre, fecha, hora)
+      setForm(f => ({
+        ...f,
+        descripcion: source.descripcion || '',
+        venue: source.venue || '',
+        league: source.league || '',
+        opponent_name: '',
+        opponent_logo_url: '',
+        qr_enabled: source.qr_enabled,
+      }));
+
+      // Copiar form_fields
+      setFormFields(source.form_fields?.length ? source.form_fields : DEFAULT_FORM_FIELDS);
+
+      // Copiar zonas de config
+      const evConfig = (source.config || {}) as Record<string, unknown>;
+      setZonas((evConfig.zonas as string[]) || []);
+
+      // Copiar cupos
+      try {
+        const res = await fetch(`/api/events/${source.id}/quotas`);
+        if (res.ok) {
+          const data = await res.json();
+          const rules = Array.isArray(data) ? data : (data.rules || []);
+          setQuotaRules(rules.map((r: QuotaRule) => ({
+            tipo_medio: r.tipo_medio,
+            max_per_organization: r.max_per_organization,
+            max_global: r.max_global,
+          })));
+        }
+      } catch { /* ignore */ }
+
+      // Copiar reglas de zona
+      try {
+        const zRes = await fetch(`/api/events/${source.id}/zones`);
+        if (zRes.ok) {
+          const zData = await zRes.json();
+          const zArr = Array.isArray(zData) ? zData : [];
+          setZoneRules(zArr.map((r: { match_field?: string; cargo: string; zona: string }) => ({
+            match_field: (r.match_field as ZoneMatchField) || 'cargo',
+            cargo: r.cargo,
+            zona: r.zona,
+          })));
+        }
+      } catch { /* ignore */ }
+
+      showSuccess(`Configuración copiada de "${source.nombre}"`);
+    } finally {
+      setCloning(false);
+    }
   };
 
   const handleCreateEvent = async () => {
@@ -84,16 +190,44 @@ export default function AdminConfigTab() {
           ...form,
           tenant_id: tenant.id,
           config: eventConfig,
+          form_fields: formFields,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion
             ? localToChileISO(form.fecha_limite_acreditacion)
             : null,
         }),
       });
       if (res.ok) {
+        const createdEvent = await res.json();
+
+        // Si se clonaron cupos, crearlos para el nuevo evento
+        if (quotaRules.length > 0) {
+          try {
+            for (const rule of quotaRules) {
+              await fetch(`/api/events/${createdEvent.id}/quotas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(rule),
+              });
+            }
+          } catch { /* ignore */ }
+        }
+
+        // Si se clonaron reglas de zona, crearlas
+        if (zoneRules.length > 0) {
+          try {
+            for (const rule of zoneRules) {
+              await fetch(`/api/events/${createdEvent.id}/zones`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(rule),
+              });
+            }
+          } catch { /* ignore */ }
+        }
+
         showSuccess('Evento creado correctamente');
         setShowCreateModal(false);
         resetForm();
-        // Reload events
         window.location.reload();
       } else {
         const d = await res.json();
@@ -472,15 +606,71 @@ export default function AdminConfigTab() {
 
       {/* Create Event Modal */}
       <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Crear Nuevo Evento" maxWidth="max-w-2xl">
+        {/* Clone from past event selector */}
+        {events.length > 0 && (
+          <div className="mb-5 p-4 bg-accent-light/40 border border-brand/20 rounded-xl">
+            <label className="text-xs font-semibold text-brand mb-2 block">
+              <i className="fas fa-copy mr-1.5" />
+              Copiar configuración de un evento anterior
+            </label>
+            <p className="text-xs text-body mb-2">
+              Copia formulario, cupos, zonas y reglas de un evento pasado. Solo necesitas ajustar nombre y fechas.
+            </p>
+            <select
+              value={cloneSourceId}
+              onChange={e => handleCloneFrom(e.target.value)}
+              disabled={cloning}
+              className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading bg-white disabled:opacity-60"
+            >
+              <option value="">Crear desde cero (formulario estándar)</option>
+              {events.map(ev => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.nombre}{ev.fecha ? ` — ${new Date(ev.fecha).toLocaleDateString('es-CL')}` : ''}
+                </option>
+              ))}
+            </select>
+            {cloning && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-brand">
+                <div className="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                Copiando configuración…
+              </div>
+            )}
+            {cloneSourceId && !cloning && (
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                {formFields.length > 0 && (
+                  <span className="px-2 py-1 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                    <i className="fas fa-check-circle mr-1" />{formFields.length} campos
+                  </span>
+                )}
+                {quotaRules.length > 0 && (
+                  <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">
+                    <i className="fas fa-check-circle mr-1" />{quotaRules.length} cupos
+                  </span>
+                )}
+                {zoneRules.length > 0 && (
+                  <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-200">
+                    <i className="fas fa-check-circle mr-1" />{zoneRules.length} reglas zona
+                  </span>
+                )}
+                {zonas.length > 0 && (
+                  <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200">
+                    <i className="fas fa-check-circle mr-1" />{zonas.length} zonas
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {renderFormFields()}
         <div className="flex gap-3 mt-6 pt-4 border-t border-edge">
           <button
             onClick={handleCreateEvent}
-            disabled={!form.nombre.trim() || saving}
+            disabled={!form.nombre.trim() || saving || cloning}
             className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="fas fa-plus" />}
-            Crear evento
+            {cloneSourceId ? 'Crear evento (con copia)' : 'Crear evento'}
           </button>
           <button onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">
             Cancelar

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminProvider, useAdmin } from './AdminContext';
 import AdminHeader from './AdminHeader';
 import AdminStats from './AdminStats';
@@ -13,9 +13,39 @@ import AdminMailTab from './AdminMailTab';
 import type { RegistrationFull } from '@/types';
 
 function AdminDashboardInner() {
-  const { activeTab } = useAdmin();
+  const { activeTab, setFilters, filters, fetchData } = useAdmin();
   const [detailReg, setDetailReg] = useState<RegistrationFull | null>(null);
   const [rejectReg, setRejectReg] = useState<RegistrationFull | null>(null);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ctrl/Cmd + F → focus search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      const searchInput = document.getElementById('admin-search-input');
+      if (searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    }
+    // Escape → clear filters or close modal
+    if (e.key === 'Escape') {
+      if (detailReg) { setDetailReg(null); return; }
+      if (rejectReg) { setRejectReg(null); return; }
+      if (filters.search || filters.status || filters.tipo_medio || filters.event_day_id) {
+        setFilters({ ...filters, search: '', status: '', tipo_medio: '', event_day_id: '' });
+      }
+    }
+    // Ctrl/Cmd + R → refresh data (prevent browser reload)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+      e.preventDefault();
+      fetchData();
+    }
+  }, [detailReg, rejectReg, filters, setFilters, fetchData]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <div className="min-h-screen bg-gray-50">

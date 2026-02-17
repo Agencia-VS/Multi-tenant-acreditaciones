@@ -1,27 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAdmin } from './AdminContext';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { AdminTab } from '@/types';
 
-export default function AdminHeader() {
-  const { tenant, selectedEvent, activeTab, setActiveTab } = useAdmin();
-  const [loggingOut, setLoggingOut] = useState(false);
+const AUTO_REFRESH_MS = 60_000; // 60s
 
-  const tabs: { key: AdminTab; label: string; icon: string }[] = [
-    { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge' },
+export default function AdminHeader() {
+  const { tenant, selectedEvent, activeTab, setActiveTab, stats, fetchData, loading } = useAdmin();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [timeAgo, setTimeAgo] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  // Only initialize date on client to avoid hydration mismatch
+  useEffect(() => {
+    setLastUpdated(new Date());
+    setTimeAgo('ahora');
+    setMounted(true);
+  }, []);
+
+  const tabs: { key: AdminTab; label: string; icon: string; badge?: number }[] = [
+    { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge', badge: stats.pendientes },
     { key: 'configuracion', label: 'Configuración', icon: 'fa-cog' },
     { key: 'mail', label: 'Mail', icon: 'fa-envelope' },
   ];
+
+  // Track last updated timestamp
+  const doRefresh = useCallback(() => {
+    fetchData();
+    setLastUpdated(new Date());
+  }, [fetchData]);
+
+  // Update "time ago" label every 10s
+  useEffect(() => {
+    if (!lastUpdated) return;
+    const tick = () => {
+      const seconds = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+      if (seconds < 10) setTimeAgo('ahora');
+      else if (seconds < 60) setTimeAgo(`hace ${seconds}s`);
+      else setTimeAgo(`hace ${Math.floor(seconds / 60)}m`);
+    };
+    tick();
+    const interval = setInterval(tick, 10_000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
       const supabase = getSupabaseBrowserClient();
       await supabase.auth.signOut();
-      // Redirect to tenant login
       const slug = window.location.pathname.split('/')[1];
       window.location.href = `/${slug}/admin/login`;
     } catch {
@@ -63,10 +94,17 @@ export default function AdminHeader() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Last updated indicator */}
+            {mounted && (
+              <span className="hidden sm:inline text-xs text-muted" title={`Última actualización: ${lastUpdated?.toLocaleTimeString('es-CL') ?? ''}`}>
+                <i className={`fas fa-circle text-[6px] mr-1 ${loading ? 'text-amber-400 animate-pulse' : 'text-success'}`} />
+                {timeAgo}
+              </span>
+            )}
             <button
-              onClick={() => window.location.reload()}
-              className="px-3 py-2 text-body hover:text-heading hover:bg-subtle rounded-lg transition"
-              title="Recargar"
+              onClick={doRefresh}
+              className={`px-3 py-2 text-body hover:text-heading hover:bg-subtle rounded-lg transition ${loading ? 'animate-spin' : ''}`}
+              title="Actualizar datos"
             >
               <i className="fas fa-sync-alt" />
             </button>
@@ -92,7 +130,7 @@ export default function AdminHeader() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-3 text-base font-medium rounded-t-lg transition-all flex items-center gap-2 ${
+              className={`px-5 py-3 text-base font-medium rounded-t-lg transition-all flex items-center gap-2 relative ${
                 activeTab === tab.key
                   ? 'bg-canvas text-brand border-b-2 border-brand'
                   : 'text-body hover:text-heading hover:bg-canvas'
@@ -100,6 +138,12 @@ export default function AdminHeader() {
             >
               <i className={`fas ${tab.icon}`} />
               {tab.label}
+              {/* Pending count badge */}
+              {tab.badge && tab.badge > 0 ? (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold rounded-full bg-amber-500 text-white shadow-sm animate-pulse">
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

@@ -45,9 +45,9 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   const hasActiveFilters = !!(filters.status || filters.tipo_medio || filters.search || filters.event_day_id);
 
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 260px)', minHeight: registrations.length > 0 ? '320px' : undefined }}>
 
-      {/* ═══════ STICKY: Filters + Table Head ═══════ */}
+      {/* ═══════ STICKY: Filters ═══════ */}
       <div className="sticky top-0 z-20 bg-surface border-b border-edge flex-shrink-0">
 
         {/* ── Row 1: Filters ────────────────────────── */}
@@ -89,6 +89,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
             <div className="flex-1 min-w-[180px] relative">
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm" />
               <input
+                id="admin-search-input"
                 type="text"
                 placeholder="Buscar nombre, RUT, org..."
                 value={filters.search}
@@ -116,18 +117,6 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               <option value="aprobado">✅ Aprobados</option>
               <option value="rechazado">❌ Rechazados</option>
               <option value="revision">🔍 Revisión</option>
-            </select>
-
-            {/* Tipo medio */}
-            <select
-              value={filters.tipo_medio}
-              onChange={e => updateFilter('tipo_medio', e.target.value)}
-              className="px-3 py-2 rounded-lg border border-edge text-sm text-label bg-canvas focus:border-brand transition"
-            >
-              <option value="">Medio</option>
-              {TIPOS_MEDIO.map(tm => (
-                <option key={tm} value={tm}>{tm}</option>
-              ))}
             </select>
 
             {/* Refresh */}
@@ -276,43 +265,35 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
             </div>
           </div>
         )}
-
-        {/* ── Table head ──────────────────────────────── */}
-        {registrations.length > 0 && (
-          <div className="overflow-x-auto border-t border-edge">
-            <table className="w-full text-base">
-              <thead>
-                <tr className="bg-canvas/80">
-                  <th className="p-3 pl-4 text-left w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      className="rounded border-field-border text-brand"
-                    />
-                  </th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
-                  <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
-                </tr>
-              </thead>
-            </table>
-          </div>
-        )}
       </div>
 
-      {/* ═══════ SCROLLABLE: Table body ═══════ */}
+      {/* ═══════ SCROLLABLE: Single unified table ═══════ */}
       {registrations.length === 0 ? (
         <EmptyState message="No hay registros para este evento" icon="fa-inbox" />
       ) : (
         <div className="overflow-auto flex-1">
           <table className="w-full text-base">
+            <thead className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm">
+              <tr>
+                <th className="p-3 pl-4 text-left w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="rounded border-field-border text-brand"
+                  />
+                </th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
+                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-edge">
               {registrations.map(reg => (
                 <AdminRow

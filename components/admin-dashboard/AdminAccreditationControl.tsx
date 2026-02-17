@@ -19,6 +19,7 @@ export default function AdminAccreditationControl() {
   const [manualOverride, setManualOverride] = useState<boolean | null>(null); // null = usar fecha_limite
   const [newDeadline, setNewDeadline] = useState('');
   const [showEditDeadline, setShowEditDeadline] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   // Compute effective status
   const { isOpen, reason } = useMemo(() => {
@@ -156,37 +157,43 @@ export default function AdminAccreditationControl() {
 
   return (
     <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden">
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-edge flex items-center justify-between">
+      {/* Compact header — always visible, clickable to expand */}
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full px-5 py-3 flex items-center justify-between hover:bg-canvas/50 transition"
+      >
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOpen ? 'bg-[#d1fae5]' : 'bg-[#fee2e2]'}`}>
-            <i className={`fas ${isOpen ? 'fa-lock-open text-[#059669]' : 'fa-lock text-[#dc2626]'} text-lg`} />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOpen ? 'bg-[#d1fae5]' : 'bg-[#fee2e2]'}`}>
+            <i className={`fas ${isOpen ? 'fa-lock-open text-[#059669]' : 'fa-lock text-[#dc2626]'} text-sm`} />
           </div>
-          <div>
-            <h3 className="text-base font-bold text-heading">Control de Acreditación</h3>
-            <p className="text-sm text-body">{reason}</p>
+          <div className="text-left">
+            <span className="text-sm font-bold text-heading">Control de Acreditación</span>
+            <span className="text-xs text-body ml-2">— {reason}</span>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          {/* Quick toggle without expanding */}
+          <div
+            onClick={(e) => { e.stopPropagation(); handleToggle(); }}
+            className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 ${
+              isOpen ? 'bg-[#059669]' : 'bg-[#d1d5db]'
+            } ${saving ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+            role="switch"
+            aria-checked={isOpen}
+          >
+            <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-200 ${
+              isOpen ? 'translate-x-5' : 'translate-x-1'
+            }`} />
+          </div>
+          <i className={`fas fa-chevron-down text-muted text-xs transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`} />
+        </div>
+      </button>
 
-        {/* Toggle */}
-        <button
-          onClick={handleToggle}
-          disabled={saving}
-          className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${
-            isOpen ? 'bg-[#059669]' : 'bg-[#d1d5db]'
-          } ${saving ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
-          role="switch"
-          aria-checked={isOpen}
-        >
-          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
-            isOpen ? 'translate-x-6' : 'translate-x-1'
-          }`} />
-        </button>
-      </div>
-
-      {/* Info cards */}
-      <div className="p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      {/* Expandable details */}
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${collapsed ? 'max-h-0' : 'max-h-[500px]'}`}>
+        {/* Info cards */}
+        <div className="p-5 pt-2 border-t border-edge">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {/* Status */}
           <div className={`p-3 rounded-xl border ${isOpen ? 'bg-[#d1fae5]/50 border-[#059669]/20' : 'bg-[#fee2e2]/50 border-[#dc2626]/20'}`}>
             <p className="text-xs text-muted uppercase tracking-wide mb-1">Estado</p>
@@ -264,6 +271,7 @@ export default function AdminAccreditationControl() {
               </button>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

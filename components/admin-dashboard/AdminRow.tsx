@@ -1,8 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useAdmin } from './AdminContext';
 import { StatusBadge } from '@/components/shared/ui';
 import type { RegistrationFull } from '@/types';
+
+const RECENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 interface AdminRowProps {
   reg: RegistrationFull;
@@ -14,6 +17,12 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
   const { selectedIds, toggleSelect, handleStatusChange, sendEmail, processing, tenant, selectedEvent, updateRegistrationZona } = useAdmin();
   const isProcessing = processing === reg.id;
 
+  // Highlight recently created registrations (last 5 min)
+  const isRecent = useMemo(() => {
+    const created = new Date(reg.created_at).getTime();
+    return Date.now() - created < RECENT_THRESHOLD_MS;
+  }, [reg.created_at]);
+
   // Get zone options: event config first, then tenant config fallback
   const zonaOptions =
     ((selectedEvent?.config as Record<string, unknown>)?.zonas as string[]) ||
@@ -21,7 +30,13 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
     [];
 
   return (
-    <tr className={`border-b border-edge transition ${selectedIds.has(reg.id) ? 'bg-accent-light/50' : 'hover:bg-canvas/50'}`}>
+    <tr className={`border-b border-edge transition ${
+      selectedIds.has(reg.id)
+        ? 'bg-accent-light/50'
+        : isRecent
+          ? 'bg-amber-50/40 hover:bg-amber-50/60'
+          : 'hover:bg-canvas/50'
+    }`}>
       {/* Checkbox */}
       <td className="p-3 pl-4">
         <input
@@ -48,7 +63,14 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
             </div>
           )}
           <div>
-            <p className="text-base font-medium text-heading">{reg.profile_nombre} {reg.profile_apellido}</p>
+            <p className="text-base font-medium text-heading flex items-center gap-1.5">
+              {reg.profile_nombre} {reg.profile_apellido}
+              {isRecent && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
+                  Nuevo
+                </span>
+              )}
+            </p>
             <p className="text-sm text-muted">{reg.profile_email || 'Sin email'}</p>
           </div>
         </div>
