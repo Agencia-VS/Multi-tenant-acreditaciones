@@ -4,7 +4,7 @@
 > **Stack**: Next.js 16 (App Router + Turbopack) · TypeScript · Tailwind CSS v4 · Supabase · Vercel  
 > **Fecha de auditoría**: 13 de febrero de 2026  
 > **Última actualización**: 16 de febrero de 2026  
-> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 76 tests  
+> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 138 tests  
 
 ---
 
@@ -15,8 +15,7 @@ El proyecto es **funcional en producción** con arquitectura multi-tenant por su
 sistema de zonas, cupos, exportación PuntoTicket y gestión de equipos.
 
 La auditoría línea por línea reveló **6 áreas de mejora** organizadas por prioridad
-en milestones independientes. **6 de 6 milestones completados** (M1–M6).
-Se agrega un **M7 — Testing** como siguiente prioridad.
+en milestones independientes. **7 de 7 milestones completados** (M1–M7).
 
 ### Progreso Global
 
@@ -27,7 +26,7 @@ M3 (Performance queries)       ██████████       ✅ COMPLETA
 M4 (Decomposición)             ████████         ✅ COMPLETADO — 15 feb 2026
 M5 (Tipado fuerte)             ██████           ✅ COMPLETADO — 16 feb 2026
 M6 (Optimización Vercel)       ██████           ✅ COMPLETADO — 17 feb 2026
-M7 (Testing)                   ████████         🔄 FASE 1 COMPLETADA — 17 feb 2026
+M7 (Testing)                   ████████████████ ✅ COMPLETADO — 17 feb 2026
 ```
 
 ---
@@ -555,19 +554,29 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] Edge runtime en stats y QR validate
 - [x] Build exitoso
 
-### M7 — Testing ✅ (Fase 1 — 17 feb 2026)
+### M7 — Testing ✅ (Completado — 17 feb 2026)
+
+**Fase 1 — Unit tests base (76 → 102 tests)**
 - [x] Vitest + testing-library + jsdom configurado
-- [x] Tests de `requireAuth` — 8 paths, 100% branch coverage
+- [x] Tests de `requireAuth` — 9 tests, 100% branch coverage
 - [x] Tests de `autofill.ts` — 9 tests, 100% lógica pura
 - [x] Tests de `validation.ts` — 27 tests (RUT, email, teléfono, sanitize)
 - [x] Tests de `dates.ts` — 18 tests (timezone Chile, deadline, formatting)
 - [x] Tests de `colors.ts` — 5 tests (palette generation, CSS vars)
 - [x] Tests de `quotas.ts` — 4 tests (motor de cupos con mocks)
 - [x] Tests de `useConfirmation` hook — 4 tests
-- [x] **76 tests passing, 7 suites, build exitoso**
-- [ ] Tests de API routes (auth + response codes)
-- [ ] CI pipeline con GitHub Actions
-- [ ] Coverage global ≥70%
+- [x] Tests de `profiles.ts` — 8 tests (computeTenantProfileStatus)
+- [x] Tests de API `registrations` — 8 tests (POST validation/auth/201/409, GET)
+- [x] Tests de API `teams` — 10 tests (GET/POST/DELETE auth + validation)
+
+**Fase 2 — API routes + servicios + CI (102 → 138 tests)**
+- [x] Tests de API `tenants` — 8 tests (GET active/all, POST/PATCH auth + superadmin)
+- [x] Tests de API `events` — 12 tests (GET filters, POST/PATCH/DELETE auth + validation)
+- [x] Tests de `zones.ts` — 10 tests (resolveZone priority, CRUD, errors)
+- [x] Tests de `audit.ts` — 6 tests (insert, swallow errors, getAuditLogs filtros)
+- [x] CI pipeline con GitHub Actions (`.github/workflows/test.yml`)
+- [x] **138 tests passing, 14 suites**
+- [x] Coverage: `lib/` 88% stmts, `lib/services` key modules 95-100%
 
 ---
 
@@ -611,4 +620,4 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 | N+1 queries | 3 lugares | 0 | -3 |
 | Archivos >500 líneas | 3 | 1* | -2 (*solo useRegistrationForm.ts, que es un hook complejo) |
 | Tipos derivados de DB | 0 | 14 tablas + 3 vistas | +17 |
-| Tests | 0 | 0 | Pendiente M7 |
+| Tests | 0 | 138 (14 suites) | +138 |
