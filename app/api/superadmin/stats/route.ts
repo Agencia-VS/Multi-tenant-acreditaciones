@@ -4,6 +4,8 @@
  * POST — Acciones admin (crear superadmin, etc.)
  */
 
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getCurrentUser, isSuperAdmin } from '@/lib/services/auth';

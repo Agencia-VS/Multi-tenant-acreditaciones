@@ -3,6 +3,8 @@
  * POST — Validar un QR token y hacer check-in
  */
 
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/services/auth';

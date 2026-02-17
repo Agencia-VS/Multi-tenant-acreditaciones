@@ -884,6 +884,18 @@ export type Database = {
     }
     Functions: {
       can_edit_tenant: { Args: { p_tenant_id: string }; Returns: boolean }
+      check_and_create_registration: {
+        Args: {
+          p_event_id: string
+          p_profile_id: string
+          p_organizacion?: string
+          p_tipo_medio?: string
+          p_cargo?: string
+          p_submitted_by?: string
+          p_datos_extra?: Json
+        }
+        Returns: string
+      }
       check_quota: {
         Args: {
           p_event_id: string

@@ -15,7 +15,7 @@ El proyecto es **funcional en producción** con arquitectura multi-tenant por su
 sistema de zonas, cupos, exportación PuntoTicket y gestión de equipos.
 
 La auditoría línea por línea reveló **6 áreas de mejora** organizadas por prioridad
-en milestones independientes. **5 de 6 milestones completados** (M1–M5).
+en milestones independientes. **6 de 6 milestones completados** (M1–M6).
 Se agrega un **M7 — Testing** como siguiente prioridad.
 
 ### Progreso Global
@@ -26,7 +26,7 @@ M2 (Client unificado)          ████████████     ✅ COMP
 M3 (Performance queries)       ██████████       ✅ COMPLETADO — 14 feb 2026
 M4 (Decomposición)             ████████         ✅ COMPLETADO — 15 feb 2026
 M5 (Tipado fuerte)             ██████           ✅ COMPLETADO — 16 feb 2026
-M6 (Optimización Vercel)       ██████           ⬜ PENDIENTE
+M6 (Optimización Vercel)       ██████           ✅ COMPLETADO — 17 feb 2026
 M7 (Testing)                   ████████         ⬜ PENDIENTE (nuevo)
 ```
 
@@ -236,9 +236,16 @@ app/styles/animations.css        (81 líneas)  — @keyframes + utilidades
 
 ## Milestones Pendientes
 
-### ⬜ Milestone 6 — Optimización Vercel + Data Fetching
+### ✅ Milestone 6 — Optimización Vercel + Data Fetching (COMPLETADO — 17 feb 2026)
 > **Prioridad**: Media · **~8 archivos + 1 SQL** · **Riesgo de regresión**: Medio-Alto  
-> **Tiempo estimado**: 1-2 sesiones
+
+**Resumen de cambios:**
+- **6.1**: Layout acreditado → Server Component con `redirect()` + `AcreditadoShell.tsx` (client)
+- **6.2**: `revalidate = 3600` en `[tenant]/layout.tsx` (caché 1h para branding)
+- **6.3**: `revalidatePath()` en POST/PATCH/DELETE de `/api/tenants` y `/api/events`
+- **6.4**: Función SQL `check_and_create_registration` (atómica con `FOR UPDATE`) + índice único `uq_registration_event_profile`. `createRegistration()` migrada a usar RPC.
+- **6.5**: Edge Runtime en `/api/superadmin/stats` y `/api/qr/validate`
+- **6.6**: Build verificado ✅
 
 #### Paso 6.1 — Páginas acreditado → Server Components
 ```
@@ -539,13 +546,14 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] Autofill unificado en `lib/services/autofill.ts` (isomórfico)
 - [x] Build exitoso
 
-### M6 — Optimización Vercel ⬜
-- [ ] Páginas acreditado como Server Components
-- [ ] Caché de tenant con `revalidate`
-- [ ] `revalidatePath` tras mutaciones
-- [ ] Función SQL transaccional para cupos
-- [ ] Edge runtime en rutas candidatas
-- [ ] Build exitoso
+### M6 — Optimización Vercel ✅
+- [x] Layout acreditado → Server Component + AcreditadoShell.tsx
+- [x] Caché de tenant con `revalidate = 3600`
+- [x] `revalidatePath` tras mutaciones en tenants y events
+- [x] Función SQL `check_and_create_registration` (atómica, FOR UPDATE)
+- [x] Índice único `uq_registration_event_profile`
+- [x] Edge runtime en stats y QR validate
+- [x] Build exitoso
 
 ### M7 — Testing ⬜
 - [ ] Vitest + testing-library configurado

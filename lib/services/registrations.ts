@@ -8,17 +8,16 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import type { 
   Registration, RegistrationFull, RegistrationFormData, 
-  RegistrationStatus, QuotaCheckResult, RegistrationFilters 
+  RegistrationStatus, RegistrationFilters 
 } from '@/types';
 import { getOrCreateProfile, updateProfileDatosBase, saveTenantProfileData } from './profiles';
-import { checkQuota } from './quotas';
 import { resolveZone } from './zones';
 
 /**
  * Crear una nueva inscripción.
  * 1. Busca/crea el perfil por RUT (Identidad Única)
- * 2. Verifica cupos disponibles
- * 3. Crea el registro de inscripción
+ * 2. Resuelve auto-zona (cargo→zona / tipo_medio→zona)
+ * 3. Verifica cupos + duplicado + inserta (ATÓMICO via SQL function)
  * 4. Guarda datos extra en el perfil si tienen profile_field mapping
  *
  * @param eventId - ID del evento
@@ -37,28 +36,7 @@ export async function createRegistration(
   // 1. Buscar o crear perfil — pasa userId para vincular cuenta si corresponde
   const profile = await getOrCreateProfile(formData, authUserId);
 
-  // 2. Verificar cupos
-  if (formData.tipo_medio && formData.organizacion) {
-    const quota = await checkQuota(eventId, formData.tipo_medio, formData.organizacion);
-    if (!quota.available) {
-      throw new Error(quota.message);
-    }
-  }
-
-  // 3. Verificar que no existe registro duplicado
-  const { data: existing } = await supabase
-    .from('registrations')
-    .select('id')
-    .eq('event_id', eventId)
-    .eq('profile_id', profile.id)
-    .single();
-
-  if (existing) {
-    throw new Error('Esta persona ya está registrada en este evento');
-  }
-
-  // 4. Crear registro
-  // First resolve auto-zone from cargo→zona or tipo_medio→zona rules (if any)
+  // 2. Resolver auto-zona antes del insert atómico
   const datosExtra = { ...(formData.datos_extra || {}) };
   if (!datosExtra.zona) {
     try {
@@ -67,24 +45,39 @@ export async function createRegistration(
     } catch { /* no bloquear */ }
   }
 
-  const { data: registration, error } = await supabase
+  // 3. Verificar cupos + duplicado + insertar — TODO ATÓMICO
+  //    La función SQL usa FOR UPDATE en la regla de cupo para
+  //    serializar inserciones concurrentes del mismo tipo_medio.
+  const { data: regId, error: rpcError } = await supabase.rpc(
+    'check_and_create_registration',
+    {
+      p_event_id: eventId,
+      p_profile_id: profile.id,
+      p_organizacion: formData.organizacion || undefined,
+      p_tipo_medio: formData.tipo_medio || undefined,
+      p_cargo: formData.cargo || undefined,
+      p_submitted_by: submittedByProfileId || undefined,
+      p_datos_extra: datosExtra as unknown as import('@/lib/supabase/database.types').Json,
+    }
+  );
+
+  if (rpcError) {
+    // Supabase envuelve la excepción del RAISE en rpcError.message
+    throw new Error(rpcError.message);
+  }
+
+  // Fetch del registro completo (incluye defaults: created_at, status, etc.)
+  const { data: registration, error: fetchError } = await supabase
     .from('registrations')
-    .insert({
-      event_id: eventId,
-      profile_id: profile.id,
-      organizacion: formData.organizacion || null,
-      tipo_medio: formData.tipo_medio || null,
-      cargo: formData.cargo || null,
-      submitted_by: submittedByProfileId || null,
-      datos_extra: datosExtra as any,
-      status: 'pendiente',
-    })
     .select()
+    .eq('id', regId)
     .single();
 
-  if (error) throw new Error(`Error creando inscripción: ${error.message}`);
+  if (fetchError || !registration) {
+    throw new Error('Error obteniendo el registro creado');
+  }
 
-  // 5. Guardar datos reutilizables en el perfil (tenant-namespaced + legacy flat)
+  // 4. Guardar datos reutilizables en el perfil (tenant-namespaced + legacy flat)
   if (formData.datos_extra && Object.keys(formData.datos_extra).length > 0) {
     try {
       // Determinar el tenant_id del evento para guardar namespaced

@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { listTenants, listActiveTenants, createTenant, updateTenant, getCurrentUser, isSuperAdmin, logAuditAction } from '@/lib/services';
 
 export async function GET(request: NextRequest) {
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
       slug: tenant.slug,
     });
 
+    // Invalidar caché de layouts tenant
+    revalidatePath(`/${tenant.slug}`, 'layout');
+
     return NextResponse.json(tenant, { status: 201 });
   } catch (error) {
     return NextResponse.json(
@@ -72,6 +76,9 @@ export async function PATCH(request: NextRequest) {
     await logAuditAction(user.id, 'tenant.updated', 'tenant', tenant.id, {
       nombre: tenant.nombre,
     });
+
+    // Invalidar caché del layout de este tenant
+    if (tenant.slug) revalidatePath(`/${tenant.slug}`, 'layout');
 
     return NextResponse.json(tenant);
   } catch (error) {

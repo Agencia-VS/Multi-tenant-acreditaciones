@@ -7,6 +7,9 @@ import { notFound } from 'next/navigation';
 import { getTenantBySlug } from '@/lib/services/tenants';
 import { generateTenantPalette, paletteToCSS } from '@/lib/colors';
 
+/** Cachear datos del tenant 1 hora — revalidado tras mutaciones en API */
+export const revalidate = 3600;
+
 export default async function TenantLayout({
   children,
   params,

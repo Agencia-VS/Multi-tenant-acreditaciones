@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent } from '@/lib/services';
 import { logAuditAction, getCurrentUser } from '@/lib/services';
 
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
       tenant_id: event.tenant_id,
     });
 
+    // Invalidar caché de páginas del tenant
+    revalidatePath(`/acreditado`);
+
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
     return NextResponse.json(
@@ -86,6 +90,8 @@ export async function PATCH(request: NextRequest) {
     await logAuditAction(user.id, 'event.updated', 'event', event.id, {
       nombre: event.nombre,
     });
+
+    revalidatePath(`/acreditado`);
 
     return NextResponse.json(event);
   } catch (error) {
@@ -118,6 +124,8 @@ export async function DELETE(request: NextRequest) {
       await deactivateEvent(eventId);
       await logAuditAction(user.id, 'event.updated', 'event', eventId, { action: 'deactivated' });
     }
+
+    revalidatePath(`/acreditado`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
