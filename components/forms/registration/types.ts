@@ -1,4 +1,4 @@
-import type { FormFieldDefinition, Profile } from '@/types';
+import type { FormFieldDefinition, Profile, EventType, EventDay } from '@/types';
 
 /* ═══════════════════════════════════════════════════════
    Shared types & constants for the Registration Wizard
@@ -45,6 +45,9 @@ export interface RegistrationFormProps {
   fechaLimite?: string | null;
   contactEmail?: string;
   onSuccess?: () => void;
+  /** Multi-day support */
+  eventType?: EventType;
+  eventDays?: EventDay[];
 }
 
 export const STEP_LABELS = ['Responsable', 'Tipo de medio', 'Acreditados'];

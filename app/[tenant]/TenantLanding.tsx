@@ -12,7 +12,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { Tenant, Event } from '@/types';
+import type { Tenant, Event, EventType } from '@/types';
 import { formatDeadlineChile } from '@/lib/dates';
 import { generateTenantPalette } from '@/lib/colors';
 
@@ -55,6 +55,17 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
   };
 
   const isMatchEvent = Boolean(event?.opponent_name);
+  const eventType: EventType = (event as Event & { event_type?: EventType })?.event_type || (isMatchEvent ? 'deportivo' : 'simple');
+  const isMultidia = eventType === 'multidia';
+
+  const formattedDateRange = useMemo(() => {
+    const ev = event as Event & { fecha_inicio?: string; fecha_fin?: string } | null;
+    if (!ev?.fecha_inicio || !ev?.fecha_fin) return null;
+    const start = new Date(ev.fecha_inicio + 'T12:00:00');
+    const end = new Date(ev.fecha_fin + 'T12:00:00');
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+    return `${start.toLocaleDateString('es-CL', opts)} — ${end.toLocaleDateString('es-CL', { ...opts, year: 'numeric' })}`;
+  }, [(event as Event & { fecha_inicio?: string })?.fecha_inicio, (event as Event & { fecha_fin?: string })?.fecha_fin]);
 
   /* ── Chip: info metadata ── */
   const Chip = ({ icon, children }: { icon: string; children: React.ReactNode }) => (
@@ -217,9 +228,15 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
               {event.league && (
                 <Chip icon={isMatchEvent ? 'fa-futbol' : 'fa-tag'}>{event.league}</Chip>
               )}
-              {formattedDate && <Chip icon="fa-calendar">{formattedDate}</Chip>}
+              {isMultidia && formattedDateRange && (
+                <Chip icon="fa-calendar-week">{formattedDateRange}</Chip>
+              )}
+              {!isMultidia && formattedDate && <Chip icon="fa-calendar">{formattedDate}</Chip>}
               {event.hora && <Chip icon="fa-clock">{event.hora.substring(0, 5)} hrs</Chip>}
               {event.venue && <Chip icon="fa-location-dot">{event.venue}</Chip>}
+              {isMultidia && (
+                <Chip icon="fa-layer-group">Multidía</Chip>
+              )}
             </div>
 
             {isMatchEvent ? (
@@ -267,6 +284,47 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                     </div>
                   )}
                 </div>
+              </div>
+            ) : isMultidia ? (
+              /* ── MODO MULTIDÍA ── */
+              <div className="flex flex-col items-center gap-6 opacity-0 animate-fade-in">
+                {(tenant.shield_url || tenant.logo_url) && (
+                  <img
+                    src={tenant.shield_url || tenant.logo_url!}
+                    alt={tenant.nombre}
+                    className="w-20 h-20 sm:w-28 sm:h-28 object-contain"
+                    style={{ filter: `drop-shadow(0 0 24px ${p.interactiveAccent}25)` }}
+                  />
+                )}
+
+                <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white drop-shadow-lg text-center leading-tight max-w-3xl">
+                  {event.nombre}
+                </h1>
+
+                {event.descripcion && (
+                  <p className="text-sm sm:text-base text-center max-w-xl leading-relaxed" style={{ color: '#FFFFFFB0' }}>
+                    {event.descripcion}
+                  </p>
+                )}
+
+                {/* Days preview card */}
+                <div
+                  className="rounded-2xl px-6 py-4 backdrop-blur-md max-w-md w-full"
+                  style={{ background: `${p.forest}80`, border: `1px solid ${p.bright}20` }}
+                >
+                  <p className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: `${p.bright}80` }}>
+                    <i className="fas fa-calendar-week mr-1.5" />
+                    Jornadas del evento
+                  </p>
+                  <p className="text-sm text-white/70 text-center">
+                    Las jornadas disponibles se mostrarán al momento de inscribirse.
+                  </p>
+                </div>
+
+                <p className="text-xs" style={{ color: '#FFFFFF60' }}>
+                  <i className="fas fa-building mr-1.5" />
+                  Organiza <span className="font-semibold text-white/70">{tenant.nombre}</span>
+                </p>
               </div>
             ) : (
               /* ── MODO GENÉRICO ── */

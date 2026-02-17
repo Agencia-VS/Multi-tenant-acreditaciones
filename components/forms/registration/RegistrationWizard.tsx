@@ -92,6 +92,8 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
     eventVenue,
     fechaLimite,
     contactEmail,
+    eventType,
+    eventDays,
   } = props;
 
   const form = useRegistrationForm(props);
@@ -121,7 +123,29 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
 
       {/* ═══════ STEP INDICATOR ═══════ */}
       {form.disclaimerAccepted && form.step !== 'success' && (
-        <StepIndicator currentStep={form.step} />
+        <>
+          <StepIndicator currentStep={form.step} />
+          {/* Multi-day event info banner */}
+          {eventType === 'multidia' && eventDays && eventDays.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs uppercase tracking-widest text-amber-700 font-semibold mb-2">
+                <i className="fas fa-calendar-week mr-1.5" />
+                Evento multidía — {eventDays.length} jornadas
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {eventDays.map(d => (
+                  <span key={d.id} className="inline-flex items-center gap-1.5 text-xs bg-amber-100 text-amber-800 rounded-full px-2.5 py-1 font-medium">
+                    <i className="fas fa-circle text-[5px]" />
+                    {d.label || new Date(d.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-amber-600 mt-2">
+                Al inscribirte quedarás registrado para todas las jornadas.
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {/* ═══════ PASO 1 — RESPONSABLE ═══════ */}

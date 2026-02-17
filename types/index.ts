@@ -24,13 +24,28 @@ export type Tenant = NonNull<Tables<'tenants'>,
   config: Record<string, unknown>;
 };
 
+// ─── Tipos de Evento ───────────────────────────────────────────────────────
+
+export type EventType = 'simple' | 'deportivo' | 'multidia';
+
 /** Evento — derivado de `events` */
 export type Event = NonNull<Tables<'events'>,
   'is_active' | 'qr_enabled' | 'created_at' | 'updated_at'
 > & {
+  event_type: EventType;
   form_fields: FormFieldDefinition[];
   config: Record<string, unknown>;
 };
+
+/** Día de evento multidía — derivado de `event_days` */
+export type EventDay = NonNull<Tables<'event_days'>,
+  'is_active' | 'orden'
+>;
+
+/** Check-in por día — derivado de `registration_days` */
+export type RegistrationDay = NonNull<Tables<'registration_days'>,
+  'checked_in'
+>;
 
 /** Registration — derivado de `registrations` */
 export type Registration = NonNull<Tables<'registrations'>,
@@ -173,6 +188,7 @@ export type RegistrationFull = NonNull<Tables<'v_registration_full'>,
 export type EventFull = NonNull<Tables<'v_event_full'>,
   'id' | 'tenant_id' | 'nombre' | 'is_active' | 'qr_enabled' | 'created_at' | 'updated_at'
 > & {
+  event_type: EventType;
   form_fields: FormFieldDefinition[];
   config: Record<string, unknown>;
   tenant_config: Record<string, unknown>;
@@ -267,7 +283,7 @@ export interface BulkRegistrationData {
 /** Resultado de la validación QR */
 export interface QRValidationResult {
   valid: boolean;
-  status: 'checked_in' | 'not_found' | 'not_approved' | 'already_checked_in';
+  status: 'checked_in' | 'not_found' | 'not_approved' | 'already_checked_in' | 'not_enrolled_day';
   message: string;
   registration_id?: string;
   nombre?: string;
@@ -278,6 +294,14 @@ export interface QRValidationResult {
   cargo?: string;
   event_nombre?: string;
   checked_in_at?: string;
+  event_day_id?: string;
+}
+
+/** Datos para crear/editar un día de evento */
+export interface EventDayFormData {
+  fecha: string;
+  label: string;
+  orden?: number;
 }
 
 // ─── Tipos de Auth ─────────────────────────────────────────────────────────
@@ -341,6 +365,9 @@ export interface EventFormData {
   qr_enabled?: boolean;
   form_fields?: FormFieldDefinition[];
   config?: EventConfig;
+  event_type?: EventType;
+  fecha_inicio?: string;
+  fecha_fin?: string;
 }
 
 export interface DashboardStats {

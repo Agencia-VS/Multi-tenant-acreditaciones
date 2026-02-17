@@ -1,21 +1,40 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { QRValidationResult } from '@/types';
+import type { QRValidationResult, EventDay } from '@/types';
 import { BackButton } from '@/components/shared/ui';
 
 /**
  * Scanner QR para control de acceso en puerta.
  * Lee QR desde cámara o input manual.
+ * Soporta check-in por día para eventos multidía.
  * 
  * Pantalla Verde = Aprobado + Foto
  * Pantalla Roja = Ya ingresó o No autorizado
  */
-export default function QRScanner({ backHref }: { backHref?: string }) {
+export default function QRScanner({
+  backHref,
+  eventDays,
+}: {
+  backHref?: string;
+  eventDays?: EventDay[];
+}) {
   const [qrInput, setQrInput] = useState('');
   const [result, setResult] = useState<QRValidationResult | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isMultidia = eventDays && eventDays.length > 0;
+
+  // Auto-select today's day if available
+  useEffect(() => {
+    if (!isMultidia) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayDay = eventDays.find(d => d.fecha === today);
+    if (todayDay) setSelectedDayId(todayDay.id);
+    else if (eventDays.length > 0) setSelectedDayId(eventDays[0].id);
+  }, [eventDays, isMultidia]);
 
   // Auto-focus en el input para que scanners USB funcionen directamente
   useEffect(() => {
@@ -27,10 +46,13 @@ export default function QRScanner({ backHref }: { backHref?: string }) {
     
     setScanning(true);
     try {
+      const payload: Record<string, string> = { qr_token: token.trim() };
+      if (isMultidia && selectedDayId) payload.event_day_id = selectedDayId;
+
       const res = await fetch('/api/qr/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qr_token: token.trim() }),
+        body: JSON.stringify(payload),
       });
       
       const data = await res.json();
@@ -111,6 +133,34 @@ export default function QRScanner({ backHref }: { backHref?: string }) {
         
         <h1 className="text-3xl font-bold mb-2">Scanner QR</h1>
         <p className="text-gray-400 mb-8">Escanea el código QR del acreditado o ingresa el token manualmente</p>
+
+        {/* Day selector for multidia events */}
+        {isMultidia && (
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-wider text-gray-400 mb-2 font-semibold">
+              <i className="fas fa-calendar-day mr-1" /> Jornada activa
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {eventDays.map(d => {
+                const isSelected = selectedDayId === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setSelectedDayId(d.id)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {d.label || d.fecha}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="relative">
           <input

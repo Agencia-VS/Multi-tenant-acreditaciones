@@ -109,6 +109,9 @@ export async function createEvent(data: EventFormData): Promise<Event> {
       qr_enabled: data.qr_enabled || false,
       form_fields: (data.form_fields || []) as any,
       config: (data.config || {}) as any,
+      event_type: data.event_type || 'simple',
+      fecha_inicio: data.fecha_inicio || null,
+      fecha_fin: data.fecha_fin || null,
       is_active: true,
     })
     .select()
@@ -126,7 +129,7 @@ export async function updateEvent(eventId: string, data: Partial<EventFormData>)
 
   // Sanitize: remove immutable/computed fields, convert empty strings to null for optional fields
   const sanitized: Record<string, unknown> = {};
-  const nullableStrings = ['descripcion', 'fecha', 'hora', 'venue', 'league', 'opponent_name', 'opponent_logo_url', 'fecha_limite_acreditacion'];
+  const nullableStrings = ['descripcion', 'fecha', 'hora', 'venue', 'league', 'opponent_name', 'opponent_logo_url', 'fecha_limite_acreditacion', 'fecha_inicio', 'fecha_fin'];
 
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
     if (['id', 'created_at', 'tenant'].includes(key)) continue;
@@ -164,6 +167,13 @@ export async function deactivateEvent(eventId: string): Promise<void> {
  */
 export async function deleteEvent(eventId: string): Promise<void> {
   const supabase = createSupabaseAdminClient();
+
+  // 0. Delete event_days (CASCADE eliminará registration_days)
+  const { error: dayErr } = await supabase
+    .from('event_days')
+    .delete()
+    .eq('event_id', eventId);
+  if (dayErr) throw new Error(`Error eliminando días: ${dayErr.message}`);
 
   // 1. Delete registrations
   const { error: regErr } = await supabase

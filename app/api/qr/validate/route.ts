@@ -13,7 +13,7 @@ import { logAuditAction } from '@/lib/services/audit';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { qr_token } = body;
+    const { qr_token, event_day_id } = body;
 
     if (!qr_token) {
       return NextResponse.json({ error: 'qr_token es requerido' }, { status: 400 });
@@ -22,10 +22,11 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     const supabase = createSupabaseAdminClient();
 
-    // Usar la función SQL para validar y hacer check-in
-    const { data, error } = await supabase.rpc('validate_qr_checkin', {
+    // Usar la función SQL para validar y hacer check-in (soporta multidía)
+    const { data, error } = await supabase.rpc('validate_qr_checkin_day', {
       p_qr_token: qr_token,
       p_scanner_user_id: user?.id,
+      p_event_day_id: event_day_id || null,
     });
 
     if (error) {

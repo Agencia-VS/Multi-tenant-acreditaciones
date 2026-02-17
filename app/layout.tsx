@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Barlow_Condensed } from "next/font/google";
+import SileoProvider from "@/components/shared/SileoProvider";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -44,6 +45,7 @@ export default function RootLayout({
         style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}
         suppressHydrationWarning
       >
+        <SileoProvider />
         {children}
       </body>
     </html>

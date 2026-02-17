@@ -5,13 +5,14 @@
  * Crear/editar eventos con form_fields dinámicos y cupos
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField } from '@/types';
+import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField, EventType, EventDayFormData } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
 import EventFormFieldsTab from './EventFormFieldsTab';
 import EventQuotasTab from './EventQuotasTab';
 import EventZonesTab from './EventZonesTab';
+import EventDaysTab from './EventDaysTab';
 
 type SAEvent = BaseEvent & { tenant?: Tenant };
 
@@ -41,7 +42,7 @@ export default function EventosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SAEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'cupos' | 'zonas'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'cupos' | 'zonas' | 'dias'>('general');
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const { toast, showSuccess, showError, dismiss } = useToast();
@@ -59,8 +60,12 @@ export default function EventosPage() {
     opponent_logo_url: '',
     qr_enabled: false,
     fecha_limite_acreditacion: '',
+    event_type: 'simple' as EventType,
+    fecha_inicio: '',
+    fecha_fin: '',
   });
   const [formFields, setFormFields] = useState<FormFieldDefinition[]>(DEFAULT_FORM_FIELDS);
+  const [eventDays, setEventDays] = useState<EventDayFormData[]>([]);
   const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
   const [zoneRules, setZoneRules] = useState<{ id?: string; match_field: ZoneMatchField; cargo: string; zona: string }[]>([]);
   // Zonas configuradas para el evento (event.config.zonas)
@@ -99,8 +104,12 @@ export default function EventosPage() {
       opponent_logo_url: '',
       qr_enabled: false,
       fecha_limite_acreditacion: '',
+      event_type: 'simple' as EventType,
+      fecha_inicio: '',
+      fecha_fin: '',
     });
     setFormFields(DEFAULT_FORM_FIELDS);
+    setEventDays([]);
     setQuotaRules([]);
     setZoneRules([]);
     setEventZonas([]);
@@ -123,8 +132,32 @@ export default function EventosPage() {
       opponent_logo_url: event.opponent_logo_url || '',
       qr_enabled: event.qr_enabled,
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
+      event_type: (event as BaseEvent & { event_type?: EventType }).event_type || 'simple',
+      fecha_inicio: (event as BaseEvent & { fecha_inicio?: string }).fecha_inicio || '',
+      fecha_fin: (event as BaseEvent & { fecha_fin?: string }).fecha_fin || '',
     });
     setFormFields(event.form_fields?.length ? event.form_fields : DEFAULT_FORM_FIELDS);
+
+    // Load event days for multidía events
+    if ((event as BaseEvent & { event_type?: string }).event_type === 'multidia') {
+      try {
+        const daysRes = await fetch(`/api/events/${event.id}/days`);
+        if (daysRes.ok) {
+          const daysData = await daysRes.json();
+          const daysArr = Array.isArray(daysData) ? daysData : [];
+          setEventDays(daysArr.map((d: { fecha: string; label: string; orden: number }) => ({
+            fecha: d.fecha,
+            label: d.label,
+            orden: d.orden,
+          })));
+        }
+      } catch {
+        console.warn('No se pudieron cargar días del evento');
+      }
+    } else {
+      setEventDays([]);
+    }
+
     // Load event zonas from config
     const evConfig = (event.config || {}) as Record<string, unknown>;
     setEventZonas((evConfig.zonas as string[]) || []);
@@ -182,6 +215,9 @@ export default function EventosPage() {
         ...eventForm,
         form_fields: formFields,
         config: eventConfig,
+        event_type: eventForm.event_type,
+        fecha_inicio: eventForm.event_type === 'multidia' ? eventForm.fecha_inicio || null : null,
+        fecha_fin: eventForm.event_type === 'multidia' ? eventForm.fecha_fin || null : null,
         fecha_limite_acreditacion: eventForm.fecha_limite_acreditacion
           ? localToChileISO(eventForm.fecha_limite_acreditacion)
           : null,
@@ -244,6 +280,15 @@ export default function EventosPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cargo: rule.cargo, zona: rule.zona, match_field: rule.match_field }),
+          });
+        }
+
+        // Sync event days for multidía events
+        if (eventForm.event_type === 'multidia' && eventDays.length > 0) {
+          await fetch(`/api/events/${eventId}/days`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days: eventDays }),
           });
         }
       }
@@ -335,12 +380,12 @@ export default function EventosPage() {
       >
 
             {/* Tabs */}
-            <div className="px-8 pt-4 flex gap-1 border-b">
-              {(['general', 'form', 'cupos', 'zonas'] as const).map((tab) => (
+            <div className="px-8 pt-4 flex gap-1 border-b overflow-x-auto">
+              {(['general', 'form', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : [])] as const).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition ${
+                  onClick={() => setActiveTab(tab as typeof activeTab)}
+                  className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition whitespace-nowrap ${
                     activeTab === tab
                       ? 'border-brand text-brand'
                       : 'border-transparent text-body hover:text-label'
@@ -350,6 +395,7 @@ export default function EventosPage() {
                   {tab === 'form' && <><i className="fas fa-list-alt mr-2" />Formulario ({formFields.length})</>}
                   {tab === 'cupos' && <><i className="fas fa-chart-pie mr-2" />Cupos ({quotaRules.length})</>}
                   {tab === 'zonas' && <><i className="fas fa-map-signs mr-2" />Zonas ({zoneRules.length})</>}
+                  {tab === 'dias' && <><i className="fas fa-calendar-week mr-2" />Días ({eventDays.length})</>}
                 </button>
               ))}
             </div>
@@ -369,6 +415,33 @@ export default function EventosPage() {
                       <option value="">Seleccionar...</option>
                       {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                     </select>
+                  </div>
+
+                  {/* Tipo de evento */}
+                  <div>
+                    <label className="block text-sm font-medium text-label mb-1">Tipo de Evento</label>
+                    <div className="flex gap-3">
+                      {([
+                        { value: 'simple', label: 'Simple', icon: 'fa-calendar-check', desc: 'Un solo check-in' },
+                        { value: 'deportivo', label: 'Deportivo', icon: 'fa-futbol', desc: 'Con rival (VS)' },
+                        { value: 'multidia', label: 'Multidía', icon: 'fa-calendar-week', desc: 'Varias jornadas' },
+                      ] as const).map(({ value, label, icon, desc }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setEventForm(prev => ({ ...prev, event_type: value }))}
+                          className={`flex-1 p-3 rounded-lg border-2 text-left transition ${
+                            eventForm.event_type === value
+                              ? 'border-brand bg-info-light'
+                              : 'border-field-border hover:border-brand/40'
+                          }`}
+                        >
+                          <i className={`fas ${icon} mr-2 ${eventForm.event_type === value ? 'text-brand' : 'text-muted'}`} />
+                          <span className={`text-sm font-semibold ${eventForm.event_type === value ? 'text-brand' : 'text-heading'}`}>{label}</span>
+                          <p className="text-xs text-body mt-0.5">{desc}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -520,6 +593,18 @@ export default function EventosPage() {
                 />
               )}
 
+              {/* Event Days Tab (multidía only) */}
+              {activeTab === 'dias' && eventForm.event_type === 'multidia' && (
+                <EventDaysTab
+                  days={eventDays}
+                  setDays={setEventDays}
+                  fechaInicio={eventForm.fecha_inicio}
+                  fechaFin={eventForm.fecha_fin}
+                  setFechaInicio={(v) => setEventForm(prev => ({ ...prev, fecha_inicio: v }))}
+                  setFechaFin={(v) => setEventForm(prev => ({ ...prev, fecha_fin: v }))}
+                />
+              )}
+
               <FormActions
                 saving={saving}
                 onCancel={() => setShowForm(false)}
@@ -551,6 +636,17 @@ export default function EventosPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex gap-2 text-xs">
+                    {/* Event type badge */}
+                    {(event as BaseEvent & { event_type?: string }).event_type === 'deportivo' && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                        <i className="fas fa-futbol mr-1" />Deportivo
+                      </span>
+                    )}
+                    {(event as BaseEvent & { event_type?: string }).event_type === 'multidia' && (
+                      <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full">
+                        <i className="fas fa-calendar-week mr-1" />Multidía
+                      </span>
+                    )}
                     {event.qr_enabled && (
                       <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
                         <i className="fas fa-qrcode mr-1" />QR

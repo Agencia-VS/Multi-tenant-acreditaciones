@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import Link from 'next/link';
 import type { UIMessage } from '@/types';
 
@@ -89,13 +89,19 @@ export function ButtonSpinner({ className = '' }: { className?: string }) {
   );
 }
 
-/* ─────────────────────────── Toast + useToast ────────────────────── */
+/* ─────────────────────────── Toast + useToast (Sileo) ────────────── */
 
 export type ToastMessage = { type: 'success' | 'error'; text: string } | null;
 
-/** Hook para manejar toasts con auto-dismiss */
+/**
+ * Hook para manejar toasts — ahora usa Sileo como motor.
+ * La API (showSuccess, showError, dismiss) se mantiene idéntica
+ * para compatibilidad con todos los consumidores existentes.
+ * El estado local `toast` se conserva para componentes que lo lean directamente.
+ */
 export function useToast(duration = 4000) {
   const [toast, setToast] = useState<ToastMessage>(null);
+  const lastId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -103,15 +109,45 @@ export function useToast(duration = 4000) {
     return () => clearTimeout(t);
   }, [toast, duration]);
 
-  const showSuccess = useCallback((text: string) => setToast({ type: 'success', text }), []);
-  const showError = useCallback((text: string) => setToast({ type: 'error', text }), []);
-  const dismiss = useCallback(() => setToast(null), []);
+  const showSuccess = useCallback((text: string) => {
+    setToast({ type: 'success', text });
+    // defer Sileo call so it runs only in the browser
+    if (typeof window !== 'undefined') {
+      import('sileo').then(({ sileo }) => {
+        lastId.current = sileo.success({ title: text, duration });
+      });
+    }
+  }, [duration]);
+
+  const showError = useCallback((text: string) => {
+    setToast({ type: 'error', text });
+    if (typeof window !== 'undefined') {
+      import('sileo').then(({ sileo }) => {
+        lastId.current = sileo.error({ title: text, duration });
+      });
+    }
+  }, [duration]);
+
+  const dismiss = useCallback(() => {
+    setToast(null);
+    if (lastId.current && typeof window !== 'undefined') {
+      import('sileo').then(({ sileo }) => {
+        if (lastId.current) sileo.dismiss(lastId.current);
+      });
+    }
+  }, []);
 
   return { toast, setToast, showSuccess, showError, dismiss };
 }
 
-/** Toast flotante — se coloca en la raíz del componente de página */
+/**
+ * Toast flotante legacy — se mantiene por retrocompatibilidad.
+ * Si el <Toaster /> de Sileo está montado, éste es redundante
+ * y puede omitirse. Pero no rompemos nada si sigue en el JSX.
+ */
 export function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => void }) {
+  // When Sileo Toaster is mounted, hide the legacy toast to avoid duplicates
+  if (typeof window !== 'undefined') return null;
   if (!toast) return null;
   return (
     <div

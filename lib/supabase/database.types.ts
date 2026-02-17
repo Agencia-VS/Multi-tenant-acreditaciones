@@ -298,12 +298,53 @@ export type Database = {
           },
         ]
       }
+      event_days: {
+        Row: {
+          id: string
+          event_id: string
+          fecha: string
+          label: string
+          orden: number
+          is_active: boolean
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          fecha: string
+          label: string
+          orden?: number
+          is_active?: boolean
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          fecha?: string
+          label?: string
+          orden?: number
+          is_active?: boolean
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_days_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           config: Json | null
           created_at: string | null
           descripcion: string | null
+          event_type: string
           fecha: string | null
+          fecha_fin: string | null
+          fecha_inicio: string | null
           fecha_limite_acreditacion: string | null
           form_fields: Json | null
           hora: string | null
@@ -322,7 +363,10 @@ export type Database = {
           config?: Json | null
           created_at?: string | null
           descripcion?: string | null
+          event_type?: string
           fecha?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
           fecha_limite_acreditacion?: string | null
           form_fields?: Json | null
           hora?: string | null
@@ -341,7 +385,10 @@ export type Database = {
           config?: Json | null
           created_at?: string | null
           descripcion?: string | null
+          event_type?: string
           fecha?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
           fecha_limite_acreditacion?: string | null
           form_fields?: Json | null
           hora?: string | null
@@ -369,6 +416,51 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_tenant_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registration_days: {
+        Row: {
+          id: string
+          registration_id: string
+          event_day_id: string
+          checked_in: boolean
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          registration_id: string
+          event_day_id: string
+          checked_in?: boolean
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          registration_id?: string
+          event_day_id?: string
+          checked_in?: boolean
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registration_days_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_days_event_day_id_fkey"
+            columns: ["event_day_id"]
+            isOneToOne: false
+            referencedRelation: "event_days"
             referencedColumns: ["id"]
           },
         ]
@@ -733,7 +825,10 @@ export type Database = {
           config: Json | null
           created_at: string | null
           descripcion: string | null
+          event_type: string
           fecha: string | null
+          fecha_fin: string | null
+          fecha_inicio: string | null
           fecha_limite_acreditacion: string | null
           form_fields: Json | null
           hora: string | null
@@ -948,6 +1043,14 @@ export type Database = {
       validate_qr_checkin: {
         Args: { p_qr_token: string; p_scanner_user_id?: string }
         Returns: Json
+      }
+      validate_qr_checkin_day: {
+        Args: { p_qr_token: string; p_scanner_user_id?: string; p_event_day_id?: string | null }
+        Returns: Json
+      }
+      get_current_event_day: {
+        Args: { p_event_id: string }
+        Returns: string | null
       }
     }
     Enums: {
