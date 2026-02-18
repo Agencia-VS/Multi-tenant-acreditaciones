@@ -91,7 +91,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
   }, [tenantSlug]);
 
   // ─── Derived: is multidia ─────────────────────────
-  const isMultidia = ((selectedEvent as unknown as Record<string, unknown>)?.event_type as EventType) === 'multidia';
+  const isMultidia = (selectedEvent as EventFull | null)?.event_type === 'multidia';
 
   // ─── Fetch event days when selected event is multidia ──
   useEffect(() => {
@@ -319,7 +319,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         // Update locally without full refetch for snappy UX
         setRegistrations(prev => prev.map(r =>
           r.id === regId
-            ? { ...r, datos_extra: { ...((r.datos_extra || {}) as Record<string, unknown>), zona } }
+            ? { ...r, datos_extra: { ...((r.datos_extra && typeof r.datos_extra === 'object' ? r.datos_extra : {}) as Record<string, unknown>), zona } }
             : r
         ));
         showSuccess(`Zona asignada: ${zona}`);

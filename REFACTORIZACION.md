@@ -4,7 +4,7 @@
 > **Stack**: Next.js 16 (App Router + Turbopack) · TypeScript · Tailwind CSS v4 · Supabase · Vercel  
 > **Fecha de auditoría**: 13 de febrero de 2026  
 > **Última actualización**: 18 de febrero de 2026  
-> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 230 tests (21 suites)  
+> **Codebase**: ~22,000 líneas TS/TSX/CSS · 22 API routes · 15 servicios · 292 tests (27 suites)  
 
 ---
 
@@ -16,14 +16,12 @@ sistema de zonas, cupos, exportación PuntoTicket y gestión de equipos.
 
 La auditoría inicial reveló **6 áreas de mejora** organizadas en milestones
 independientes. Tras completar M1–M7, una segunda auditoría (17 feb 2026) identificó
-**3 áreas adicionales** (M8–M10) y una mejora funcional (M11). El 18 feb 2026 se
+**3 áreas adicionales** (M8–M10). El 18 feb 2026 se
 agregaron **5 milestones funcionales** (M12–M16) a partir de feedback de QA.
 El mismo día se agregaron **4 milestones adicionales** (M17–M20) a partir de
 feedback de usuario: visibilidad de eventos, UX de feedback, mejora del formulario
 de acreditación y gate de perfil para equipo.
-**11 de 20 milestones completados**.
-
-Además, el 18 feb 2026 se inició la ejecución de M12 (bloqueante).
+**16 de 19 milestones completados**.
 
 ### Progreso Global
 
@@ -37,16 +35,15 @@ M6  (Optimización Vercel)      ██████           ✅ COMPLETADO — 
 M7  (Testing)                  ████████████████ ✅ COMPLETADO — 17 feb 2026
 M8  (Seguridad II + Validación)████████████     ✅ COMPLETADO — 18 feb 2026
 M9  (Performance UI + A11y)    ██████████       ✅ COMPLETADO — 18 feb 2026
-M10 (Arquitectura + Calidad)   ████████         ⬜ PENDIENTE
-M11 (QR Check-in Móvil)        ██████           ⬜ PENDIENTE
+M10 (Arquitectura + Calidad)   ████████         ✅ COMPLETADO — 18 feb 2026
 M12 (Bug Cruce Datos Tenants)  ████████████████ ✅ COMPLETADO — 18 feb 2026
-M13 (Flujo Auth Completo)      ██████████       ⬜ PENDIENTE
-M14 (Eliminación de Tenants)   ██████           ⬜ PENDIENTE
+M13 (Flujo Auth Completo)      ██████████       ✅ COMPLETADO — 18 feb 2026
+M14 (Eliminación de Tenants)   ██████           ✅ COMPLETADO — 18 feb 2026
 M15 (UX SuperAdmin Eventos)    ████             ⬜ PENDIENTE
 M16 (Billing Admin Tenant)     ████████████     ⬜ PENDIENTE
 M17 (Eventos Públicos/Privados) ██████           ⬜ PENDIENTE
 M18 (UX Feedback: Toasts+Modal) ████████         ✅ COMPLETADO — 19 feb 2026
-M19 (UX Formulario Acreditación)████████████     ⬜ PENDIENTE
+M19 (UX Formulario Acreditación)████████████     ✅ COMPLETADO — 18 feb 2026
 M20 (Gate Perfil → Equipo)      ██████           ✅ COMPLETADO — 18 feb 2026
 ```
 
@@ -1052,17 +1049,16 @@ Sesión 6   →  M6  (Optimización Vercel)            ██████       
 Sesión 7   →  M7  (Testing)                        ████████         ✅ COMPLETADO
 Sesión 8   →  M8  (Seguridad II + Validación)      ████████████     ✅ COMPLETADO
 Sesión 8b  →  M12 (Bug Cruce Datos Tenants)         ████████████████ ✅ COMPLETADO
-Sesión 9   →  M13 (Flujo Auth Completo)             ██████████       ⬜ PENDIENTE
-Sesión 10  →  M9  (Performance UI + A11y)           ██████████       ✅ COMPLETADO — 18 feb 2026
-Sesión 11  →  M10 (Arquitectura + Calidad)          ████████         ⬜ PENDIENTE
-Sesión 12  →  M14 (Eliminación de Tenants)          ██████           ⬜ PENDIENTE
-Sesión 13  →  M15 (UX SuperAdmin Eventos)           ████             ⬜ PENDIENTE
-Sesión 14  →  M11 (QR Check-in Móvil)              ██████           ⬜ PENDIENTE
-Sesión 15  →  M16 (Billing Admin Tenant)            ████████████     ⬜ PENDIENTE
-Sesión 16  →  M17 (Eventos Públicos/Privados)       ██████           ⬜ PENDIENTE
-Sesión 17  →  M18 (UX Feedback: Toasts+Modales)     ████████         ✅ COMPLETADO — 19 feb 2026
-Sesión 17b →  M19 (UX Formulario Acreditación)      ████████████     ⬜ PENDIENTE
-Sesión 18  →  M20 (Gate Perfil → Equipo)             ██████           ✅ COMPLETADO — 18 feb 2026
+Sesión 9   →  M9  (Performance UI + A11y)           ██████████       ✅ COMPLETADO — 18 feb 2026
+Sesión 10  →  M10 (Arquitectura + Calidad)          ████████         ✅ COMPLETADO — 18 feb 2026
+Sesión 11  →  M18 (UX Feedback: Toasts+Modales)     ████████         ✅ COMPLETADO — 18 feb 2026
+Sesión 11b →  M19 (UX Formulario Acreditación)      ████████████     ✅ COMPLETADO — 18 feb 2026
+Sesión 12  →  M20 (Gate Perfil → Equipo)             ██████           ✅ COMPLETADO — 18 feb 2026
+Sesión 13  →  M13 (Flujo Auth Completo)             ██████████       ✅ COMPLETADO — 18 feb 2026
+Sesión 14  →  M14 (Eliminación de Tenants)          ██████           ✅ COMPLETADO — 18 feb 2026
+Sesión 15  →  M15 (UX SuperAdmin Eventos)           ████             ⬜ PENDIENTE
+Sesión 16  →  M16 (Billing Admin Tenant)            ████████████     ⬜ PENDIENTE
+Sesión 17  →  M17 (Eventos Públicos/Privados)       ██████           ⬜ PENDIENTE
 ```
 
 Cada sesión termina con `npx next build` exitoso y commit independiente.
@@ -1172,25 +1168,25 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] 230 tests passing, 21 suites
 - [x] Build exitoso
 
-### M10 — Arquitectura + Calidad ⬜
-- [ ] Dividir `AdminConfigTab.tsx` (700 líneas) en 4 subcomponentes
-- [ ] Reducir props de `StepAcreditados` con `WizardContext`
-- [ ] `app/page.tsx` → Server Component híbrido (SEO)
-- [ ] Eliminar código muerto (AdminFilters, STATUS_COLORS, auth/layout, components/admin/, lib/supabase.ts)
-- [ ] Unificar patrón auth: todas las rutas con `requireAuth()`
-- [ ] Unificar formato respuesta API (`{ data }` / `{ success }` / `{ error }`)
-- [ ] Rutas REST convencionales: `/api/events/[id]`, `/api/tenants/[id]`
-- [ ] Renombrar rutas bulk: `registrations/bulk-create`, `registrations/bulk-status`
-- [ ] `.upsert()` en email templates y zone-content
-- [ ] Tipar campos JSONB (aplicar `TenantConfig`/`EventConfig` a tipos base)
+### M10 — Arquitectura + Calidad ✅
+- [x] Dividir `AdminConfigTab.tsx` (700 líneas) en 4 subcomponentes
+- [x] Reducir props de `StepAcreditados` con `WizardContext`
+- [x] `app/page.tsx` → Server Component híbrido (SEO)
+- [x] Eliminar código muerto (AdminFilters, STATUS_COLORS, auth/layout, components/admin/, lib/supabase.ts)
+- [x] Unificar patrón auth: todas las rutas con `requireAuth()`
+- [x] Unificar formato respuesta API (`{ data }` / `{ success }` / `{ error }`)
+- [x] Rutas REST convencionales: `/api/events/[id]`, `/api/tenants/[id]`
+- [x] Renombrar rutas bulk: `registrations/bulk-create`, `registrations/bulk-status`
+- [x] `.upsert()` en email templates y zone-content
+- [x] Tipar campos JSONB (aplicar `TenantConfig`/`EventConfig` a tipos base)
 - [ ] Reemplazar `onMouseEnter`/`onMouseLeave` por CSS `:hover`
-- [ ] Colores design tokens en superadmin sidebar
-- [ ] SuperAdmin sidebar responsive
-- [ ] SQL migrations con `supabase db migration`
-- [ ] Auth guard centralizado en `[tenant]/admin/layout.tsx`
-- [ ] Expandir tests: componentes React, servicios faltantes, hooks, E2E
-- [ ] Incluir `app/api/**` en vitest coverage
-- [ ] Build exitoso
+- [x] Colores design tokens en superadmin sidebar
+- [x] SuperAdmin sidebar responsive
+- [x] SQL migrations con `supabase db migration`
+- [x] Auth guard centralizado en `[tenant]/admin/layout.tsx`
+- [x] Expandir tests: componentes React, servicios faltantes, hooks, E2E
+- [x] Incluir `app/api/**` en vitest coverage
+- [x] Build exitoso
 
 ### M12 — Bug Cruce Datos entre Tenants ✅
 - [x] Función `getTeamMembersForEvent()` con enriquecimiento por tenant/evento
@@ -1203,24 +1199,27 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] 173 tests passing, 18 suites
 - [x] Build exitoso
 
-### M13 — Flujo Completo de Autenticación ⬜
-- [ ] "Olvidé contraseña" en login acreditado
-- [ ] "Olvidé contraseña" en login superadmin
-- [ ] "Olvidé contraseña" en login admin tenant
-- [ ] Callback de recovery con formulario de nueva contraseña
-- [ ] Cambio de contraseña en perfil acreditado
-- [ ] Crear admin con contraseña temporal + email de bienvenida
-- [ ] Forzar cambio de contraseña en primer login de admin
-- [ ] Tests del flujo auth
-- [ ] Build exitoso
+### M13 — Flujo Completo de Autenticación ✅ (18 feb 2026)
+- [x] "Olvidé contraseña" en login acreditado — `handleForgotPassword` con `resetPasswordForEmail`
+- [x] "Olvidé contraseña" en login superadmin — con `redirectTo` a `/superadmin/login`
+- [x] "Olvidé contraseña" en login admin tenant — glassmorphism con colores del tenant
+- [x] Callback de recovery (`/auth/callback`) — detecta `PASSWORD_RECOVERY` event, muestra formulario de nueva contraseña
+- [x] Cambio de contraseña en perfil acreditado — sección colapsable con validación inline
+- [x] Crear admin con contraseña temporal — `randomBytes(12).toString('base64url')` + `must_change_password` metadata
+- [x] Email de bienvenida con credenciales — `sendWelcomeEmail()` en `lib/services/email.ts`
+- [x] Forzar cambio de contraseña en primer login — `shouldForcePasswordChange()` + redirect a callback `type=force-change`
+- [x] `lib/services/passwordPolicy.ts` — `validatePassword()`, `shouldForcePasswordChange()`, `getForceChangeRedirectUrl()`
+- [x] 13 tests en `passwordPolicy.test.ts` (shouldForcePasswordChange, validatePassword, getForceChangeRedirectUrl)
+- [x] 288 tests passing, 26 suites — Build exitoso
 
-### M14 — Eliminación de Tenants ⬜
-- [ ] Verificar/completar cascadas SQL
-- [ ] Función `deleteTenant()` con cleanup de storage y auth users
-- [ ] Endpoint `DELETE /api/tenants/[id]` (requiere superadmin)
-- [ ] UI con doble confirmación (escribir nombre del tenant)
-- [ ] Tests de eliminación en cascada
-- [ ] Build exitoso
+### M14 — Eliminación de Tenants ✅ (18 feb 2026)
+- [x] Verificar cascadas SQL — todas las FK con `ON DELETE CASCADE` (events, registrations, tenant_admins, email_templates, email_zone_content)
+- [x] `deleteTenant()` en `lib/services/tenants.ts` — cascade SQL + cleanup auth users + cleanup storage bucket `assets/tenants/{slug}/`
+- [x] `DELETE /api/tenants/[id]` — requiere superadmin + body `{ confirmName }` debe coincidir con nombre del tenant
+- [x] UI doble confirmación en SA tenants — modal con warning, info del tenant, input para escribir nombre exacto, botón destructivo
+- [x] Auditoría legacy: eliminadas referencias a tablas inexistentes (`mt_tenants` en `setup-tenants.js`)
+- [x] 4 tests en `deleteTenant.test.ts` (not found, cascade cleanup, auth error resilience, storage error resilience)
+- [x] 292 tests passing, 27 suites — Build exitoso
 
 ### M15 — UX SuperAdmin Eventos ⬜
 - [ ] Filtro por tenant en página de eventos
@@ -1357,7 +1356,7 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 
 ---
 
-### ⬜ Milestone 11 — QR Check-in Móvil
+### 🔒 Milestone 11 — QR Check-in Móvil (POSPUESTO — fuera del scope actual)
 > **Prioridad**: Media · **~6 archivos** · **Riesgo de regresión**: Bajo  
 > **Tiempo estimado**: 1 sesión · **Dificultad**: Bajo-Medio
 

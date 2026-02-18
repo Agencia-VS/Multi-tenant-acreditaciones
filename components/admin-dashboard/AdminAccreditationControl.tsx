@@ -26,8 +26,8 @@ export default function AdminAccreditationControl() {
     if (!selectedEvent) return { isOpen: false, reason: 'Sin evento seleccionado' };
 
     // Manual override from event config
-    const eventConfig = (selectedEvent.config || {}) as Record<string, unknown>;
-    const manualOpen = eventConfig.acreditacion_abierta as boolean | undefined;
+    const eventConfig = selectedEvent.config ?? {};
+    const manualOpen = eventConfig.acreditacion_abierta;
 
     // If there's a local manual override, use it
     if (manualOverride !== null) {
@@ -71,7 +71,7 @@ export default function AdminAccreditationControl() {
     setManualOverride(newValue);
     setSaving(true);
     try {
-      const currentConfig = (selectedEvent.config || {}) as Record<string, unknown>;
+      const currentConfig = (selectedEvent.config && typeof selectedEvent.config === 'object' ? selectedEvent.config : {}) as Record<string, unknown>;
       const res = await fetch(`/api/events?id=${selectedEvent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -97,7 +97,7 @@ export default function AdminAccreditationControl() {
     if (!selectedEvent) return;
     setSaving(true);
     try {
-      const currentConfig = (selectedEvent.config || {}) as Record<string, unknown>;
+      const currentConfig = (selectedEvent.config && typeof selectedEvent.config === 'object' ? selectedEvent.config : {}) as Record<string, unknown>;
       const { acreditacion_abierta, ...rest } = currentConfig;
       const res = await fetch(`/api/events?id=${selectedEvent.id}`, {
         method: 'PATCH',
@@ -151,7 +151,7 @@ export default function AdminAccreditationControl() {
   }
 
   const hasManualOverride = manualOverride !== null ||
-    typeof ((selectedEvent.config || {}) as Record<string, unknown>).acreditacion_abierta === 'boolean';
+    typeof (selectedEvent.config ?? {}).acreditacion_abierta === 'boolean';
 
   return (
     <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden">

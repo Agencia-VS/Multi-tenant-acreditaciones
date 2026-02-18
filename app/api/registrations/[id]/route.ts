@@ -11,7 +11,7 @@ import { logAuditAction } from '@/lib/services/audit';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { registrationPatchSchema, safeParse } from '@/lib/schemas';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { Tenant } from '@/types';
+import type { Tenant, RegistrationExtras } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
@@ -39,7 +39,7 @@ export async function PATCH(
         .eq('id', id)
         .single();
 
-      const merged = { ...((existing?.datos_extra || {}) as Record<string, unknown>), ...datos_extra };
+      const merged: RegistrationExtras = { ...((existing?.datos_extra || {}) as RegistrationExtras), ...datos_extra };
       const { error } = await supabase
         .from('registrations')
         .update({ datos_extra: merged as any })

@@ -3,7 +3,6 @@ export { default as AdminDashboardV2 } from './AdminDashboardV2';
 export { default as AdminHeader } from './AdminHeader';
 export { default as AdminStats } from './AdminStats';
 export { default as AdminAccreditationControl } from './AdminAccreditationControl';
-export { default as AdminFilters } from './AdminFilters';
 export { default as AdminExportActions } from './AdminExportActions';
 export { default as ExportColumnPicker } from './ExportColumnPicker';
 export { default as AdminTable } from './AdminTable';

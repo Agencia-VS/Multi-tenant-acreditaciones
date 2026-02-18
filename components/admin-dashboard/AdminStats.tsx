@@ -12,7 +12,7 @@ export default function AdminStats() {
     const approved = registrations.filter(r => r.status === 'aprobado');
     const map: Record<string, number> = {};
     approved.forEach(r => {
-      const zona = (r.datos_extra as Record<string, unknown>)?.zona as string || 'Sin zona';
+      const zona = r.datos_extra?.zona || 'Sin zona';
       map[zona] = (map[zona] || 0) + 1;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);

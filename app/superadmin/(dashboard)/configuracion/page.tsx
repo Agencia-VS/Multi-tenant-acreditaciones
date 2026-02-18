@@ -4,7 +4,6 @@
  * SuperAdmin — Configuración general de la plataforma
  */
 import { useState } from 'react';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/shared/ui';
 
 export default function ConfiguracionPage() {
@@ -19,8 +18,6 @@ export default function ConfiguracionPage() {
     setSaving(true);
 
     try {
-      const supabase = getSupabaseBrowserClient();
-
       // Create user via auth admin (this requires service role)
       const res = await fetch('/api/superadmin/stats', {
         method: 'POST',

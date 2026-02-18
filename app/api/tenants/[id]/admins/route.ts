@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createTenantAdmin, listTenantAdmins } from '@/lib/services';
+import { createTenantAdmin, listTenantAdmins, sendWelcomeEmail, getTenantById } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
 
 export async function GET(
@@ -40,15 +40,34 @@ export async function POST(
     const body = await request.json();
     const { email, nombre, password } = body;
 
-    if (!email || !nombre || !password) {
+    if (!email || !nombre) {
       return NextResponse.json(
-        { error: 'Email, nombre y password son requeridos' },
+        { error: 'Email y nombre son requeridos' },
         { status: 400 }
       );
     }
 
-    const admin = await createTenantAdmin(tenantId, email, nombre, password);
-    return NextResponse.json(admin, { status: 201 });
+    const admin = await createTenantAdmin(tenantId, email, nombre, password || undefined);
+
+    // Enviar email de bienvenida si se generó contraseña temporal
+    if (admin.tempPassword) {
+      const tenant = await getTenantById(tenantId);
+      if (tenant) {
+        const origin = request.headers.get('origin') || request.headers.get('x-forwarded-host') || 'https://accredia.cl';
+        await sendWelcomeEmail({
+          to: email,
+          nombre,
+          tenantName: tenant.nombre,
+          tenantSlug: tenant.slug,
+          tempPassword: admin.tempPassword,
+          loginUrl: `${origin}/${tenant.slug}/admin/login`,
+        });
+      }
+    }
+
+    // No devolver tempPassword al frontend
+    const { tempPassword: _tp, ...adminData } = admin;
+    return NextResponse.json(adminData, { status: 201 });
   } catch (error) {
     if (error instanceof NextResponse) return error;
     return NextResponse.json(

@@ -14,14 +14,14 @@ type NonNull<T, K extends keyof T> = Omit<T, K> & { [P in K]: NonNullable<T[P]> 
 export type Profile = NonNull<Tables<'profiles'>,
   'created_at' | 'updated_at'
 > & {
-  datos_base: Record<string, unknown>;
+  datos_base: ProfileDatosBase;
 };
 
 /** Tenant — derivado de `tenants` (colores tienen DEFAULT en DB) */
 export type Tenant = NonNull<Tables<'tenants'>,
   'activo' | 'color_primario' | 'color_secundario' | 'color_light' | 'color_dark' | 'created_at' | 'updated_at'
 > & {
-  config: Record<string, unknown>;
+  config: TenantConfig;
 };
 
 // ─── Tipos de Evento ───────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ export type Event = NonNull<Tables<'events'>,
 > & {
   event_type: EventType;
   form_fields: FormFieldDefinition[];
-  config: Record<string, unknown>;
+  config: EventConfig;
 };
 
 /** Día de evento multidía — derivado de `event_days` */
@@ -51,7 +51,7 @@ export type RegistrationDay = NonNull<Tables<'registration_days'>,
 export type Registration = NonNull<Tables<'registrations'>,
   'status' | 'checked_in' | 'created_at' | 'updated_at'
 > & {
-  datos_extra: Record<string, unknown>;
+  datos_extra: RegistrationExtras;
 };
 
 /** Regla de cupo — derivado de `event_quota_rules` */
@@ -79,7 +79,7 @@ export type EmailZoneContent = Tables<'email_zone_content'>;
 
 /** Log de auditoría — derivado de `audit_logs` */
 export type AuditLog = Tables<'audit_logs'> & {
-  metadata: Record<string, unknown>;
+  metadata: AuditMetadata;
 };
 
 // ─── Enums y Constantes ────────────────────────────────────────────────────
@@ -155,9 +155,6 @@ export const STATUS_MAP: Record<RegistrationStatus, {
   revision:  { label: 'En Revisión',  bg: 'bg-info-light',    text: 'text-info-dark',    icon: 'fas fa-search' },
 } as const;
 
-/** @deprecated Usa STATUS_MAP en su lugar */
-export const STATUS_COLORS = STATUS_MAP;
-
 // ─── Definición de campo dinámico del formulario ───────────────────────────
 
 /** Definición de campo dinámico del formulario */
@@ -180,8 +177,8 @@ export interface FormFieldDefinition {
 export type RegistrationFull = NonNull<Tables<'v_registration_full'>,
   'id' | 'event_id' | 'profile_id' | 'status' | 'checked_in' | 'created_at' | 'updated_at'
 > & {
-  datos_extra: Record<string, unknown>;
-  profile_datos_base: Record<string, unknown>;
+  datos_extra: RegistrationExtras;
+  profile_datos_base: ProfileDatosBase;
 };
 
 /** Evento con datos del tenant (vista v_event_full) */
@@ -190,8 +187,8 @@ export type EventFull = NonNull<Tables<'v_event_full'>,
 > & {
   event_type: EventType;
   form_fields: FormFieldDefinition[];
-  config: Record<string, unknown>;
-  tenant_config: Record<string, unknown>;
+  config: EventConfig;
+  tenant_config: TenantConfig;
 };
 
 // ─── Tenant-Context Profile Data ───────────────────────────────────────────
@@ -457,6 +454,33 @@ export interface TenantConfig {
   acreditacion_masiva_enabled?: boolean;
   zonas?: string[];  // zona options available for this tenant (fallback)
   puntoticket_acreditacion_fija?: string;  // fixed value for PT "Acreditación" column
+  social?: SocialLinks;
+  [key: string]: unknown;
+}
+
+/** Links de redes sociales del tenant */
+export interface SocialLinks {
+  facebook?: string;
+  twitter?: string;
+  instagram?: string;
+  youtube?: string;
+}
+
+/** Datos extra de un registration (JSONB datos_extra) */
+export interface RegistrationExtras {
+  zona?: string;
+  [key: string]: unknown;
+}
+
+/** Datos base del perfil (JSONB datos_base) */
+export interface ProfileDatosBase {
+  segundo_apellido?: string;
+  _tenant?: Record<string, import('./index').TenantProfileData>;
+  [key: string]: unknown;
+}
+
+/** Metadatos de auditoría (JSONB metadata) */
+export interface AuditMetadata {
   [key: string]: unknown;
 }
 

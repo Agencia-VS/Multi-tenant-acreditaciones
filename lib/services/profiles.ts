@@ -6,7 +6,7 @@
  */
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { Profile, RegistrationFormData } from '@/types';
+import type { Profile, RegistrationFormData, ProfileDatosBase } from '@/types';
 
 // Import + re-export isomorphic autofill (no server deps)
 import { buildMergedAutofillData } from './autofill';
@@ -183,7 +183,7 @@ export async function updateProfileDatosBase(
     .eq('id', profileId)
     .single();
   
-  const merged = { ...((existing?.datos_base || {}) as Record<string, unknown>), ...datosBase };
+  const merged: ProfileDatosBase = { ...((existing?.datos_base || {}) as ProfileDatosBase), ...datosBase };
   
   const { data, error } = await supabase
     .from('profiles')
@@ -227,8 +227,8 @@ export async function saveTenantProfileData(
     .eq('id', profileId)
     .single();
 
-  const datosBase = (existing?.datos_base || {}) as Record<string, unknown>;
-  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+  const datosBase = (existing?.datos_base || {}) as ProfileDatosBase;
+  const tenantMap = datosBase._tenant || {};
   const currentTenantData = tenantMap[tenantId] || {};
 
   // Merge datos nuevos con existentes del tenant (sin perder datos previos)
@@ -276,8 +276,8 @@ export async function getTenantProfileData(
 
   if (!data?.datos_base) return null;
 
-  const datosBase = data.datos_base as Record<string, unknown>;
-  const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+  const datosBase = (data.datos_base || {}) as ProfileDatosBase;
+  const tenantMap = datosBase._tenant || {};
 
   return tenantMap[tenantId] || null;
 }

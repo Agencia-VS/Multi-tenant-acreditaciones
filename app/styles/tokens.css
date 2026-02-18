@@ -37,6 +37,13 @@
   --color-edge: #DEDEDE;
   --color-field-border: #CCCCCC;
 
+  /* ── Dark surfaces (admin panels) ── */
+  --color-dark-surface: #111827;
+  --color-dark-edge: #1f2937;
+  --color-dark-subtle: #1f2937;
+  --color-dark-muted: #9ca3af;
+  --color-dark-dimmed: #6b7280;
+
   /* ── Status / Sentiment ── */
   --color-success: #059669;
   --color-success-light: #D4F5E9;

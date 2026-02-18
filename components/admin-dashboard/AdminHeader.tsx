@@ -62,7 +62,7 @@ export default function AdminHeader() {
   };
 
   return (
-    <div className="bg-surface/95 backdrop-blur-sm border-b border-edge sticky top-0 z-30">
+    <div className="bg-surface/95 backdrop-blur-sm border-b border-edge top-0 z-30">
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6">
         {/* Top bar */}
         <div className="flex items-center justify-between py-4">

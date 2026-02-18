@@ -13,7 +13,6 @@ import { RegistrationWizard as DynamicRegistrationForm } from '@/components/form
 import Link from 'next/link';
 import { isAccreditationClosed } from '@/lib/dates';
 import { BackButton } from '@/components/shared/ui';
-import type { EventType } from '@/types';
 
 export default async function AcreditacionPage({
   params,
@@ -46,14 +45,14 @@ export default async function AcreditacionPage({
   }
 
   // Verificar si la acreditación está cerrada (override manual + fecha límite)
-  const eventConfig = (event.config || {}) as Record<string, unknown>;
+  const eventConfig = event.config ?? {};
   const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
     eventConfig,
     event.fecha_limite_acreditacion
   );
 
   // ─── Multi-día: obtener jornadas del evento ───
-  const eventType = ((event as Record<string, unknown>).event_type as EventType) || 'simple';
+  const eventType = event.event_type || 'simple';
   const eventDays = eventType === 'multidia' ? await listEventDays(event.id) : [];
 
   return (
@@ -99,7 +98,7 @@ export default async function AcreditacionPage({
             eventFecha={event.fecha}
             eventVenue={event.venue}
             fechaLimite={event.fecha_limite_acreditacion}
-            bulkEnabled={!!(tenant.config as Record<string, unknown>)?.acreditacion_masiva_enabled}
+            bulkEnabled={!!tenant.config?.acreditacion_masiva_enabled}
             eventType={eventType}
             eventDays={eventDays}
             userProfile={userProfile ? {

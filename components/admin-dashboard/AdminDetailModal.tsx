@@ -21,10 +21,10 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
   const isProcessing = processing === reg.id;
   // Get zone options: event config first, then tenant config fallback
   const zonaOptions =
-    ((selectedEvent?.config as Record<string, unknown>)?.zonas as string[]) ||
-    ((tenant?.config as Record<string, unknown>)?.zonas as string[]) ||
+    selectedEvent?.config?.zonas ||
+    tenant?.config?.zonas ||
     [];
-  const currentZona = (reg.datos_extra as Record<string, unknown>)?.zona as string || '';
+  const currentZona = reg.datos_extra?.zona || '';
 
   const handleReject = () => {
     if (!rejectMotivo.trim()) return;

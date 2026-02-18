@@ -205,3 +205,24 @@ input, select, textarea {
     font-size: 0.8rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOVER UTILITIES — Dynamic tenant colors via CSS custom properties
+   
+   Usage: set --hc-bg, --hc-bg-hover, --hc-color, --hc-color-hover
+   via inline style, then apply the class.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.hover-colors {
+  background: var(--hc-bg);
+  color: var(--hc-color);
+}
+.hover-colors:hover {
+  background: var(--hc-bg-hover);
+  color: var(--hc-color-hover);
+}
+.hover-color-only {
+  color: var(--hc-color);
+}
+.hover-color-only:hover {
+  color: var(--hc-color-hover);
+}

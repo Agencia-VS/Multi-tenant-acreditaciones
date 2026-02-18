@@ -2,6 +2,7 @@
  * Servicio de Tenants — Gestión de Clientes/Organizaciones
  */
 
+import { randomBytes } from 'crypto';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Tenant, TenantFormData, TenantWithStats, TenantAdmin } from '@/types';
 import { cache } from 'react';
@@ -115,22 +116,32 @@ export async function updateTenant(tenantId: string, data: Partial<TenantFormDat
 }
 
 /**
- * Crear admin para un tenant
+ * Crear admin para un tenant.
+ * Si no se proporciona password, se genera una contraseña temporal
+ * y se marca al usuario para que cambie la contraseña en su primer inicio de sesión.
  */
 export async function createTenantAdmin(
   tenantId: string,
   email: string,
   nombre: string,
-  password: string
-): Promise<TenantAdmin> {
+  password?: string
+): Promise<TenantAdmin & { tempPassword?: string }> {
   const supabase = createSupabaseAdminClient();
+
+  // Auto-generar contraseña temporal si no se recibe
+  const isTemp = !password;
+  const finalPassword = password || randomBytes(12).toString('base64url');
 
   // Crear usuario en Supabase Auth
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
-    password,
+    password: finalPassword,
     email_confirm: true,
-    user_metadata: { nombre, role: 'admin_tenant' },
+    user_metadata: {
+      nombre,
+      role: 'admin_tenant',
+      ...(isTemp ? { must_change_password: true } : {}),
+    },
   });
 
   if (authError) throw new Error(`Error creando usuario: ${authError.message}`);
@@ -149,7 +160,11 @@ export async function createTenantAdmin(
     .single();
 
   if (error) throw new Error(`Error asignando admin: ${error.message}`);
-  return admin as TenantAdmin;
+
+  return {
+    ...(admin as TenantAdmin),
+    ...(isTemp ? { tempPassword: finalPassword } : {}),
+  };
 }
 
 /**
@@ -182,4 +197,67 @@ export async function listActiveTenants(): Promise<Tenant[]> {
 
   if (error) throw new Error(`Error listando tenants: ${error.message}`);
   return (data || []) as Tenant[];
+}
+
+/**
+ * Eliminar un tenant y todos sus datos asociados.
+ * 
+ * Las tablas hijas se eliminan por CASCADE en SQL (events, registrations,
+ * registration_days, event_quota_rules, event_zone_rules, event_days,
+ * tenant_admins, email_templates, email_zone_content).
+ * 
+ * Adicionalmente se limpia:
+ * - Auth users de los tenant_admins
+ * - Archivos en storage bucket 'assets' bajo la carpeta del tenant
+ */
+export async function deleteTenant(tenantId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+
+  // 1. Obtener tenant para saber slug (para storage cleanup)
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('slug')
+    .eq('id', tenantId)
+    .single();
+
+  if (!tenant) throw new Error('Tenant no encontrado');
+
+  // 2. Obtener auth user_ids de los admins antes de que se eliminen por cascade
+  const { data: admins } = await supabase
+    .from('tenant_admins')
+    .select('user_id')
+    .eq('tenant_id', tenantId);
+
+  // 3. Eliminar tenant (SQL CASCADE limpia: events, registrations, etc.)
+  const { error: deleteError } = await supabase
+    .from('tenants')
+    .delete()
+    .eq('id', tenantId);
+
+  if (deleteError) throw new Error(`Error eliminando tenant: ${deleteError.message}`);
+
+  // 4. Eliminar auth users de los admins (post-cascade, no bloquean)
+  if (admins?.length) {
+    for (const admin of admins) {
+      try {
+        await supabase.auth.admin.deleteUser(admin.user_id);
+      } catch {
+        // No bloquear si falla eliminar un auth user
+      }
+    }
+  }
+
+  // 5. Limpiar archivos en storage (logos, escudos, backgrounds)
+  try {
+    const { data: files } = await supabase.storage
+      .from('assets')
+      .list(`tenants/${tenant.slug}`);
+
+    if (files?.length) {
+      const filePaths = files.map(f => `tenants/${tenant.slug}/${f.name}`);
+      await supabase.storage.from('assets').remove(filePaths);
+    }
+  } catch {
+    // No bloquear si falla la limpieza de storage
+  }
 }

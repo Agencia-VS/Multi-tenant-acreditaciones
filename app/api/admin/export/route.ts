@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listRegistrations } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
-import type { RegistrationStatus } from '@/types';
+import type { RegistrationStatus, RegistrationExtras, ProfileDatosBase } from '@/types';
 import { STATUS_MAP } from '@/types';
 import ExcelJS from 'exceljs';
 
@@ -49,9 +49,9 @@ const ALL_XLSX_COLUMNS: ColumnDef[] = [
 
 /** Try to extract a field: datos_extra → profile datos_base → '' */
 function extractField(r: Record<string, unknown>, key: string): string {
-  const extras = (r.datos_extra ?? {}) as Record<string, unknown>;
+  const extras = (r.datos_extra ?? {}) as RegistrationExtras;
   if (extras[key]) return String(extras[key]);
-  const db = (r.profile_datos_base ?? {}) as Record<string, unknown>;
+  const db = (r.profile_datos_base ?? {}) as ProfileDatosBase;
   if (db[key]) return String(db[key]);
   return '';
 }

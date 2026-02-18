@@ -22,7 +22,7 @@ function getFromEmail(): string {
 /* ─── Template Engine ─────────────────────────────────────────────── */
 
 /** Escapa caracteres HTML para prevenir inyección en emails */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -32,7 +32,7 @@ function escapeHtml(str: string): string {
 }
 
 /** Valida que un string sea un color CSS seguro (hex o nombre simple) */
-function safeColor(color: string | null | undefined, fallback: string): string {
+export function safeColor(color: string | null | undefined, fallback: string): string {
   if (!color) return fallback;
   // Solo permitir #hex y nombres de colores simples
   if (/^#[0-9a-fA-F]{3,8}$/.test(color)) return color;
@@ -41,7 +41,7 @@ function safeColor(color: string | null | undefined, fallback: string): string {
 }
 
 /** Valida que un string sea una URL segura (https) */
-function safeUrl(url: string | null | undefined): string {
+export function safeUrl(url: string | null | undefined): string {
   if (!url) return '';
   try {
     const parsed = new URL(url);
@@ -52,7 +52,7 @@ function safeUrl(url: string | null | undefined): string {
   return '';
 }
 
-interface TemplateVars {
+export interface TemplateVars {
   nombre: string;
   apellido: string;
   evento: string;
@@ -77,7 +77,7 @@ interface TemplateVars {
  * Las variables de contenido HTML (qr_section, instrucciones, info, notas) NO se escapan
  * porque son generadas por el sistema o por admins de confianza.
  */
-function replaceVars(template: string, vars: TemplateVars): string {
+export function replaceVars(template: string, vars: TemplateVars): string {
   return template
     .replace(/\{nombre\}/g, vars.nombre)
     .replace(/\{apellido\}/g, vars.apellido)
@@ -144,14 +144,12 @@ async function getZoneContent(
 
 /** Extrae la zona del registration (vive en datos_extra.zona) */
 function extractZona(registration: RegistrationFull): string {
-  const de = registration.datos_extra as Record<string, unknown> | null;
-  return (de?.zona as string) || '';
+  return registration.datos_extra?.zona || '';
 }
 
 /** Extrae un campo de datos_extra */
 function extractField(registration: RegistrationFull, field: string): string {
-  const de = registration.datos_extra as Record<string, unknown> | null;
-  return (de?.[field] as string) || '';
+  return String(registration.datos_extra?.[field] || '');
 }
 
 /** Construye las variables de plantilla a partir de registration + tenant + zone content */
@@ -419,6 +417,61 @@ export async function sendBulkApprovalEmails(
   }
 
   return { sent, errors };
+}
+
+/**
+ * Enviar email de bienvenida con credenciales temporales al admin de un tenant.
+ */
+export async function sendWelcomeEmail(params: {
+  to: string;
+  nombre: string;
+  tenantName: string;
+  tenantSlug: string;
+  tempPassword: string;
+  loginUrl: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, nombre, tenantName, tempPassword, loginUrl } = params;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 520px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #111827; margin-bottom: 8px;">Bienvenido/a, ${escapeHtml(nombre)}</h2>
+      <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+        Tu cuenta de administrador para <strong>${escapeHtml(tenantName)}</strong> ha sido creada.
+      </p>
+
+      <div style="background: #f3f4f6; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+        <p style="font-size: 13px; color: #374151; margin: 0 0 12px 0;"><strong>Credenciales de acceso:</strong></p>
+        <p style="font-size: 14px; color: #111827; margin: 4px 0;">📧 Email: <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${escapeHtml(to)}</code></p>
+        <p style="font-size: 14px; color: #111827; margin: 4px 0;">🔑 Contraseña temporal: <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${escapeHtml(tempPassword)}</code></p>
+      </div>
+
+      <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+        <p style="font-size: 13px; color: #92400e; margin: 0;">
+          ⚠️ <strong>Importante:</strong> Deberás cambiar tu contraseña en tu primer inicio de sesión.
+        </p>
+      </div>
+
+      <a href="${escapeHtml(loginUrl)}" style="display: inline-block; background: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+        Iniciar sesión
+      </a>
+
+      <p style="font-size: 12px; color: #9ca3af; margin-top: 24px;">
+        Si no solicitaste esta cuenta, puedes ignorar este email.
+      </p>
+    </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: getFromEmail(),
+      to,
+      subject: `Bienvenido/a a ${tenantName} — Credenciales de acceso`,
+      html,
+    });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error enviando email' };
+  }
 }
 
 /** Log interno de emails enviados */

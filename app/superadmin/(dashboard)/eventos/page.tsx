@@ -3,9 +3,10 @@
 /**
  * SuperAdmin — Gestión de Eventos
  * Crear/editar eventos con form_fields dinámicos y cupos
+ * Incluye filtros por tenant, estado, búsqueda y agrupación visual.
  */
-import { useState, useEffect, useCallback } from 'react';
-import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField, EventType, EventDayFormData, BulkTemplateColumn } from '@/types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { FormFieldDefinition, Tenant, EventFull, ZoneMatchField, EventType, EventDayFormData, BulkTemplateColumn } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
@@ -16,7 +17,7 @@ import EventZonesTab from './EventZonesTab';
 import EventDaysTab from './EventDaysTab';
 import EventBulkTemplateTab from './EventBulkTemplateTab';
 
-type SAEvent = BaseEvent & { tenant?: Tenant };
+type SAEvent = EventFull;
 
 interface QuotaRule {
   id?: string;
@@ -48,6 +49,53 @@ export default function EventosPage() {
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
+
+  // ── Filter & search state ──────────────────────────────────────────────
+  const [filterTenantId, setFilterTenantId] = useState<string>('all');
+  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // ── Derived: filtered events + grouped by tenant ───────────────────────
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      if (filterTenantId !== 'all' && e.tenant_id !== filterTenantId) return false;
+      if (filterActive === 'active' && !e.is_active) return false;
+      if (filterActive === 'inactive' && e.is_active) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const haystack = [e.nombre, e.tenant_nombre, e.venue, e.opponent_name]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [events, filterTenantId, filterActive, searchQuery]);
+
+  const groupedByTenant = useMemo(() => {
+    const groups: { tenantId: string; tenantName: string; color: string; events: SAEvent[] }[] = [];
+    const map = new Map<string, typeof groups[number]>();
+    for (const e of filteredEvents) {
+      const tid = e.tenant_id;
+      if (!map.has(tid)) {
+        const group = {
+          tenantId: tid,
+          tenantName: e.tenant_nombre ?? 'Sin tenant',
+          color: e.tenant_color_primario ?? '#6366f1',
+          events: [] as SAEvent[],
+        };
+        map.set(tid, group);
+        groups.push(group);
+      }
+      map.get(tid)!.events.push(e);
+    }
+    // Sort groups by tenant name
+    groups.sort((a, b) => a.tenantName.localeCompare(b.tenantName));
+    return groups;
+  }, [filteredEvents]);
+
+  // Counters
+  const totalActive = events.filter(e => e.is_active).length;
+  const totalInactive = events.length - totalActive;
 
   // Event form state
   const [eventForm, setEventForm] = useState({
@@ -109,19 +157,19 @@ export default function EventosPage() {
       opponent_name: '',
       opponent_logo_url: '',
       qr_enabled: source.qr_enabled,
-      event_type: (source as BaseEvent & { event_type?: EventType }).event_type || 'simple',
+      event_type: source.event_type || 'simple',
       fecha_inicio: '',
       fecha_fin: '',
     }));
     setFormFields(source.form_fields?.length ? source.form_fields : DEFAULT_FORM_FIELDS);
 
     // Load event config zonas & bulk template columns
-    const evConfig = (source.config || {}) as Record<string, unknown>;
-    setEventZonas((evConfig.zonas as string[]) || []);
-    setBulkTemplateColumns((evConfig.bulk_template_columns as BulkTemplateColumn[]) || []);
+    const evConfig = source.config ?? {};
+    setEventZonas(evConfig.zonas || []);
+    setBulkTemplateColumns(evConfig.bulk_template_columns || []);
 
     // Load event days structure (without dates)
-    if ((source as BaseEvent & { event_type?: string }).event_type === 'multidia') {
+    if (source.event_type === 'multidia') {
       try {
         const daysRes = await fetch(`/api/events/${source.id}/days`);
         if (daysRes.ok) {
@@ -212,14 +260,14 @@ export default function EventosPage() {
       opponent_logo_url: event.opponent_logo_url || '',
       qr_enabled: event.qr_enabled,
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
-      event_type: (event as BaseEvent & { event_type?: EventType }).event_type || 'simple',
-      fecha_inicio: (event as BaseEvent & { fecha_inicio?: string }).fecha_inicio || '',
-      fecha_fin: (event as BaseEvent & { fecha_fin?: string }).fecha_fin || '',
+      event_type: event.event_type || 'simple',
+      fecha_inicio: event.fecha_inicio || '',
+      fecha_fin: event.fecha_fin || '',
     });
     setFormFields(event.form_fields?.length ? event.form_fields : DEFAULT_FORM_FIELDS);
 
     // Load event days for multidía events
-    if ((event as BaseEvent & { event_type?: string }).event_type === 'multidia') {
+    if (event.event_type === 'multidia') {
       try {
         const daysRes = await fetch(`/api/events/${event.id}/days`);
         if (daysRes.ok) {
@@ -239,10 +287,10 @@ export default function EventosPage() {
     }
 
     // Load event zonas from config
-    const evConfig = (event.config || {}) as Record<string, unknown>;
-    setEventZonas((evConfig.zonas as string[]) || []);
+    const evConfig = event.config ?? {};
+    setEventZonas(evConfig.zonas || []);
     setNewEventZona('');
-    setBulkTemplateColumns((evConfig.bulk_template_columns as BulkTemplateColumn[]) || []);
+    setBulkTemplateColumns(evConfig.bulk_template_columns || []);
 
     // Load quota rules (API returns array directly, not { rules: [...] })
     try {
@@ -288,7 +336,7 @@ export default function EventosPage() {
     setSaving(true);
     try {
       // Merge zonas into existing event config (preserving other config keys like acreditacion_abierta)
-      const existingConfig = editing ? ((editing.config || {}) as Record<string, unknown>) : {};
+      const existingConfig: Record<string, unknown> = editing?.config && typeof editing.config === 'object' ? { ...(editing.config as Record<string, unknown>) } : {};
       const eventConfig = {
         ...existingConfig,
         zonas: eventZonas.length > 0 ? eventZonas : undefined,
@@ -740,81 +788,163 @@ export default function EventosPage() {
       ) : events.length === 0 ? (
         <EmptyState message="No hay eventos creados" icon="fa-calendar-times" action={{ label: 'Crear Evento', onClick: handleNew }} />
       ) : (
-        <div className="grid gap-4">
-          {events.map((event) => (
-            <div key={event.id} className="bg-surface rounded-xl border p-6 hover:shadow-md transition">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-success' : 'bg-edge'}`} />
-                  <div>
-                    <h3 className="font-bold text-heading text-lg">{event.nombre}</h3>
-                    <div className="flex items-center gap-4 text-sm text-body mt-1">
-                      {event.tenant && <span><i className="fas fa-building mr-1" />{event.tenant.nombre}</span>}
-                      {event.fecha && <span><i className="fas fa-calendar mr-1" />{new Date(event.fecha).toLocaleDateString('es-CL')}</span>}
-                      {event.venue && <span><i className="fas fa-map-marker-alt mr-1" />{event.venue}</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-2 text-xs">
-                    {/* Event type badge */}
-                    {(event as BaseEvent & { event_type?: string }).event_type === 'deportivo' && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                        <i className="fas fa-futbol mr-1" />Deportivo
-                      </span>
-                    )}
-                    {(event as BaseEvent & { event_type?: string }).event_type === 'multidia' && (
-                      <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full">
-                        <i className="fas fa-calendar-week mr-1" />Multidía
-                      </span>
-                    )}
-                    {event.qr_enabled && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
-                        <i className="fas fa-qrcode mr-1" />QR
-                      </span>
-                    )}
-                    <span className="px-2 py-1 bg-info-light text-brand rounded-full">
-                      {event.form_fields?.length || 0} campos
+        <>
+          {/* ── Filter Bar ───────────────────────────────────────────────── */}
+          <div className="bg-surface rounded-xl border p-4 mb-6 flex flex-wrap items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nombre, tenant, venue..."
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+              />
+            </div>
+
+            {/* Tenant filter */}
+            <select
+              value={filterTenantId}
+              onChange={(e) => setFilterTenantId(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+            >
+              <option value="all">Todos los tenants</option>
+              {tenants.map(t => (
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              ))}
+            </select>
+
+            {/* Active/Inactive filter */}
+            <div className="flex rounded-lg border border-field-border overflow-hidden text-sm">
+              {([
+                { value: 'all', label: 'Todos', count: events.length },
+                { value: 'active', label: 'Activos', count: totalActive },
+                { value: 'inactive', label: 'Inactivos', count: totalInactive },
+              ] as const).map(({ value, label, count }) => (
+                <button
+                  key={value}
+                  onClick={() => setFilterActive(value)}
+                  className={`px-3 py-2 transition font-medium ${
+                    filterActive === value
+                      ? 'bg-brand text-white'
+                      : 'text-body hover:bg-muted/10'
+                  }`}
+                >
+                  {label} <span className="ml-1 opacity-70">({count})</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Results counter */}
+            <span className="text-sm text-muted whitespace-nowrap">
+              {filteredEvents.length === events.length
+                ? `${events.length} eventos`
+                : `${filteredEvents.length} de ${events.length}`}
+            </span>
+          </div>
+
+          {/* ── Grouped Event List ───────────────────────────────────────── */}
+          {filteredEvents.length === 0 ? (
+            <EmptyState
+              message="No hay eventos que coincidan con los filtros"
+              icon="fa-filter"
+              action={{ label: 'Limpiar filtros', onClick: () => { setFilterTenantId('all'); setFilterActive('all'); setSearchQuery(''); } }}
+            />
+          ) : (
+            <div className="space-y-6">
+              {groupedByTenant.map((group) => (
+                <div key={group.tenantId}>
+                  {/* Tenant group header */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className="w-1 h-8 rounded-full"
+                      style={{ backgroundColor: group.color }}
+                    />
+                    <h2 className="font-bold text-heading text-base">{group.tenantName}</h2>
+                    <span className="text-xs text-muted bg-muted/10 px-2 py-0.5 rounded-full">
+                      {group.events.length} evento{group.events.length !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleEdit(event)}
-                    className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition"
-                  >
-                    <i className="fas fa-edit mr-1" /> Editar
-                  </button>
 
-                  {/* Delete event */}
-                  {deletingEventId === event.id ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-danger font-medium">¿Eliminar?</span>
-                      <button
-                        onClick={() => handleDeleteEvent(event.id)}
-                        className="px-2 py-1 bg-danger text-white rounded-lg text-xs font-medium hover:bg-danger/90 transition"
-                      >
-                        Sí
-                      </button>
-                      <button
-                        onClick={() => setDeletingEventId(null)}
-                        className="px-2 py-1 text-body hover:text-label text-xs"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setDeletingEventId(event.id)}
-                      className="p-1.5 text-muted hover:text-danger hover:bg-red-50 rounded-lg transition"
-                      title="Eliminar evento"
-                    >
-                      <i className="fas fa-trash text-sm" />
-                    </button>
-                  )}
+                  <div className="grid gap-3 pl-4 border-l-2" style={{ borderColor: `${group.color}30` }}>
+                    {group.events.map((event) => (
+                      <div key={event.id} className="bg-surface rounded-xl border p-5 hover:shadow-md transition">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-success' : 'bg-edge'}`} />
+                            <div>
+                              <h3 className="font-bold text-heading text-lg">{event.nombre}</h3>
+                              <div className="flex items-center gap-4 text-sm text-body mt-1">
+                                {event.fecha && <span><i className="fas fa-calendar mr-1" />{new Date(event.fecha).toLocaleDateString('es-CL')}</span>}
+                                {event.venue && <span><i className="fas fa-map-marker-alt mr-1" />{event.venue}</span>}
+                                {event.opponent_name && <span><i className="fas fa-futbol mr-1" />vs {event.opponent_name}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex gap-2 text-xs">
+                              {event.event_type === 'deportivo' && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                                  <i className="fas fa-futbol mr-1" />Deportivo
+                                </span>
+                              )}
+                              {event.event_type === 'multidia' && (
+                                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full">
+                                  <i className="fas fa-calendar-week mr-1" />Multidía
+                                </span>
+                              )}
+                              {event.qr_enabled && (
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
+                                  <i className="fas fa-qrcode mr-1" />QR
+                                </span>
+                              )}
+                              <span className="px-2 py-1 bg-info-light text-brand rounded-full">
+                                {event.form_fields?.length || 0} campos
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleEdit(event)}
+                              className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition"
+                            >
+                              <i className="fas fa-edit mr-1" /> Editar
+                            </button>
+
+                            {deletingEventId === event.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-danger font-medium">¿Eliminar?</span>
+                                <button
+                                  onClick={() => handleDeleteEvent(event.id)}
+                                  className="px-2 py-1 bg-danger text-white rounded-lg text-xs font-medium hover:bg-danger/90 transition"
+                                >
+                                  Sí
+                                </button>
+                                <button
+                                  onClick={() => setDeletingEventId(null)}
+                                  className="px-2 py-1 text-body hover:text-label text-xs"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setDeletingEventId(event.id)}
+                                className="p-1.5 text-muted hover:text-danger hover:bg-red-50 rounded-lg transition"
+                                title="Eliminar evento"
+                              >
+                                <i className="fas fa-trash text-sm" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

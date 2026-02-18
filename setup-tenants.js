@@ -40,7 +40,7 @@ async function setupTenants() {
 
     for (const tenant of tenants) {
       const { error } = await supabase
-        .from('mt_tenants')
+        .from('tenants')
         .upsert(tenant, { onConflict: 'slug' });
 
       if (error) {
@@ -61,7 +61,7 @@ async function setupTenants() {
 
     for (const update of updates) {
       const { error } = await supabase
-        .from('mt_tenants')
+        .from('tenants')
         .update({ nombre: update.nombre })
         .eq('slug', update.slug);
 
@@ -72,7 +72,7 @@ async function setupTenants() {
 
     // Verificar tenants existentes
     const { data, error } = await supabase
-      .from('mt_tenants')
+      .from('tenants')
       .select('nombre, slug')
       .order('created_at', { ascending: false });
 

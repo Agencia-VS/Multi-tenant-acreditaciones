@@ -7,10 +7,11 @@
  */
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { LoadingSpinner, useToast } from '@/components/shared/ui';
+import { LoadingSpinner, ButtonSpinner, useToast } from '@/components/shared/ui';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { formatRut, cleanRut, validateEmail, validatePhone, sanitize } from '@/lib/validation';
 import { isProfileComplete, getMissingProfileFields, REQUIRED_PROFILE_FIELDS } from '@/lib/profile';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface Profile {
   id: string;
@@ -38,6 +39,10 @@ export default function PerfilPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const { showSuccess, showError } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -348,6 +353,71 @@ export default function PerfilPage() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Cambiar contraseña */}
+        <div className="border-t pt-5">
+          <button
+            type="button"
+            onClick={() => setShowPasswordSection(!showPasswordSection)}
+            className="flex items-center gap-2 text-sm font-medium text-brand hover:text-brand-hover transition"
+          >
+            <i className={`fas fa-chevron-${showPasswordSection ? 'down' : 'right'} text-xs`} />
+            <i className="fas fa-lock text-sm" />
+            Cambiar contraseña
+          </button>
+
+          {showPasswordSection && (
+            <div className="mt-4 p-4 bg-surface rounded-lg border space-y-4 animate-fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-label mb-1">Nueva contraseña</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                    minLength={8}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-label mb-1">Confirmar contraseña</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repite la contraseña"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-danger text-xs"><i className="fas fa-exclamation-circle mr-1" />Las contraseñas no coinciden</p>
+              )}
+              <button
+                type="button"
+                disabled={passwordSaving || !newPassword || newPassword.length < 8 || newPassword !== confirmPassword}
+                onClick={async () => {
+                  setPasswordSaving(true);
+                  const supabase = getSupabaseBrowserClient();
+                  const { error } = await supabase.auth.updateUser({ password: newPassword });
+                  if (error) {
+                    showError(error.message);
+                  } else {
+                    showSuccess('Contraseña actualizada');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setShowPasswordSection(false);
+                  }
+                  setPasswordSaving(false);
+                }}
+                className="px-4 py-2 bg-brand text-on-brand rounded-lg text-sm font-semibold hover:bg-brand-hover disabled:opacity-50 transition flex items-center gap-2"
+              >
+                {passwordSaving ? <><ButtonSpinner /> Actualizando...</> : 'Actualizar contraseña'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="pt-4 border-t">

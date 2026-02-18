@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { BackButton, useToast, ButtonSpinner } from '@/components/shared/ui';
+import { shouldForcePasswordChange, getForceChangeRedirectUrl } from '@/lib/services/passwordPolicy';
 
 interface AdminLoginFormProps {
   tenantSlug: string;
@@ -32,12 +33,14 @@ export default function AdminLoginForm({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
     try {
@@ -59,6 +62,14 @@ export default function AdminLoginForm({
       }
 
       if (data.session) {
+        // Si el usuario debe cambiar su contraseña, redirigir al formulario
+        if (shouldForcePasswordChange(data.user)) {
+          window.location.href = getForceChangeRedirectUrl(
+            window.location.origin,
+            `/${tenantSlug}/admin`
+          );
+          return;
+        }
         window.location.href = `/${tenantSlug}/admin`;
       }
     } catch {
@@ -67,6 +78,28 @@ export default function AdminLoginForm({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Ingresa tu email para recuperar la contraseña');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    const supabase = getSupabaseBrowserClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery&next=/${tenantSlug}/admin`,
+    });
+    if (resetError) {
+      setError(resetError.message);
+      showError(resetError.message);
+    } else {
+      setSuccess('Se envió un enlace de recuperación a tu email.');
+      showSuccess('Email de recuperación enviado');
+    }
+    setLoading(false);
   };
 
   return (
@@ -192,6 +225,14 @@ export default function AdminLoginForm({
                 <p className="text-sm text-danger-dark">{error}</p>
               </div>
             )}
+            {success && (
+              <div className="flex items-start gap-3 bg-success-light border border-success/20 rounded-xl px-4 py-3">
+                <svg className="h-5 w-5 text-success mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-success-dark">{success}</p>
+              </div>
+            )}
 
             {/* Submit button */}
             <button
@@ -217,6 +258,19 @@ export default function AdminLoginForm({
               )}
             </button>
           </form>
+
+          {/* Forgot password */}
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="text-xs hover:underline disabled:opacity-50"
+              style={{ color: colorPrimario }}
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
 
           {/* Footer */}
           <div className="mt-6 pt-6 border-t border-edge text-center">

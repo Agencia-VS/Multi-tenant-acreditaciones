@@ -54,6 +54,7 @@ function AcreditadoAuthContent() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: form.email,
@@ -131,6 +132,27 @@ function AcreditadoAuthContent() {
       showSuccess('Cuenta creada. Revisa tu email para confirmarla.');
     }
 
+    setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!form.email.trim()) {
+      setError('Ingresa tu email para recuperar la contraseña');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(form.email, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+    });
+    if (resetError) {
+      setError(resetError.message);
+      showError(resetError.message);
+    } else {
+      setSuccess('Se envió un enlace de recuperación a tu email. Revisa tu bandeja de entrada.');
+      showSuccess('Email de recuperación enviado');
+    }
     setLoading(false);
   };
 
@@ -252,6 +274,18 @@ function AcreditadoAuthContent() {
                       </>
                     ) : 'Ingresar'}
                   </button>
+
+                  {/* Forgot password */}
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={loading}
+                      className="text-xs text-brand hover:underline disabled:opacity-50"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  </div>
 
                   {/* Hint */}
                   <p className="text-center text-xs text-muted pt-1">

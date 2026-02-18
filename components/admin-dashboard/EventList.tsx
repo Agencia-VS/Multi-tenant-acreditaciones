@@ -1,0 +1,152 @@
+'use client';
+
+import { useState } from 'react';
+import { useAdmin } from './AdminContext';
+import { EmptyState } from '@/components/shared/ui';
+import type { Event } from '@/types';
+
+interface EventListProps {
+  onCreateNew: () => void;
+  onEditEvent: (ev: Event) => void;
+}
+
+export default function EventList({ onCreateNew, onEditEvent }: EventListProps) {
+  const { tenant, events, selectedEvent, selectEvent, showSuccess, showError, fetchData } = useAdmin();
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  const handleToggleActive = async (ev: Event) => {
+    try {
+      if (ev.is_active) {
+        const res = await fetch(`/api/events?id=${ev.id}`, { method: 'DELETE' });
+        if (res.ok) { showSuccess('Evento desactivado'); fetchData(); }
+      } else {
+        const res = await fetch(`/api/events?id=${ev.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: true }),
+        });
+        if (res.ok) { showSuccess('Evento activado'); fetchData(); }
+      }
+    } catch {
+      showError('Error actualizando evento');
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/events?id=${eventId}&action=delete`, { method: 'DELETE' });
+      if (res.ok) {
+        showSuccess('Evento eliminado');
+        setDeletingEventId(null);
+        fetchData();
+      } else {
+        const d = await res.json();
+        showError(d.error || 'Error eliminando evento');
+      }
+    } catch {
+      showError('Error de conexión');
+    }
+  };
+
+  return (
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge">
+      <div className="px-6 py-4 border-b border-edge flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-heading">Eventos</h2>
+          <p className="text-sm text-body">Gestiona los eventos de {tenant?.nombre}</p>
+        </div>
+        <button
+          onClick={onCreateNew}
+          className="px-4 py-2 bg-brand text-on-brand rounded-xl text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2"
+        >
+          <i className="fas fa-plus" /> Nuevo evento
+        </button>
+      </div>
+
+      {events.length === 0 ? (
+        <EmptyState
+          message="No hay eventos creados"
+          icon="fa-calendar-plus"
+          action={{ label: 'Crear primer evento', onClick: onCreateNew }}
+        />
+      ) : (
+        <div className="divide-y divide-edge/50">
+          {events.map(ev => (
+            <div
+              key={ev.id}
+              className={`px-6 py-4 flex items-center justify-between hover:bg-canvas/50 transition ${
+                selectedEvent?.id === ev.id ? 'bg-accent-light/30 border-l-4 border-l-brand' : ''
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-3 h-3 rounded-full ${ev.is_active ? 'bg-success' : 'bg-edge'}`} />
+                <div>
+                  <p className="text-sm font-medium text-heading">{ev.nombre}</p>
+                  <p className="text-xs text-body">
+                    {ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-CL') : 'Sin fecha'}
+                    {ev.venue && ` · ${ev.venue}`}
+                    {ev.opponent_name && ` · vs ${ev.opponent_name}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleToggleActive(ev)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                    ev.is_active
+                      ? 'bg-success-light text-success-dark hover:bg-success-light/80'
+                      : 'bg-subtle text-body hover:bg-edge'
+                  }`}
+                >
+                  {ev.is_active ? 'Activo' : 'Inactivo'}
+                </button>
+
+                <button
+                  onClick={() => selectEvent(ev.id)}
+                  className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-xs font-medium hover:bg-accent-light/80 transition"
+                >
+                  <i className="fas fa-eye mr-1" /> Ver registros
+                </button>
+
+                <button
+                  onClick={() => onEditEvent(ev)}
+                  className="p-1.5 text-muted hover:text-brand hover:bg-accent-light rounded-lg transition"
+                  aria-label={`Editar evento ${ev.nombre}`}
+                >
+                  <i className="fas fa-pen text-sm" />
+                </button>
+
+                {deletingEventId === ev.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-danger font-medium">¿Eliminar?</span>
+                    <button
+                      onClick={() => handleDeleteEvent(ev.id)}
+                      className="px-2 py-1 bg-danger text-white rounded text-xs font-medium hover:bg-danger/90 transition"
+                    >
+                      Sí
+                    </button>
+                    <button
+                      onClick={() => setDeletingEventId(null)}
+                      className="px-2 py-1 text-body hover:text-label text-xs"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeletingEventId(ev.id)}
+                    className="p-1.5 text-muted hover:text-danger hover:bg-red-50 rounded-lg transition"
+                    title="Eliminar evento"
+                  >
+                    <i className="fas fa-trash text-sm" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

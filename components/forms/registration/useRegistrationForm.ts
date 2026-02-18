@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { FormFieldDefinition, TeamMember } from '@/types';
+import type { FormFieldDefinition, TeamMember, ProfileDatosBase } from '@/types';
 import { TIPOS_MEDIO } from '@/types';
 import { useQuotaCheck } from '@/hooks/useQuotaCheck';
 import { useTenantProfile } from '@/hooks/useTenantProfile';
@@ -287,7 +287,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       email: responsable.email,
       telefono: responsable.telefono,
       cargo: eventHasCargo ? ((userProfile?.cargo as string) || '') : '',
-      dynamicData: buildDynamicData(userProfile?.datos_base as Record<string, unknown> | null),
+      dynamicData: buildDynamicData((userProfile?.datos_base ?? null) as ProfileDatosBase | null),
       isResponsable: true,
     };
     setAcreditados(prev => [me, ...prev]);

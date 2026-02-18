@@ -40,7 +40,7 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
     tenant.color_dark,
   ), [tenant.color_primario, tenant.color_secundario, tenant.color_light, tenant.color_dark]);
 
-  const social: SocialLinks = ((tenant.config as Record<string, unknown>)?.social as SocialLinks) || {};
+  const social = tenant.config?.social || {};
   const hasSocial = Object.values(social).some(Boolean);
 
   const formattedDate = useMemo(() => {
@@ -88,16 +88,11 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="w-8 h-8 rounded-full flex items-center justify-center transition-snappy hover:scale-110"
-      style={{ background: `${p.bright}15`, color: `${p.bright}90` }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = `${p.bright}30`;
-        e.currentTarget.style.color = p.bright;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = `${p.bright}15`;
-        e.currentTarget.style.color = `${p.bright}90`;
-      }}
+      className="w-8 h-8 rounded-full flex items-center justify-center transition-snappy hover:scale-110 hover-colors"
+      style={{
+        '--hc-bg': `${p.bright}15`, '--hc-bg-hover': `${p.bright}30`,
+        '--hc-color': `${p.bright}90`, '--hc-color-hover': p.bright,
+      } as React.CSSProperties}
     >
       <i className={`fab ${icon} text-sm`} />
     </a>
@@ -194,20 +189,12 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-snappy"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-snappy hover-colors"
               style={{
-                background: `${p.bright}12`,
                 border: `1px solid ${p.bright}20`,
-                color: `#FFFFFFA0`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = `${p.bright}25`;
-                e.currentTarget.style.color = '#FFFFFF';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = `${p.bright}12`;
-                e.currentTarget.style.color = '#FFFFFFA0';
-              }}
+                '--hc-bg': `${p.bright}12`, '--hc-bg-hover': `${p.bright}25`,
+                '--hc-color': '#FFFFFFA0', '--hc-color-hover': '#FFFFFF',
+              } as React.CSSProperties}
             >
               <i className={`fas ${icon} text-[0.65rem]`} />
               <span className="hidden sm:inline">{label}</span>
@@ -355,16 +342,6 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                     />
                   )}
                 </div>
-
-                {/* <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white drop-shadow-lg text-center leading-tight max-w-3xl">
-                  {event.nombre}
-                </h1> */}
-
-                {/* {event.descripcion && (
-                  <p className="text-sm sm:text-base text-center max-w-xl leading-relaxed" style={{ color: '#FFFFFFB0' }}>
-                    {event.descripcion}
-                  </p>
-                )} */}
               </div>
             )}
 
@@ -399,10 +376,10 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
               {/* Sub-link for returning users */}
               <Link
                 href="/auth/acreditado"
-                className="text-xs font-medium transition-snappy"
-                style={{ color: `${p.tint}80` }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = p.bright; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = `${p.tint}70`; }}
+                className="text-xs font-medium transition-snappy hover-color-only"
+                style={{
+                  '--hc-color': `${p.tint}80`, '--hc-color-hover': p.bright,
+                } as React.CSSProperties}
               >
                 <i className="fas fa-user-circle mr-1" />
                 ¿Ya tienes cuenta? Entra aquí
@@ -443,10 +420,10 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
 
             <Link
               href="/"
-              className="text-xs font-medium transition-snappy mt-2"
-              style={{ color: `${p.tint}60` }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = p.tint; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = `${p.tint}60`; }}
+              className="text-xs font-medium transition-snappy mt-2 hover-color-only"
+              style={{
+                '--hc-color': `${p.tint}60`, '--hc-color-hover': p.tint,
+              } as React.CSSProperties}
             >
               <i className="fas fa-arrow-left mr-1" />
               Volver al inicio
@@ -464,10 +441,10 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
           <span className="hidden sm:inline">·</span>
           <Link
             href="/"
-            className="hidden sm:inline transition-snappy"
-            style={{ color: `${p.tint}90` }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = `${p.bright}70`; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = `${p.tint}90`; }}
+            className="hidden sm:inline transition-snappy hover-color-only"
+            style={{
+              '--hc-color': `${p.tint}90`, '--hc-color-hover': `${p.bright}70`,
+            } as React.CSSProperties}
           >
             Accredia
           </Link>

@@ -12,13 +12,15 @@ export default function SuperAdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -54,6 +56,28 @@ export default function SuperAdminLoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Ingresa tu email para recuperar la contraseña');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    const supabase = getSupabaseBrowserClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery&next=/superadmin/login`,
+    });
+    if (resetError) {
+      setError(resetError.message);
+      showError(resetError.message);
+    } else {
+      setSuccess('Se envió un enlace de recuperación a tu email.');
+      showSuccess('Email de recuperación enviado');
+    }
+    setLoading(false);
   };
 
   const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
@@ -92,6 +116,12 @@ export default function SuperAdminLoginPage() {
               <div className="flex items-start gap-2.5 bg-danger-light border border-danger/15 rounded-xl px-4 py-3 mb-5 animate-fade-in">
                 <i className="fas fa-circle-exclamation text-danger mt-0.5 text-sm" />
                 <p className="text-sm text-danger-dark">{error}</p>
+              </div>
+            )}
+            {success && (
+              <div className="flex items-start gap-2.5 bg-success-light border border-success/15 rounded-xl px-4 py-3 mb-5 animate-fade-in">
+                <i className="fas fa-circle-check text-success mt-0.5 text-sm" />
+                <p className="text-sm text-success-dark">{success}</p>
               </div>
             )}
 
@@ -139,6 +169,18 @@ export default function SuperAdminLoginPage() {
                 )}
               </button>
             </form>
+
+            {/* Forgot password */}
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-xs text-brand hover:underline disabled:opacity-50"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
           </div>
         </div>
 

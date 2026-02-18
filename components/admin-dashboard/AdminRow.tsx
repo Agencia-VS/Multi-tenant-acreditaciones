@@ -25,8 +25,8 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
 
   // Get zone options: event config first, then tenant config fallback
   const zonaOptions =
-    ((selectedEvent?.config as Record<string, unknown>)?.zonas as string[]) ||
-    ((tenant?.config as Record<string, unknown>)?.zonas as string[]) ||
+    selectedEvent?.config?.zonas ||
+    tenant?.config?.zonas ||
     [];
 
   return (
@@ -94,10 +94,10 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
       <td className="p-3">
         {zonaOptions.length > 0 ? (
           <select
-            value={String((reg.datos_extra as Record<string, unknown>)?.zona || '')}
+            value={String(reg.datos_extra?.zona || '')}
             onChange={(e) => updateRegistrationZona(reg.id, e.target.value)}
             className={`px-2 py-1 rounded-md border text-sm font-medium transition cursor-pointer ${
-              (reg.datos_extra as Record<string, unknown>)?.zona
+              reg.datos_extra?.zona
                 ? 'bg-purple-50 text-purple-700 border-purple-200'
                 : 'bg-subtle text-muted border-edge'
             }`}

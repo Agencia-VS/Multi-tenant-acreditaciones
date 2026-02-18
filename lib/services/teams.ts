@@ -10,7 +10,7 @@
  */
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { TeamMember, Profile } from '@/types';
+import type { TeamMember, Profile, RegistrationExtras } from '@/types';
 
 /**
  * Obtener equipo del manager (con datos del perfil de cada miembro)
@@ -198,8 +198,8 @@ export async function getTeamMembersForEvent(
     .eq('event_id', eventId)
     .in('profile_id', memberProfileIds);
 
-  const regMap = new Map<string, Record<string, unknown>>(
-    (registrations || []).map(r => [r.profile_id, (r.datos_extra || {}) as Record<string, unknown>])
+  const regMap = new Map<string, RegistrationExtras>(
+    (registrations || []).map(r => [r.profile_id, (r.datos_extra ?? {}) as RegistrationExtras])
   );
 
   // 4. Enriquecer cada miembro con datos del contexto del evento
@@ -210,7 +210,7 @@ export async function getTeamMembersForEvent(
     const profileId = m.member_profile.id;
 
     // Fuente A: datos_base._tenant[tenantId] (datos guardados por el sistema de autofill)
-    const datosBase = (m.member_profile.datos_base || {}) as Record<string, unknown>;
+    const datosBase = m.member_profile.datos_base ?? {};
     const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
     const tenantData = tenantId ? tenantMap[tenantId] : null;
 

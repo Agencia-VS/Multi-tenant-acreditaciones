@@ -2,230 +2,54 @@
 
 import { useState, useEffect } from 'react';
 import { useAdmin } from './AdminContext';
-import { Modal, EmptyState, ButtonSpinner } from '@/components/shared/ui';
-import ImageUploadField from '@/components/shared/ImageUploadField';
-import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
-import type { Event, FormFieldDefinition, ZoneMatchField } from '@/types';
-import { TIPOS_MEDIO, CARGOS } from '@/types';
-
-/** Campos por defecto para eventos nuevos creados desde cero */
-const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
-  { key: 'nombre', label: 'Nombre', type: 'text', required: true, profile_field: 'nombre' },
-  { key: 'apellido', label: 'Primer Apellido', type: 'text', required: true, profile_field: 'apellido' },
-  { key: 'segundo_apellido', label: 'Segundo Apellido', type: 'text', required: false, profile_field: 'datos_base.segundo_apellido' },
-  { key: 'rut', label: 'RUT', type: 'text', required: true, profile_field: 'rut' },
-  { key: 'email', label: 'Email', type: 'email', required: true, profile_field: 'email' },
-  { key: 'telefono', label: 'Teléfono', type: 'tel', required: false, profile_field: 'telefono' },
-  { key: 'medio', label: 'Medio de Comunicación', type: 'text', required: true, profile_field: 'medio' },
-  { key: 'tipo_medio', label: 'Tipo de Medio', type: 'select', required: true, profile_field: 'tipo_medio', options: [...TIPOS_MEDIO] },
-  { key: 'cargo', label: 'Cargo', type: 'select', required: true, profile_field: 'cargo', options: [...CARGOS] },
-  { key: 'foto_url', label: 'Foto', type: 'file', required: true, profile_field: 'foto_url' },
-];
-
-interface QuotaRule {
-  id?: string;
-  tipo_medio: string;
-  max_per_organization: number;
-  max_global: number;
-}
+import { Modal, ButtonSpinner } from '@/components/shared/ui';
+import { localToChileISO } from '@/lib/dates';
+import { useEventForm } from './useEventForm';
+import EventFormFields from './EventFormFields';
+import EventList from './EventList';
+import TenantConfigInfo from './TenantConfigInfo';
+import type { Event, EventConfig } from '@/types';
 
 export default function AdminConfigTab() {
-  const { tenant, events, selectedEvent, selectEvent, showSuccess, showError, fetchData } = useAdmin();
+  const { tenant, events, fetchData, showSuccess, showError } = useAdmin();
+  const eventForm = useEventForm();
+  const { form, formFields, quotaRules, zoneRules, zonas, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
+
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
-
-  // Clone from past event
-  const [cloneSourceId, setCloneSourceId] = useState<string>('');
-  const [cloning, setCloning] = useState(false);
-
-  // Form state for create/edit
-  const [form, setForm] = useState({
-    nombre: '',
-    fecha: '',
-    hora: '',
-    venue: '',
-    opponent_name: '',
-    opponent_logo_url: '',
-    league: '',
-    descripcion: '',
-    fecha_limite_acreditacion: '',
-    qr_enabled: false,
-  });
-
-  // Campos del formulario dinámico
-  const [formFields, setFormFields] = useState<FormFieldDefinition[]>(DEFAULT_FORM_FIELDS);
-  // Cupos
-  const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
-  // Reglas de zona
-  const [zoneRules, setZoneRules] = useState<{ id?: string; match_field: ZoneMatchField; cargo: string; zona: string }[]>([]);
-
-  // Zonas state (stored in event.config.zonas)
-  const [zonas, setZonas] = useState<string[]>([]);
-  const [newZona, setNewZona] = useState('');
 
   useEffect(() => {
-    if (editEvent) {
-      setForm({
-        nombre: editEvent.nombre || '',
-        fecha: editEvent.fecha || '',
-        hora: editEvent.hora || '',
-        venue: editEvent.venue || '',
-        opponent_name: editEvent.opponent_name || '',
-        opponent_logo_url: editEvent.opponent_logo_url || '',
-        league: editEvent.league || '',
-        descripcion: editEvent.descripcion || '',
-        fecha_limite_acreditacion: isoToLocalDatetime(editEvent.fecha_limite_acreditacion),
-        qr_enabled: editEvent.qr_enabled || false,
-      });
-      // Load zonas from event config
-      const eventConfig = (editEvent.config || {}) as Record<string, unknown>;
-      setZonas((eventConfig.zonas as string[]) || []);
-    }
-  }, [editEvent]);
+    if (editEvent) syncFromEvent(editEvent);
+  }, [editEvent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addZona = () => {
-    const trimmed = newZona.trim();
-    if (trimmed && !zonas.includes(trimmed)) {
-      setZonas(prev => [...prev, trimmed]);
-      setNewZona('');
-    }
-  };
-
-  const removeZona = (z: string) => {
-    setZonas(prev => prev.filter(item => item !== z));
-  };
-
-  const resetForm = () => {
-    setForm({ nombre: '', fecha: '', hora: '', venue: '', opponent_name: '', opponent_logo_url: '', league: '', descripcion: '', fecha_limite_acreditacion: '', qr_enabled: false });
-    setFormFields(DEFAULT_FORM_FIELDS);
-    setQuotaRules([]);
-    setZoneRules([]);
-    setZonas([]);
-    setNewZona('');
-    setCloneSourceId('');
-  };
-
-  /** Clonar configuración desde un evento anterior del mismo tenant */
-  const handleCloneFrom = async (sourceEventId: string) => {
-    setCloneSourceId(sourceEventId);
-    if (!sourceEventId) {
-      // Seleccionó "Desde cero" — resetear a defaults
-      setFormFields(DEFAULT_FORM_FIELDS);
-      setQuotaRules([]);
-      setZoneRules([]);
-      setZonas([]);
-      setForm(f => ({ ...f, descripcion: '', venue: '', league: '', opponent_name: '', opponent_logo_url: '', qr_enabled: false }));
-      return;
-    }
-    const source = events.find(e => e.id === sourceEventId);
-    if (!source) return;
-
-    setCloning(true);
-    try {
-      // Copiar campos básicos (no nombre, fecha, hora)
-      setForm(f => ({
-        ...f,
-        descripcion: source.descripcion || '',
-        venue: source.venue || '',
-        league: source.league || '',
-        opponent_name: '',
-        opponent_logo_url: '',
-        qr_enabled: source.qr_enabled,
-      }));
-
-      // Copiar form_fields
-      setFormFields(source.form_fields?.length ? source.form_fields : DEFAULT_FORM_FIELDS);
-
-      // Copiar zonas de config
-      const evConfig = (source.config || {}) as Record<string, unknown>;
-      setZonas((evConfig.zonas as string[]) || []);
-
-      // Copiar cupos
-      try {
-        const res = await fetch(`/api/events/${source.id}/quotas`);
-        if (res.ok) {
-          const data = await res.json();
-          const rules = Array.isArray(data) ? data : (data.rules || []);
-          setQuotaRules(rules.map((r: QuotaRule) => ({
-            tipo_medio: r.tipo_medio,
-            max_per_organization: r.max_per_organization,
-            max_global: r.max_global,
-          })));
-        }
-      } catch { /* ignore */ }
-
-      // Copiar reglas de zona
-      try {
-        const zRes = await fetch(`/api/events/${source.id}/zones`);
-        if (zRes.ok) {
-          const zData = await zRes.json();
-          const zArr = Array.isArray(zData) ? zData : [];
-          setZoneRules(zArr.map((r: { match_field?: string; cargo: string; zona: string }) => ({
-            match_field: (r.match_field as ZoneMatchField) || 'cargo',
-            cargo: r.cargo,
-            zona: r.zona,
-          })));
-        }
-      } catch { /* ignore */ }
-
-      showSuccess(`Configuración copiada de "${source.nombre}"`);
-    } finally {
-      setCloning(false);
-    }
-  };
+  const handleOpenCreate = () => { resetForm(); setShowCreateModal(true); };
 
   const handleCreateEvent = async () => {
     if (!form.nombre.trim() || !tenant) return;
     setSaving(true);
     try {
-      // Build event config with zonas
-      const eventConfig: Record<string, unknown> = {};
+      const eventConfig: EventConfig = {};
       if (zonas.length > 0) eventConfig.zonas = zonas;
 
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          tenant_id: tenant.id,
-          config: eventConfig,
-          form_fields: formFields,
-          fecha_limite_acreditacion: form.fecha_limite_acreditacion
-            ? localToChileISO(form.fecha_limite_acreditacion)
-            : null,
+          ...form, tenant_id: tenant.id, config: eventConfig, form_fields: formFields,
+          fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
       if (res.ok) {
-        const createdEvent = await res.json();
-
-        // Si se clonaron cupos, crearlos para el nuevo evento
+        const created = await res.json();
+        // Clonar cupos si existen
         if (quotaRules.length > 0) {
-          try {
-            for (const rule of quotaRules) {
-              await fetch(`/api/events/${createdEvent.id}/quotas`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(rule),
-              });
-            }
-          } catch { /* ignore */ }
+          try { for (const rule of quotaRules) { await fetch(`/api/events/${created.id}/quotas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) }); } } catch { /* ignore */ }
         }
-
-        // Si se clonaron reglas de zona, crearlas
+        // Clonar reglas de zona si existen
         if (zoneRules.length > 0) {
-          try {
-            for (const rule of zoneRules) {
-              await fetch(`/api/events/${createdEvent.id}/zones`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(rule),
-              });
-            }
-          } catch { /* ignore */ }
+          try { for (const rule of zoneRules) { await fetch(`/api/events/${created.id}/zones`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) }); } } catch { /* ignore */ }
         }
-
         showSuccess('Evento creado correctamente');
         setShowCreateModal(false);
         resetForm();
@@ -234,468 +58,86 @@ export default function AdminConfigTab() {
         const d = await res.json();
         showError(d.error || 'Error creando evento');
       }
-    } catch {
-      showError('Error de conexión');
-    } finally {
-      setSaving(false);
-    }
+    } catch { showError('Error de conexión'); }
+    finally { setSaving(false); }
   };
 
   const handleUpdateEvent = async () => {
     if (!editEvent) return;
     setSaving(true);
     try {
-      // Merge zonas into existing event config
-      const existingConfig = (editEvent.config || {}) as Record<string, unknown>;
-      const updatedConfig = { ...existingConfig, zonas: zonas.length > 0 ? zonas : undefined };
-      // Clean undefined keys
+      const existingConfig: EventConfig = editEvent.config || {};
+      const updatedConfig: EventConfig = { ...existingConfig, zonas: zonas.length > 0 ? zonas : undefined };
       if (!updatedConfig.zonas) delete updatedConfig.zonas;
 
       const res = await fetch(`/api/events?id=${editEvent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          config: updatedConfig,
-          fecha_limite_acreditacion: form.fecha_limite_acreditacion
-            ? localToChileISO(form.fecha_limite_acreditacion)
-            : null,
+          ...form, config: updatedConfig,
+          fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
-      if (res.ok) {
-        showSuccess('Evento actualizado');
-        setEditEvent(null);
-        resetForm();
-        fetchData();
-      } else {
-        const d = await res.json();
-        showError(d.error || 'Error actualizando evento');
-      }
-    } catch {
-      showError('Error de conexión');
-    } finally {
-      setSaving(false);
-    }
+      if (res.ok) { showSuccess('Evento actualizado'); setEditEvent(null); resetForm(); fetchData(); }
+      else { const d = await res.json(); showError(d.error || 'Error actualizando evento'); }
+    } catch { showError('Error de conexión'); }
+    finally { setSaving(false); }
   };
-
-  const handleToggleActive = async (ev: Event) => {
-    try {
-      if (ev.is_active) {
-        const res = await fetch(`/api/events?id=${ev.id}`, { method: 'DELETE' });
-        if (res.ok) { showSuccess('Evento desactivado'); fetchData(); }
-      } else {
-        const res = await fetch(`/api/events?id=${ev.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_active: true }),
-        });
-        if (res.ok) { showSuccess('Evento activado'); fetchData(); }
-      }
-    } catch {
-      showError('Error actualizando evento');
-    }
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    try {
-      const res = await fetch(`/api/events?id=${eventId}&action=delete`, { method: 'DELETE' });
-      if (res.ok) {
-        showSuccess('Evento eliminado');
-        setDeletingEventId(null);
-        fetchData();
-      } else {
-        const d = await res.json();
-        showError(d.error || 'Error eliminando evento');
-      }
-    } catch {
-      showError('Error de conexión');
-    }
-  };
-
-  const renderFormFields = () => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-body mb-1 block">Nombre del evento *</label>
-          <input
-            value={form.nombre}
-            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-            placeholder="Ej: UC vs Colo-Colo"
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Liga / Competencia</label>
-          <input
-            value={form.league}
-            onChange={e => setForm(f => ({ ...f, league: e.target.value }))}
-            placeholder="Ej: Copa Libertadores"
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
-          <input
-            type="date"
-            value={form.fecha}
-            onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Hora</label>
-          <input
-            type="time"
-            value={form.hora}
-            onChange={e => setForm(f => ({ ...f, hora: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Lugar / Venue</label>
-          <input
-            value={form.venue}
-            onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
-            placeholder="Ej: Estadio San Carlos de Apoquindo"
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Rival</label>
-          <input
-            value={form.opponent_name}
-            onChange={e => setForm(f => ({ ...f, opponent_name: e.target.value }))}
-            placeholder="Ej: Colo-Colo"
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-        <ImageUploadField
-          label="Logo rival"
-          value={form.opponent_logo_url}
-          onChange={(url) => setForm(f => ({ ...f, opponent_logo_url: url }))}
-          folder="events"
-          rounded
-          previewSize="sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-xs text-body mb-1 block">Descripción</label>
-        <textarea
-          value={form.descripcion}
-          onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-          rows={2}
-          placeholder="Descripción del evento..."
-          className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading resize-none"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-body mb-1 block">Fecha límite acreditación</label>
-          <input
-            type="datetime-local"
-            value={form.fecha_limite_acreditacion}
-            onChange={e => setForm(f => ({ ...f, fecha_limite_acreditacion: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-          />
-        </div>
-        <div className="flex items-end">
-          <label className="flex items-center gap-3 p-3 bg-canvas rounded-xl cursor-pointer w-full">
-            <input
-              type="checkbox"
-              checked={form.qr_enabled}
-              onChange={e => setForm(f => ({ ...f, qr_enabled: e.target.checked }))}
-              className="rounded border-field-border text-brand"
-            />
-            <div>
-              <p className="text-sm font-medium text-label">Habilitar QR</p>
-              <p className="text-xs text-muted">Generar códigos QR al aprobar</p>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* Zonas del evento */}
-      <div>
-        <label className="text-xs text-body mb-1 block">
-          <i className="fas fa-map-signs mr-1 text-purple-500" />
-          Zonas de acceso
-        </label>
-        <p className="text-xs text-muted mb-2">Define las zonas disponibles para este evento. El admin podrá asignar zona manualmente a cada acreditado.</p>
-
-        {/* Current zonas */}
-        {zonas.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {zonas.map(z => (
-              <span key={z} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 text-sm font-medium text-purple-700 border border-purple-200">
-                {z}
-                <button
-                  type="button"
-                  onClick={() => removeZona(z)}
-                  className="text-purple-400 hover:text-purple-700 transition"
-                  aria-label={`Eliminar zona ${z}`}
-                >
-                  <i className="fas fa-times text-xs" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Add new zona */}
-        <div className="flex gap-2">
-          <input
-            value={newZona}
-            onChange={e => setNewZona(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addZona(); } }}
-            placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
-            className="flex-1 px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-            aria-label="Nombre de nueva zona"
-          />
-          <button
-            type="button"
-            onClick={addZona}
-            disabled={!newZona.trim()}
-            className="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition flex items-center gap-1"
-          >
-            <i className="fas fa-plus text-xs" /> Agregar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-6">
-      {/* Events list */}
-      <div className="bg-surface rounded-2xl shadow-sm border border-edge">
-        <div className="px-6 py-4 border-b border-edge flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-heading">Eventos</h2>
-            <p className="text-sm text-body">Gestiona los eventos de {tenant?.nombre}</p>
-          </div>
-          <button
-            onClick={() => { resetForm(); setShowCreateModal(true); }}
-            className="px-4 py-2 bg-brand text-on-brand rounded-xl text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2"
-          >
-            <i className="fas fa-plus" /> Nuevo evento
-          </button>
-        </div>
+      <EventList onCreateNew={handleOpenCreate} onEditEvent={setEditEvent} />
 
-        {events.length === 0 ? (
-          <EmptyState
-            message="No hay eventos creados"
-            icon="fa-calendar-plus"
-            action={{ label: 'Crear primer evento', onClick: () => { resetForm(); setShowCreateModal(true); } }}
-          />
-        ) : (
-          <div className="divide-y divide-edge/50">
-            {events.map(ev => (
-              <div
-                key={ev.id}
-                className={`px-6 py-4 flex items-center justify-between hover:bg-canvas/50 transition ${
-                  selectedEvent?.id === ev.id ? 'bg-accent-light/30 border-l-4 border-l-brand' : ''
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${ev.is_active ? 'bg-success' : 'bg-edge'}`} />
-                  <div>
-                    <p className="text-sm font-medium text-heading">{ev.nombre}</p>
-                    <p className="text-xs text-body">
-                      {ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-CL') : 'Sin fecha'}
-                      {ev.venue && ` · ${ev.venue}`}
-                      {ev.opponent_name && ` · vs ${ev.opponent_name}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Toggle active */}
-                  <button
-                    onClick={() => handleToggleActive(ev)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                      ev.is_active
-                        ? 'bg-success-light text-success-dark hover:bg-success-light/80'
-                        : 'bg-subtle text-body hover:bg-edge'
-                    }`}
-                  >
-                    {ev.is_active ? 'Activo' : 'Inactivo'}
-                  </button>
-
-                  {/* Select for dashboard */}
-                  <button
-                    onClick={() => selectEvent(ev.id)}
-                    className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-xs font-medium hover:bg-accent-light/80 transition"
-                  >
-                    <i className="fas fa-eye mr-1" /> Ver registros
-                  </button>
-
-                  {/* Edit */}
-                  <button
-                    onClick={() => setEditEvent(ev)}
-                    className="p-1.5 text-muted hover:text-brand hover:bg-accent-light rounded-lg transition"
-                    aria-label={`Editar evento ${ev.nombre}`}
-                  >
-                    <i className="fas fa-pen text-sm" />
-                  </button>
-
-                  {/* Delete */}
-                  {deletingEventId === ev.id ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-danger font-medium">¿Eliminar?</span>
-                      <button
-                        onClick={() => handleDeleteEvent(ev.id)}
-                        className="px-2 py-1 bg-danger text-white rounded text-xs font-medium hover:bg-danger/90 transition"
-                      >
-                        Sí
-                      </button>
-                      <button
-                        onClick={() => setDeletingEventId(null)}
-                        className="px-2 py-1 text-body hover:text-label text-xs"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setDeletingEventId(ev.id)}
-                      className="p-1.5 text-muted hover:text-danger hover:bg-red-50 rounded-lg transition"
-                      title="Eliminar evento"
-                    >
-                      <i className="fas fa-trash text-sm" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tenant config info */}
-      {tenant && (
-        <div className="bg-surface rounded-2xl shadow-sm border border-edge p-6">
-          <h2 className="text-lg font-bold text-heading mb-4">Configuración del Tenant</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 bg-canvas rounded-xl">
-              <p className="text-xs text-muted">Slug</p>
-              <p className="text-sm font-mono text-label mt-1">{tenant.slug}</p>
-            </div>
-            <div className="p-3 bg-canvas rounded-xl">
-              <p className="text-xs text-muted">Color primario</p>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="w-5 h-5 rounded-md" style={{ backgroundColor: tenant.color_primario }} />
-                <span className="text-sm font-mono text-label">{tenant.color_primario}</span>
-              </div>
-            </div>
-            <div className="p-3 bg-canvas rounded-xl">
-              <p className="text-xs text-muted">Estado</p>
-              <p className="text-sm text-label mt-1">{tenant.activo ? '✅ Activo' : '❌ Inactivo'}</p>
-            </div>
-            <div className="p-3 bg-canvas rounded-xl">
-              <p className="text-xs text-muted">Total eventos</p>
-              <p className="text-sm font-bold text-label mt-1">{events.length}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {tenant && <TenantConfigInfo tenant={tenant} eventCount={events.length} />}
 
       {/* Create Event Modal */}
       <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Crear Nuevo Evento" maxWidth="max-w-2xl">
-        {/* Clone from past event selector */}
         {events.length > 0 && (
           <div className="mb-5 p-4 bg-accent-light/40 border border-brand/20 rounded-xl">
             <label className="text-xs font-semibold text-brand mb-2 block">
-              <i className="fas fa-copy mr-1.5" />
-              Copiar configuración de un evento anterior
+              <i className="fas fa-copy mr-1.5" />Copiar configuración de un evento anterior
             </label>
-            <p className="text-xs text-body mb-2">
-              Copia formulario, cupos, zonas y reglas de un evento pasado. Solo necesitas ajustar nombre y fechas.
-            </p>
+            <p className="text-xs text-body mb-2">Copia formulario, cupos, zonas y reglas de un evento pasado. Solo necesitas ajustar nombre y fechas.</p>
             <select
               value={cloneSourceId}
-              onChange={e => handleCloneFrom(e.target.value)}
+              onChange={e => eventForm.handleCloneFrom(e.target.value)}
               disabled={cloning}
               className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading bg-white disabled:opacity-60"
             >
               <option value="">Crear desde cero (formulario estándar)</option>
               {events.map(ev => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.nombre}{ev.fecha ? ` — ${new Date(ev.fecha).toLocaleDateString('es-CL')}` : ''}
-                </option>
+                <option key={ev.id} value={ev.id}>{ev.nombre}{ev.fecha ? ` — ${new Date(ev.fecha).toLocaleDateString('es-CL')}` : ''}</option>
               ))}
             </select>
-            {cloning && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-brand">
-                <ButtonSpinner className="w-3 h-3" />
-                Copiando configuración…
-              </div>
-            )}
+            {cloning && <div className="flex items-center gap-2 mt-2 text-xs text-brand"><ButtonSpinner className="w-3 h-3" />Copiando configuración…</div>}
             {cloneSourceId && !cloning && (
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                {formFields.length > 0 && (
-                  <span className="px-2 py-1 bg-green-50 text-green-700 rounded-lg border border-green-200">
-                    <i className="fas fa-check-circle mr-1" />{formFields.length} campos
-                  </span>
-                )}
-                {quotaRules.length > 0 && (
-                  <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">
-                    <i className="fas fa-check-circle mr-1" />{quotaRules.length} cupos
-                  </span>
-                )}
-                {zoneRules.length > 0 && (
-                  <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-200">
-                    <i className="fas fa-check-circle mr-1" />{zoneRules.length} reglas zona
-                  </span>
-                )}
-                {zonas.length > 0 && (
-                  <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200">
-                    <i className="fas fa-check-circle mr-1" />{zonas.length} zonas
-                  </span>
-                )}
+                {formFields.length > 0 && <span className="px-2 py-1 bg-green-50 text-green-700 rounded-lg border border-green-200"><i className="fas fa-check-circle mr-1" />{formFields.length} campos</span>}
+                {quotaRules.length > 0 && <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200"><i className="fas fa-check-circle mr-1" />{quotaRules.length} cupos</span>}
+                {zoneRules.length > 0 && <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-200"><i className="fas fa-check-circle mr-1" />{zoneRules.length} reglas zona</span>}
+                {zonas.length > 0 && <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200"><i className="fas fa-check-circle mr-1" />{zonas.length} zonas</span>}
               </div>
             )}
           </div>
         )}
-
-        {renderFormFields()}
+        <EventFormFields {...eventForm} />
         <div className="flex gap-3 mt-6 pt-4 border-t border-edge">
-          <button
-            onClick={handleCreateEvent}
-            disabled={!form.nombre.trim() || saving || cloning}
-            className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
-          >
+          <button onClick={handleCreateEvent} disabled={!form.nombre.trim() || saving || cloning} className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2">
             {saving ? <ButtonSpinner /> : <i className="fas fa-plus" />}
             {cloneSourceId ? 'Crear evento (con copia)' : 'Crear evento'}
           </button>
-          <button onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">
-            Cancelar
-          </button>
+          <button onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">Cancelar</button>
         </div>
       </Modal>
 
       {/* Edit Event Modal */}
       <Modal open={!!editEvent} onClose={() => setEditEvent(null)} title={`Editar: ${editEvent?.nombre || ''}`} maxWidth="max-w-2xl">
-        {renderFormFields()}
+        <EventFormFields {...eventForm} />
         <div className="flex gap-3 mt-6 pt-4 border-t border-edge">
-          <button
-            onClick={handleUpdateEvent}
-            disabled={!form.nombre.trim() || saving}
-            className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
-          >
-            {saving ? <ButtonSpinner /> : <i className="fas fa-save" />}
-            Guardar cambios
+          <button onClick={handleUpdateEvent} disabled={!form.nombre.trim() || saving} className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2">
+            {saving ? <ButtonSpinner /> : <i className="fas fa-save" />}Guardar cambios
           </button>
-          <button onClick={() => setEditEvent(null)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">
-            Cancelar
-          </button>
+          <button onClick={() => setEditEvent(null)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">Cancelar</button>
         </div>
       </Modal>
     </div>

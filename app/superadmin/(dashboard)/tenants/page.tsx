@@ -5,8 +5,9 @@
  * CRUD completo: crear, editar, activar/desactivar tenants
  */
 import { useState, useEffect, useCallback } from 'react';
-import { useToast, PageHeader, Modal, LoadingSpinner, FormActions } from '@/components/shared/ui';
+import { useToast, PageHeader, Modal, LoadingSpinner, FormActions, ButtonSpinner } from '@/components/shared/ui';
 import ImageUploadField from '@/components/shared/ImageUploadField';
+import type { TenantConfig } from '@/types';
 
 interface Tenant {
   id: string;
@@ -22,7 +23,9 @@ interface Tenant {
   activo: boolean;
   config: Record<string, unknown>;
   created_at: string;
-  stats?: { events: number; registrations: number };
+  total_events?: number;
+  total_registrations?: number;
+  total_admins?: number;
 }
 
 const emptyTenant = {
@@ -35,7 +38,7 @@ const emptyTenant = {
   color_secundario: '#e94560',
   color_light: '#f5f5f5',
   color_dark: '#0f0f1a',
-  config: {} as Record<string, unknown>,
+  config: {} as TenantConfig,
 };
 
 export default function TenantsPage() {
@@ -45,6 +48,9 @@ export default function TenantsPage() {
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [form, setForm] = useState(emptyTenant);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<Tenant | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const loadTenants = useCallback(async () => {
@@ -332,6 +338,99 @@ export default function TenantsPage() {
             </form>
       </Modal>
 
+      {/* Modal de confirmación de eliminación */}
+      <Modal
+        open={!!deleting}
+        onClose={() => { setDeleting(null); setDeleteConfirm(''); }}
+        title="Eliminar Tenant"
+      >
+        {deleting && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 bg-danger-light border border-danger/20 rounded-xl p-4">
+              <i className="fas fa-exclamation-triangle text-danger text-lg mt-0.5" />
+              <div>
+                <p className="font-semibold text-danger-dark text-sm">Esta acción es irreversible</p>
+                <p className="text-sm text-danger-dark/80 mt-1">
+                  Se eliminarán permanentemente todos los datos del tenant:
+                  eventos, acreditaciones, admins, configuraciones de email
+                  y archivos de storage.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-canvas rounded-xl p-4 flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0"
+                style={{ backgroundColor: deleting.color_primario }}
+              >
+                {deleting.shield_url ? (
+                  <img src={deleting.shield_url} alt="" className="w-7 h-7 object-contain" />
+                ) : deleting.nombre.charAt(0)}
+              </div>
+              <div>
+                <p className="font-semibold text-heading text-sm">{deleting.nombre}</p>
+                <p className="text-xs text-muted">/{deleting.slug} · {deleting.total_events || 0} eventos · {deleting.total_registrations || 0} acreditaciones</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-label mb-1.5">
+                Escribe <strong className="text-danger">{deleting.nombre}</strong> para confirmar:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder={deleting.nombre}
+                className="w-full px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setDeleting(null); setDeleteConfirm(''); }}
+                className="flex-1 px-4 py-2.5 bg-subtle text-body rounded-lg text-sm font-medium hover:bg-edge transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirm !== deleting.nombre || deleteLoading}
+                onClick={async () => {
+                  setDeleteLoading(true);
+                  try {
+                    const res = await fetch(`/api/tenants/${deleting.id}`, {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ confirmName: deleteConfirm }),
+                    });
+                    if (!res.ok) {
+                      const errData = await res.json().catch(() => ({}));
+                      throw new Error(errData.error || 'Error al eliminar');
+                    }
+                    setDeleting(null);
+                    setDeleteConfirm('');
+                    showSuccess(`Tenant "${deleting.nombre}" eliminado`);
+                    loadTenants();
+                  } catch (err) {
+                    showError(err instanceof Error ? err.message : 'Error al eliminar');
+                  } finally {
+                    setDeleteLoading(false);
+                  }
+                }}
+                className="flex-1 px-4 py-2.5 bg-danger text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-40 transition flex items-center justify-center gap-2"
+              >
+                {deleteLoading ? <><ButtonSpinner /> Eliminando...</> : (
+                  <><i className="fas fa-trash-alt" /> Eliminar permanentemente</>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Tenants List */}
       {loading ? (
         <LoadingSpinner />
@@ -359,8 +458,8 @@ export default function TenantsPage() {
 
                 <div className="flex items-center gap-6">
                   <div className="text-right text-sm text-body">
-                    <p>{tenant.stats?.events || 0} eventos</p>
-                    <p>{tenant.stats?.registrations || 0} acreditaciones</p>
+                    <p>{tenant.total_events || 0} eventos</p>
+                    <p>{tenant.total_registrations || 0} acreditaciones</p>
                   </div>
 
                   <span
@@ -384,6 +483,13 @@ export default function TenantsPage() {
                       className="px-3 py-1.5 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition"
                     >
                       <i className="fas fa-edit" />
+                    </button>
+                    <button
+                      onClick={() => { setDeleting(tenant); setDeleteConfirm(''); }}
+                      className="px-3 py-1.5 bg-danger-light text-danger rounded-lg text-sm hover:bg-red-200 transition"
+                      title="Eliminar tenant"
+                    >
+                      <i className="fas fa-trash-alt" />
                     </button>
                   </div>
                 </div>
