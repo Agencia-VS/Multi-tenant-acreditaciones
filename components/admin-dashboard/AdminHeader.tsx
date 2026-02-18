@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAdmin } from './AdminContext';
+import { ButtonSpinner } from '@/components/shared/ui';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { AdminTab } from '@/types';
 
@@ -113,9 +114,10 @@ export default function AdminHeader() {
               disabled={loggingOut}
               className="px-3 py-2 text-body hover:text-danger hover:bg-danger-light rounded-lg transition flex items-center gap-2 disabled:opacity-50"
               title="Cerrar sesión"
+              aria-label="Cerrar sesión"
             >
               {loggingOut ? (
-                <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner />
               ) : (
                 <i className="fas fa-sign-out-alt" />
               )}

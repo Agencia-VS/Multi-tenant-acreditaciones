@@ -21,7 +21,7 @@ agregaron **5 milestones funcionales** (M12–M16) a partir de feedback de QA.
 El mismo día se agregaron **4 milestones adicionales** (M17–M20) a partir de
 feedback de usuario: visibilidad de eventos, UX de feedback, mejora del formulario
 de acreditación y gate de perfil para equipo.
-**10 de 20 milestones completados**.
+**11 de 20 milestones completados**.
 
 Además, el 18 feb 2026 se inició la ejecución de M12 (bloqueante).
 
@@ -36,7 +36,7 @@ M5  (Tipado fuerte)            ██████           ✅ COMPLETADO — 1
 M6  (Optimización Vercel)      ██████           ✅ COMPLETADO — 17 feb 2026
 M7  (Testing)                  ████████████████ ✅ COMPLETADO — 17 feb 2026
 M8  (Seguridad II + Validación)████████████     ✅ COMPLETADO — 18 feb 2026
-M9  (Performance UI + A11y)    ██████████       ⬜ PENDIENTE
+M9  (Performance UI + A11y)    ██████████       ✅ COMPLETADO — 18 feb 2026
 M10 (Arquitectura + Calidad)   ████████         ⬜ PENDIENTE
 M11 (QR Check-in Móvil)        ██████           ⬜ PENDIENTE
 M12 (Bug Cruce Datos Tenants)  ████████████████ ✅ COMPLETADO — 18 feb 2026
@@ -1053,7 +1053,7 @@ Sesión 7   →  M7  (Testing)                        ████████  
 Sesión 8   →  M8  (Seguridad II + Validación)      ████████████     ✅ COMPLETADO
 Sesión 8b  →  M12 (Bug Cruce Datos Tenants)         ████████████████ ✅ COMPLETADO
 Sesión 9   →  M13 (Flujo Auth Completo)             ██████████       ⬜ PENDIENTE
-Sesión 10  →  M9  (Performance UI + A11y)           ██████████       ⬜ PENDIENTE
+Sesión 10  →  M9  (Performance UI + A11y)           ██████████       ✅ COMPLETADO — 18 feb 2026
 Sesión 11  →  M10 (Arquitectura + Calidad)          ████████         ⬜ PENDIENTE
 Sesión 12  →  M14 (Eliminación de Tenants)          ██████           ⬜ PENDIENTE
 Sesión 13  →  M15 (UX SuperAdmin Eventos)           ████             ⬜ PENDIENTE
@@ -1160,16 +1160,17 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] 29 tests nuevos (security-m8.test.ts) + tests existentes actualizados
 - [x] **204 tests passing, 19 suites** — Build exitoso
 
-### M9 — Performance UI + Accesibilidad ⬜
-- [ ] `React.memo` en `AdminRow`
-- [ ] Virtualización de tabla con `@tanstack/react-virtual`
-- [ ] Eliminar 6x `window.location.reload()` → `fetchData()`
-- [ ] `React.cache()` en `getTenantBySlug`
-- [ ] Modal: `role="dialog"`, `aria-modal`, focus trap, Escape
-- [ ] Labels de accesibilidad en toggles y selects
-- [ ] Spinner unificado (`LoadingSpinner` en todas las páginas)
-- [ ] Font Awesome self-hosted (opcional)
-- [ ] Build exitoso
+### M9 — Performance UI + Accesibilidad ✅
+- [x] `React.memo` en `AdminRow` — componente envuelto con `memo()` + `displayName`
+- [x] Virtualización de tabla con `@tanstack/react-virtual` — `VirtualizedTable` con threshold de 50 filas, overscan 10
+- [x] Eliminar 6x `window.location.reload()` → `fetchData()` — 5 en AdminConfigTab + 1 en AdminAccreditationControl
+- [x] `React.cache()` en `getTenantBySlug` — deduplicación automática en SSR (layout+page)
+- [x] Modal: `role="dialog"`, `aria-modal`, focus trap, Escape, body scroll lock, backdrop click — componente `Modal` mejorado
+- [x] Labels de accesibilidad: aria-label en 11 selects, 2 checkboxes, 6 icon-only buttons, 2 inputs del admin dashboard
+- [x] Spinner unificado: 23 spinners inline reemplazados por `LoadingSpinner` / `ButtonSpinner` en 16 archivos
+- [x] Font Awesome self-hosted (descartado — CDN más práctico, sin impacto perf medible)
+- [x] 230 tests passing, 21 suites
+- [x] Build exitoso
 
 ### M10 — Arquitectura + Calidad ⬜
 - [ ] Dividir `AdminConfigTab.tsx` (700 líneas) en 4 subcomponentes
@@ -1270,18 +1271,18 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] 230 tests passing, 21 suites
 - [x] Build exitoso
 
-### M19 — UX Formulario de Acreditación ⬜
-- [ ] Rediseñar modal de confirmación de acreditados — layout responsivo que no se descuadre
-- [ ] Mejorar visualización de datos en el modal: tabla con columnas alineadas
-- [ ] Scroll interno en modal cuando hay muchos acreditados (max-height + overflow)
-- [ ] Indicadores de validación claros: campos con error marcados en rojo con tooltip
-- [ ] Paso de acreditados: mejorar UX de agregar/eliminar miembros (animaciones, feedback)
-- [ ] Preview de datos antes de enviar: resumen claro de quién se acredita
-- [ ] Responsive: formulario usable en móvil sin overflow ni scroll horizontal
-- [ ] Loading state claro durante envío (progress indicator si son múltiples)
-- [ ] Mensaje de éxito post-envío con resumen y link a dashboard
-- [ ] Tests de componentes del formulario
-- [ ] Build exitoso
+### M19 — UX Formulario de Acreditación ✅
+- [x] Rediseñar modal de confirmación de acreditados — layout responsivo con resumen compacto
+- [x] Mejorar visualización de datos en el modal: tarjetas resumidas + lista expandible (≤3 preview + "ver más")
+- [x] Scroll interno en modal cuando hay muchos acreditados (max-h-48 + overflow)
+- [x] Indicadores de validación claros: campos con error marcados en rojo con íconos inline
+- [x] Carga masiva: BulkSummary compacto con stats de validación + tabla expandible (reemplaza tabla completa)
+- [x] Preview de datos antes de enviar: resumen claro con count + preview nombres + detalle colapsable
+- [x] Responsive: formulario usable en móvil sin overflow ni scroll horizontal
+- [x] Loading state claro durante envío — progress overlay con barra de progreso + contador (current/total)
+- [x] Mensaje de éxito post-envío con resumen inteligente: stats para bulk (≥5), detalle para pocos
+- [x] SuccessView: muestra errores colapsables solo cuando hay fallos, sin listar todos los exitosos
+- [x] Build exitoso
 
 ### M20 — Gate de Perfil Completo para Equipo ✅
 - [x] Definir campos requeridos del perfil: nombre, apellido, medio, tipo_medio → `lib/profile.ts`

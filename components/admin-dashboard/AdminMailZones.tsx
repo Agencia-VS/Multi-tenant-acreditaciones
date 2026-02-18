@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from './AdminContext';
+import { ButtonSpinner, LoadingSpinner } from '@/components/shared/ui';
 import { sanitizeHtml } from '@/lib/sanitize';
 import type { EmailZoneContent, EmailTemplateType, TenantConfig } from '@/types';
 
@@ -233,8 +234,8 @@ export default function AdminMailZones() {
         <div className="lg:col-span-3 space-y-4">
           {loading ? (
             <div className="bg-surface rounded-2xl shadow-sm border border-edge p-8 text-center">
-              <div className="w-6 h-6 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm text-muted">Cargando contenido...</p>
+              <LoadingSpinner size="sm" />
+              <p className="text-sm text-muted mt-3">Cargando contenido...</p>
             </div>
           ) : selectedZona ? (
             <>
@@ -328,7 +329,7 @@ export default function AdminMailZones() {
                   className="px-6 py-2.5 bg-[#7c3aed] text-white rounded-xl font-medium hover:bg-[#6d28d9] disabled:opacity-50 transition flex items-center gap-2"
                 >
                   {saving === selectedZona ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <ButtonSpinner />
                   ) : (
                     <i className="fas fa-save" />
                   )}

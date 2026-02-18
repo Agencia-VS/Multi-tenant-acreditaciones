@@ -4,11 +4,13 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Tenant, TenantFormData, TenantWithStats, TenantAdmin } from '@/types';
+import { cache } from 'react';
 
 /**
  * Obtener tenant por slug (para landing pages, formularios, etc.)
+ * Envuelto en React.cache() para deduplicar queries dentro del mismo request SSR.
  */
-export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
+export const getTenantBySlug = cache(async (slug: string): Promise<Tenant | null> => {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from('tenants')
@@ -19,7 +21,7 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
 
   if (error || !data) return null;
   return data as Tenant;
-}
+});
 
 /**
  * Obtener tenant por ID (para APIs internas como export)

@@ -12,7 +12,7 @@ import { TIPOS_MEDIO, CARGOS } from '@/types';
 import type { TeamMember } from '@/types';
 import { validateRut, cleanRut, formatRut } from '@/lib/validation';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile';
-import { useToast, ConfirmDialog, ButtonSpinner } from '@/components/shared/ui';
+import { useToast, ConfirmDialog, ButtonSpinner, LoadingSpinner } from '@/components/shared/ui';
 import { useConfirmation } from '@/hooks';
 
 interface MemberForm {
@@ -410,7 +410,7 @@ export default function EquipoPage() {
       {/* Members List */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto" />
+          <LoadingSpinner />
           <p className="text-muted mt-4">Cargando equipo...</p>
         </div>
       ) : members.length === 0 ? (
@@ -476,7 +476,7 @@ export default function EquipoPage() {
                     title="Eliminar del equipo"
                   >
                     {deletingId === member.id ? (
-                      <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                      <ButtonSpinner />
                     ) : (
                       <i className="fas fa-trash-alt" />
                     )}

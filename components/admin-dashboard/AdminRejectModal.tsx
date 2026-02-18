@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal } from '@/components/shared/ui';
+import { Modal, ButtonSpinner } from '@/components/shared/ui';
 import type { RegistrationFull } from '@/types';
 import { useAdmin } from './AdminContext';
 
@@ -85,7 +85,7 @@ export default function AdminRejectModal({ reg, open, onClose }: AdminRejectModa
               className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
             >
               {isProcessing ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner />
               ) : (
                 <i className="fas fa-times" />
               )}

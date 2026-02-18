@@ -1,10 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import type { FormFieldDefinition, TeamMember } from '@/types';
 import AcreditadoRow from '@/components/forms/AcreditadoRow';
 import type { AcreditadoData } from '@/components/forms/AcreditadoRow';
 import { validateRut, cleanRut } from '@/lib/validation';
-import { LoadingSpinner } from '@/components/shared/ui';
 import { TIPO_MEDIO_ICONS, type ResponsableData, type BulkImportRow } from './types';
 
 interface QuotaResult {
@@ -43,6 +43,146 @@ interface StepAcreditadosProps {
   downloadTemplate: () => void;
   handleSubmit: () => void;
   goBack: () => void;
+}
+
+/* ─── Bulk Summary — compact card with expandable table ─── */
+function BulkSummary({
+  bulkRows,
+  setBulkRows,
+  responsable,
+  tipoMedio,
+}: {
+  bulkRows: BulkImportRow[];
+  setBulkRows: React.Dispatch<React.SetStateAction<BulkImportRow[]>>;
+  responsable: ResponsableData;
+  tipoMedio: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const invalidRuts = bulkRows.filter(r => r.rut && !validateRut(r.rut)).length;
+  const missingNames = bulkRows.filter(r => !r.nombre || !r.apellido).length;
+  const previewRows = bulkRows.slice(0, 3);
+  const PREVIEW_LIMIT = 20;
+
+  return (
+    <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden animate-fade-in">
+      {/* Header with summary stats */}
+      <div className="px-4 sm:px-5 py-3 sm:py-4 bg-surface/60 border-b border-edge/50">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+              <i className="fas fa-file-upload text-brand" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-heading">
+                Carga masiva · {bulkRows.length} persona{bulkRows.length !== 1 ? 's' : ''}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                {invalidRuts > 0 && (
+                  <span className="text-xs text-danger font-medium flex items-center gap-1">
+                    <i className="fas fa-exclamation-circle text-[10px]" /> {invalidRuts} RUT inválido{invalidRuts !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {missingNames > 0 && (
+                  <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                    <i className="fas fa-exclamation-triangle text-[10px]" /> {missingNames} sin nombre completo
+                  </span>
+                )}
+                {invalidRuts === 0 && missingNames === 0 && (
+                  <span className="text-xs text-success font-medium flex items-center gap-1">
+                    <i className="fas fa-check-circle text-[10px]" /> Datos validados
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBulkRows([])}
+            className="text-xs text-danger font-semibold hover:underline flex items-center gap-1 shrink-0"
+          >
+            <i className="fas fa-trash-alt" /> Limpiar
+          </button>
+        </div>
+
+        {/* Preview names (first 3) */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {previewRows.map((row, i) => (
+            <span key={row.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface border border-edge text-xs text-heading font-medium">
+              <span className="w-4 h-4 rounded-full bg-brand/10 text-brand text-[9px] font-bold flex items-center justify-center">{i + 1}</span>
+              {row.nombre} {row.apellido}
+              {row.rut && !validateRut(row.rut) && <i className="fas fa-exclamation-circle text-danger text-[10px]" />}
+            </span>
+          ))}
+          {bulkRows.length > 3 && (
+            <span className="text-xs text-muted font-medium">y {bulkRows.length - 3} más...</span>
+          )}
+        </div>
+      </div>
+
+      {/* Expand toggle */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 sm:px-5 py-2 flex items-center justify-center gap-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-snappy"
+      >
+        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'} text-[10px]`} />
+        {expanded ? 'Ocultar detalle' : 'Ver tabla completa'}
+      </button>
+
+      {/* Expandable table */}
+      {expanded && (
+        <div className="border-t border-edge/50">
+          <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-surface/80 backdrop-blur-sm border-b border-edge/50">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide w-8">#</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Nombre</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Apellido</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">RUT</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Patente</th>
+                  <th className="px-2 py-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-edge/30">
+                {bulkRows.slice(0, PREVIEW_LIMIT).map((row, i) => (
+                  <tr key={row.id} className="hover:bg-surface/40 transition-snappy">
+                    <td className="px-3 py-2 text-xs text-muted font-mono">{i + 1}</td>
+                    <td className="px-3 py-2 font-medium text-heading">{row.nombre || <span className="text-danger italic text-xs">Vacío</span>}</td>
+                    <td className="px-3 py-2 font-medium text-heading">{row.apellido || <span className="text-danger italic text-xs">Vacío</span>}</td>
+                    <td className="px-3 py-2 text-body font-mono text-xs">
+                      {row.rut || <span className="text-danger italic">Vacío</span>}
+                      {row.rut && !validateRut(row.rut) && <i className="fas fa-exclamation-circle text-danger ml-1" />}
+                    </td>
+                    <td className="px-3 py-2 text-muted text-xs">{row.patente || '—'}</td>
+                    <td className="px-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setBulkRows(prev => prev.filter((_, idx) => idx !== i))}
+                        className="p-1 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-snappy"
+                        title="Eliminar fila"
+                      >
+                        <i className="fas fa-times text-xs" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {bulkRows.length > PREVIEW_LIMIT && (
+              <div className="px-4 py-2 text-center text-xs text-muted border-t border-edge/50">
+                Mostrando primeras {PREVIEW_LIMIT} de {bulkRows.length} filas
+              </div>
+            )}
+          </div>
+          <div className="px-4 py-2 bg-surface/40 border-t border-edge/50 text-xs text-muted flex items-center gap-2">
+            <i className="fas fa-info-circle" />
+            Empresa ({responsable.organizacion}) y tipo de medio ({tipoMedio}) se asignan automáticamente.
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function StepAcreditados({
@@ -267,83 +407,8 @@ export default function StepAcreditados({
             </div>
           )}
 
-          {/* ── Tabla de Carga Masiva ── */}
-          {bulkRows.length > 0 && (() => {
-            // Collect unique extras keys across all rows for dynamic columns
-            const extraKeys = Array.from(
-              new Set(bulkRows.flatMap(r => Object.keys(r.extras || {})))
-            );
-            return (
-            <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden">
-              <div className="px-4 sm:px-5 py-3 bg-surface/60 border-b border-edge/50 flex items-center justify-between">
-                <p className="text-sm font-semibold text-heading flex items-center gap-2">
-                  <i className="fas fa-file-upload text-brand" /> Carga masiva ({bulkRows.length} persona{bulkRows.length !== 1 ? 's' : ''})
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setBulkRows([])}
-                  className="text-xs text-danger font-semibold hover:underline flex items-center gap-1"
-                >
-                  <i className="fas fa-trash-alt" /> Limpiar todo
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-surface/40 border-b border-edge/50">
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide w-8">#</th>
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Nombre</th>
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Apellido</th>
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">RUT</th>
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Patente</th>
-                      {extraKeys.map(k => (
-                        <th key={k} className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">{k}</th>
-                      ))}
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Empresa</th>
-                      <th className="text-left px-3 sm:px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Tipo Medio</th>
-                      <th className="px-2 py-2 w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-edge/30">
-                    {bulkRows.map((row, i) => (
-                      <tr key={row.id} className="hover:bg-surface/40 transition-snappy">
-                        <td className="px-3 sm:px-4 py-2 text-xs text-muted font-mono">{i + 1}</td>
-                        <td className="px-3 sm:px-4 py-2 font-medium text-heading">{row.nombre || <span className="text-danger italic">Vacío</span>}</td>
-                        <td className="px-3 sm:px-4 py-2 font-medium text-heading">{row.apellido || <span className="text-danger italic">Vacío</span>}</td>
-                        <td className="px-3 sm:px-4 py-2 text-body font-mono text-xs">
-                          {row.rut || <span className="text-danger italic">Vacío</span>}
-                          {row.rut && !validateRut(row.rut) && (
-                            <span className="ml-1 text-danger"><i className="fas fa-exclamation-circle" /></span>
-                          )}
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 text-muted">{row.patente || '—'}</td>
-                        {extraKeys.map(k => (
-                          <td key={k} className="px-3 sm:px-4 py-2 text-muted">{row.extras?.[k] || '—'}</td>
-                        ))}
-                        <td className="px-3 sm:px-4 py-2 text-muted italic">{row.extras?.organizacion || responsable.organizacion}</td>
-                        <td className="px-3 sm:px-4 py-2 text-muted italic">{row.extras?.tipo_medio || tipoMedio}</td>
-                        <td className="px-2 py-2">
-                          <button
-                            type="button"
-                            onClick={() => setBulkRows(prev => prev.filter((_, idx) => idx !== i))}
-                            className="p-1 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-snappy"
-                            title="Eliminar fila"
-                          >
-                            <i className="fas fa-times text-xs" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="px-4 sm:px-5 py-2 bg-surface/40 border-t border-edge/50 text-xs text-muted flex items-center gap-2">
-                <i className="fas fa-info-circle" />
-                Empresa, tipo de medio y zona se asignan automáticamente desde los pasos 1 y 2 si no vienen en el archivo.
-              </div>
-            </div>
-            );
-          })()}
+          {/* ── Resumen de Carga Masiva (compacto + expandible) ── */}
+          {bulkRows.length > 0 && <BulkSummary bulkRows={bulkRows} setBulkRows={setBulkRows} responsable={responsable} tipoMedio={tipoMedio} />}
         </>
       )}
 
@@ -360,26 +425,18 @@ export default function StepAcreditados({
         <button
           type="button"
           onClick={goBack}
-          className="flex-1 py-3 sm:py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm sm:text-base"
+          className="px-5 py-2.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm"
         >
-          <i className="fas fa-arrow-left mr-1.5 sm:mr-2" /> Volver
+          <i className="fas fa-arrow-left mr-1.5" /> Volver
         </button>
         <button
           type="button"
           onClick={handleSubmit}
           disabled={submitting || (acreditados.length === 0 && bulkRows.length === 0)}
-          className="flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed relative text-sm sm:text-base"
+          className="flex-1 py-2.5 rounded-xl text-white font-semibold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
           style={{ backgroundColor: tenantColors.primario }}
         >
-          {submitting ? (
-            <span className="flex items-center justify-center gap-2">
-              <LoadingSpinner size="sm" /> Enviando...
-            </span>
-          ) : (
-            <>
-              <i className="fas fa-paper-plane mr-2" /> Revisar y Enviar
-            </>
-          )}
+          <i className="fas fa-paper-plane mr-1.5" /> Revisar y Enviar
         </button>
       </div>
     </div>

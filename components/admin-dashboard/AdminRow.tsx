@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { useAdmin } from './AdminContext';
-import { StatusBadge } from '@/components/shared/ui';
+import { StatusBadge, ButtonSpinner } from '@/components/shared/ui';
 import type { RegistrationFull } from '@/types';
 
 const RECENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
@@ -13,7 +13,7 @@ interface AdminRowProps {
   onReject: (reg: RegistrationFull) => void;
 }
 
-export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps) {
+function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
   const { selectedIds, toggleSelect, handleStatusChange, sendEmail, processing, tenant, selectedEvent, updateRegistrationZona } = useAdmin();
   const isProcessing = processing === reg.id;
 
@@ -44,6 +44,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
           checked={selectedIds.has(reg.id)}
           onChange={() => toggleSelect(reg.id)}
           className="rounded border-field-border text-brand"
+          aria-label={`Seleccionar ${reg.profile_nombre} ${reg.profile_apellido}`}
         />
       </td>
 
@@ -100,6 +101,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
                 ? 'bg-purple-50 text-purple-700 border-purple-200'
                 : 'bg-subtle text-muted border-edge'
             }`}
+            aria-label="Asignar zona de acceso"
           >
             <option value="">Sin zona</option>
             {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
@@ -149,7 +151,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
                 title="Aprobar"
               >
                 {isProcessing ? (
-                  <div className="w-4 h-4 border-2 border-success border-t-transparent rounded-full animate-spin" />
+                  <ButtonSpinner />
                 ) : (
                   <i className="fas fa-check text-sm" />
                 )}
@@ -174,7 +176,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
               title={`Enviar email de ${reg.status === 'aprobado' ? 'aprobación' : 'rechazo'}`}
             >
               {isProcessing ? (
-                <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner />
               ) : (
                 <i className="fas fa-envelope text-sm" />
               )}
@@ -185,3 +187,7 @@ export default function AdminRow({ reg, onViewDetail, onReject }: AdminRowProps)
     </tr>
   );
 }
+
+const AdminRow = memo(AdminRowInner);
+AdminRow.displayName = 'AdminRow';
+export default AdminRow;

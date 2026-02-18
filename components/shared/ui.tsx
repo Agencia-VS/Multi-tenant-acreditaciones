@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import type { UIMessage } from '@/types';
 
@@ -215,19 +216,69 @@ export function Modal({
   maxWidth?: string;
   children: React.ReactNode;
 }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className={`bg-surface rounded-t-2xl sm:rounded-2xl ${maxWidth} w-full max-h-[90vh] sm:max-h-[85vh] overflow-y-auto`}>
-        <div className="sticky top-0 bg-surface border-b border-edge px-4 sm:px-5 py-3 flex justify-between items-center z-10 rounded-t-2xl">
-          <h2 className="text-lg sm:text-xl font-bold text-heading">{title}</h2>
-          <button onClick={onClose} className="text-muted hover:text-body transition p-1">
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Need to know we're client-side for createPortal
+  useEffect(() => { setMounted(true); }, []);
+
+  // Focus close button when modal opens
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => closeBtnRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [open, onClose]);
+
+  // Lock body scroll — save/restore original value
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = original; };
+  }, [open]);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      onClick={onClose}
+    >
+      {/* Panel — stopPropagation so clicking inside doesn't trigger backdrop close */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <div
+        className={`relative bg-surface rounded-t-2xl sm:rounded-2xl ${maxWidth} w-full max-h-[90vh] sm:max-h-[85vh] shadow-2xl flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-surface border-b border-edge px-4 sm:px-5 py-3 flex justify-between items-center rounded-t-2xl shrink-0">
+          <h2 id="modal-title" className="text-lg sm:text-xl font-bold text-heading">{title}</h2>
+          <button
+            ref={closeBtnRef}
+            onClick={onClose}
+            className="text-muted hover:text-body transition p-1"
+            aria-label="Cerrar modal"
+          >
             <i className="fas fa-times text-xl" />
           </button>
         </div>
-        <div className="p-4 sm:p-5 md:p-6">{children}</div>
+        <div className="p-4 sm:p-5 md:p-6 overflow-y-auto overscroll-contain flex-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -283,12 +334,10 @@ export function ConfirmDialog({
 
   // Lock body scroll
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = original; };
   }, [open]);
 
   if (!open) return null;
@@ -305,18 +354,20 @@ export function ConfirmDialog({
   };
   const v = icons[variant];
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
       aria-describedby="confirm-dialog-message"
+      onClick={onCancel}
     >
-      {/* Backdrop click to cancel */}
-      <div className="absolute inset-0" onClick={onCancel} />
-
-      <div className="relative bg-surface rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-edge">
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <div
+        className="relative bg-surface rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-edge"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className={`w-12 h-12 rounded-full ${v.bg} flex items-center justify-center`}>
@@ -343,7 +394,8 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

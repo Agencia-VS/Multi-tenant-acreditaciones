@@ -9,13 +9,13 @@ import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { BackButton, useToast } from '@/components/shared/ui';
+import { BackButton, useToast, LoadingSpinner, ButtonSpinner } from '@/components/shared/ui';
 
 export default function AcreditadoAuthPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#111111] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+        <LoadingSpinner />
       </div>
     }>
       <AcreditadoAuthContent />
@@ -247,7 +247,7 @@ function AcreditadoAuthContent() {
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        <ButtonSpinner />
                         Ingresando...
                       </>
                     ) : 'Ingresar'}
@@ -329,7 +329,7 @@ function AcreditadoAuthContent() {
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        <ButtonSpinner />
                         Creando cuenta...
                       </>
                     ) : 'Crear cuenta'}

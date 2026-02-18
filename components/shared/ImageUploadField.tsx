@@ -12,6 +12,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { ButtonSpinner } from '@/components/shared/ui';
 
 interface ImageUploadFieldProps {
   /** Label del campo */
@@ -181,7 +182,7 @@ export default function ImageUploadField({
           <div className="flex-1 min-w-0">
             {uploading ? (
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner />
                 <span className="text-sm text-body">Subiendo...</span>
               </div>
             ) : (

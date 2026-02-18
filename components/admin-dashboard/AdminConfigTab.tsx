@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAdmin } from './AdminContext';
-import { Modal, EmptyState } from '@/components/shared/ui';
+import { Modal, EmptyState, ButtonSpinner } from '@/components/shared/ui';
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
 import type { Event, FormFieldDefinition, ZoneMatchField } from '@/types';
@@ -229,7 +229,7 @@ export default function AdminConfigTab() {
         showSuccess('Evento creado correctamente');
         setShowCreateModal(false);
         resetForm();
-        window.location.reload();
+        fetchData();
       } else {
         const d = await res.json();
         showError(d.error || 'Error creando evento');
@@ -266,7 +266,7 @@ export default function AdminConfigTab() {
         showSuccess('Evento actualizado');
         setEditEvent(null);
         resetForm();
-        window.location.reload();
+        fetchData();
       } else {
         const d = await res.json();
         showError(d.error || 'Error actualizando evento');
@@ -282,14 +282,14 @@ export default function AdminConfigTab() {
     try {
       if (ev.is_active) {
         const res = await fetch(`/api/events?id=${ev.id}`, { method: 'DELETE' });
-        if (res.ok) { showSuccess('Evento desactivado'); window.location.reload(); }
+        if (res.ok) { showSuccess('Evento desactivado'); fetchData(); }
       } else {
         const res = await fetch(`/api/events?id=${ev.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ is_active: true }),
         });
-        if (res.ok) { showSuccess('Evento activado'); window.location.reload(); }
+        if (res.ok) { showSuccess('Evento activado'); fetchData(); }
       }
     } catch {
       showError('Error actualizando evento');
@@ -302,7 +302,7 @@ export default function AdminConfigTab() {
       if (res.ok) {
         showSuccess('Evento eliminado');
         setDeletingEventId(null);
-        window.location.reload();
+        fetchData();
       } else {
         const d = await res.json();
         showError(d.error || 'Error eliminando evento');
@@ -440,6 +440,7 @@ export default function AdminConfigTab() {
                   type="button"
                   onClick={() => removeZona(z)}
                   className="text-purple-400 hover:text-purple-700 transition"
+                  aria-label={`Eliminar zona ${z}`}
                 >
                   <i className="fas fa-times text-xs" />
                 </button>
@@ -456,6 +457,7 @@ export default function AdminConfigTab() {
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addZona(); } }}
             placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
             className="flex-1 px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
+            aria-label="Nombre de nueva zona"
           />
           <button
             type="button"
@@ -539,6 +541,7 @@ export default function AdminConfigTab() {
                   <button
                     onClick={() => setEditEvent(ev)}
                     className="p-1.5 text-muted hover:text-brand hover:bg-accent-light rounded-lg transition"
+                    aria-label={`Editar evento ${ev.nombre}`}
                   >
                     <i className="fas fa-pen text-sm" />
                   </button>
@@ -631,7 +634,7 @@ export default function AdminConfigTab() {
             </select>
             {cloning && (
               <div className="flex items-center gap-2 mt-2 text-xs text-brand">
-                <div className="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner className="w-3 h-3" />
                 Copiando configuración…
               </div>
             )}
@@ -669,7 +672,7 @@ export default function AdminConfigTab() {
             disabled={!form.nombre.trim() || saving || cloning}
             className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
-            {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="fas fa-plus" />}
+            {saving ? <ButtonSpinner /> : <i className="fas fa-plus" />}
             {cloneSourceId ? 'Crear evento (con copia)' : 'Crear evento'}
           </button>
           <button onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">
@@ -687,7 +690,7 @@ export default function AdminConfigTab() {
             disabled={!form.nombre.trim() || saving}
             className="flex-1 py-2.5 bg-brand text-on-brand rounded-xl font-medium hover:bg-brand-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
-            {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="fas fa-save" />}
+            {saving ? <ButtonSpinner /> : <i className="fas fa-save" />}
             Guardar cambios
           </button>
           <button onClick={() => setEditEvent(null)} className="px-6 py-2.5 bg-subtle text-body rounded-xl font-medium hover:bg-edge transition">

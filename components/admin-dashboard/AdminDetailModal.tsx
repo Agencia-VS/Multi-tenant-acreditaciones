@@ -114,6 +114,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
               value={currentZona}
               onChange={(e) => updateRegistrationZona(reg.id, e.target.value)}
               className="px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-sm font-medium text-purple-700 cursor-pointer"
+              aria-label="Zona de acceso"
             >
               <option value="">Sin zona asignada</option>
               {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
@@ -207,6 +208,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
                   className="w-full px-4 py-2.5 border border-danger/30 rounded-xl text-base text-heading"
                   autoFocus
                   onKeyDown={e => e.key === 'Enter' && handleReject()}
+                  aria-label="Motivo del rechazo"
                 />
                 <div className="flex gap-2">
                   <button

@@ -6,6 +6,7 @@
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { LoadingSpinner } from '@/components/shared/ui';
 
 function CallbackHandler() {
   const router = useRouter();
@@ -49,8 +50,8 @@ function CallbackHandler() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-canvas">
       <div className="text-center">
-        <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-body">Verificando sesión...</p>
+        <LoadingSpinner />
+        <p className="text-body mt-4">Verificando sesión...</p>
       </div>
     </div>
   );
@@ -61,7 +62,7 @@ export default function AuthCallbackPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <LoadingSpinner />
         </div>
       }
     >

@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { BackButton, useToast } from '@/components/shared/ui';
+import { BackButton, useToast, ButtonSpinner } from '@/components/shared/ui';
 
 export default function SuperAdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -128,7 +128,7 @@ export default function SuperAdminLoginPage() {
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    <ButtonSpinner />
                     Verificando...
                   </>
                 ) : (

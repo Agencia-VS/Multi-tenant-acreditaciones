@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from './AdminContext';
+import { ButtonSpinner } from '@/components/shared/ui';
 import AdminMailZones from './AdminMailZones';
 import { sanitizeHtml } from '@/lib/sanitize';
 import type { EmailTemplate, EmailTemplateType } from '@/types';
@@ -296,7 +297,7 @@ export default function AdminMailTab() {
               className="px-6 py-2.5 bg-[#7c3aed] text-white rounded-xl font-medium hover:bg-[#6d28d9] disabled:opacity-50 transition flex items-center gap-2"
             >
               {saving ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner />
               ) : (
                 <i className="fas fa-save" />
               )}

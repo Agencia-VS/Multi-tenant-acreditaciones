@@ -131,8 +131,6 @@ export default function AdminAccreditationControl() {
         setShowEditDeadline(false);
         setNewDeadline('');
         fetchData();
-        // Force page refresh to get updated event data
-        window.location.reload();
       } else {
         showError('Error al actualizar fecha');
       }

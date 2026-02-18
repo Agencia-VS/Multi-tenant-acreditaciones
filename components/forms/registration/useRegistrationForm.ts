@@ -133,6 +133,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [submitResults, setSubmitResults] = useState<SubmitResult[]>([]);
+  const [submitProgress, setSubmitProgress] = useState<{ current: number; total: number } | null>(null);
 
   // ─── Messages ───
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -506,9 +507,13 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     setSubmitting(true);
     setMessage(null);
     const results: SubmitResult[] = [];
+    const totalSteps = acreditados.length + (bulkRows.length > 0 ? 1 : 0);
+    setSubmitProgress({ current: 0, total: totalSteps });
 
     // 1. Enviar acreditados manuales
-    for (const a of acreditados) {
+    for (let idx = 0; idx < acreditados.length; idx++) {
+      const a = acreditados[idx];
+      setSubmitProgress({ current: idx, total: totalSteps });
       const nombre = `${a.nombre} ${a.apellido}`;
       try {
         const payload = {
@@ -540,6 +545,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
     // 2. Enviar carga masiva
     if (bulkRows.length > 0) {
+      setSubmitProgress({ current: acreditados.length, total: totalSteps });
       try {
         const bulkPayloadRows = bulkRows.map(row => ({
           rut: sanitize(row.rut), nombre: sanitize(row.nombre), apellido: sanitize(row.apellido),
@@ -581,6 +587,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
     setSubmitResults(results);
     setSubmitting(false);
+    setSubmitProgress(null);
 
     // Persistencia inteligente
     if (tenantId && results.some(r => r.ok)) {
@@ -658,7 +665,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     // Bulk
     bulkRows, setBulkRows, handleFileImport, downloadTemplate,
     // Submit
-    submitting, showConfirmModal, setShowConfirmModal, submitResults,
+    submitting, showConfirmModal, setShowConfirmModal, submitResults, submitProgress,
     handleSubmit, handleConfirmedSubmit,
     // Navigation
     handleDisclaimerAccept, goBack,

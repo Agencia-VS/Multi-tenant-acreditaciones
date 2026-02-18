@@ -18,6 +18,7 @@ export default function AdminFilters() {
             value={filters.event_id}
             onChange={e => updateFilter('event_id', e.target.value)}
             className="px-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
+            aria-label="Seleccionar evento"
           >
             <option value="">Seleccionar evento</option>
             {events.map(ev => (
@@ -42,6 +43,7 @@ export default function AdminFilters() {
             <button
               onClick={() => updateFilter('search', '')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-body"
+              aria-label="Limpiar búsqueda"
             >
               <i className="fas fa-times text-xs" />
             </button>
@@ -53,6 +55,7 @@ export default function AdminFilters() {
           value={filters.status}
           onChange={e => updateFilter('status', e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-edge text-base text-label bg-canvas focus:border-brand transition"
+          aria-label="Filtrar por estado"
         >
           <option value="">Todos los estados</option>
           <option value="pendiente">⏳ Pendientes</option>

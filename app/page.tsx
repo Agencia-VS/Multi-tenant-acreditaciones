@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { LoadingSpinner } from '@/components/shared/ui';
 
 interface Tenant {
   id: string;
@@ -201,7 +202,7 @@ export default function LandingPage() {
 
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+              <LoadingSpinner />
             </div>
           ) : tenants.length === 0 ? (
             <div className="text-center py-12">

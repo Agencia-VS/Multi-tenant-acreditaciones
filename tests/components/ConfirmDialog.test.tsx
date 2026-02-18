@@ -15,10 +15,11 @@ describe('ConfirmDialog', () => {
   };
 
   it('no renderiza nada cuando open=false', () => {
-    const { container } = render(
+    render(
       <ConfirmDialog {...baseProps} open={false} />
     );
-    expect(container.innerHTML).toBe('');
+    // Portal renders to document.body, so check no dialog role exists
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('renderiza título y mensaje cuando open=true', () => {
@@ -70,20 +71,20 @@ describe('ConfirmDialog', () => {
   });
 
   it('muestra icono de danger por defecto', () => {
-    const { container } = render(<ConfirmDialog {...baseProps} />);
-    const icon = container.querySelector('.fa-trash-alt');
+    render(<ConfirmDialog {...baseProps} />);
+    const icon = document.body.querySelector('.fa-trash-alt');
     expect(icon).toBeDefined();
   });
 
   it('muestra icono de warning cuando variant=warning', () => {
-    const { container } = render(<ConfirmDialog {...baseProps} variant="warning" />);
-    const icon = container.querySelector('.fa-exclamation-triangle');
+    render(<ConfirmDialog {...baseProps} variant="warning" />);
+    const icon = document.body.querySelector('.fa-exclamation-triangle');
     expect(icon).toBeDefined();
   });
 
   it('muestra icono de info cuando variant=info', () => {
-    const { container } = render(<ConfirmDialog {...baseProps} variant="info" />);
-    const icon = container.querySelector('.fa-info-circle');
+    render(<ConfirmDialog {...baseProps} variant="info" />);
+    const icon = document.body.querySelector('.fa-info-circle');
     expect(icon).toBeDefined();
   });
 });

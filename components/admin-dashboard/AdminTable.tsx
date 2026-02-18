@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAdmin } from './AdminContext';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import AdminRow from './AdminRow';
 import AdminExportActions from './AdminExportActions';
 import type { RegistrationFull } from '@/types';
 import { TIPOS_MEDIO } from '@/types';
-import { LoadingSpinner, EmptyState } from '@/components/shared/ui';
+import { LoadingSpinner, EmptyState, ButtonSpinner } from '@/components/shared/ui';
 
 interface AdminTableProps {
   onViewDetail: (reg: RegistrationFull) => void;
@@ -45,7 +46,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   const hasActiveFilters = !!(filters.status || filters.tipo_medio || filters.search || filters.event_day_id);
 
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 260px)', minHeight: registrations.length > 0 ? '320px' : undefined }}>
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden">
 
       {/* ═══════ STICKY: Filters ═══════ */}
       <div className="sticky top-0 z-20 bg-surface border-b border-edge flex-shrink-0">
@@ -59,6 +60,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 value={filters.event_id}
                 onChange={e => updateFilter('event_id', e.target.value)}
                 className="px-3 py-2 rounded-lg border border-edge text-sm text-label bg-canvas focus:border-brand transition"
+                aria-label="Seleccionar evento"
               >
                 <option value="">Seleccionar evento</option>
                 {events.map(ev => (
@@ -75,6 +77,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 value={filters.event_day_id}
                 onChange={e => updateFilter('event_day_id', e.target.value)}
                 className="px-3 py-2 rounded-lg border border-amber-300 text-sm text-amber-800 bg-amber-50 focus:border-amber-500 transition font-medium"
+                aria-label="Filtrar por jornada"
               >
                 <option value="">Todas las jornadas</option>
                 {eventDays.map(d => (
@@ -100,6 +103,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 <button
                   onClick={() => updateFilter('search', '')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-body"
+                  aria-label="Limpiar búsqueda"
                 >
                   <i className="fas fa-times text-xs" />
                 </button>
@@ -111,6 +115,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               value={filters.status}
               onChange={e => updateFilter('status', e.target.value)}
               className="px-3 py-2 rounded-lg border border-edge text-sm text-label bg-canvas focus:border-brand transition"
+              aria-label="Filtrar por estado"
             >
               <option value="">Estado</option>
               <option value="pendiente">⏳ Pendientes</option>
@@ -146,25 +151,25 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 {filters.search && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent-light text-brand rounded-full">
                     &quot;{filters.search}&quot;
-                    <button onClick={() => updateFilter('search', '')}><i className="fas fa-times text-[8px]" /></button>
+                    <button onClick={() => updateFilter('search', '')} aria-label="Quitar filtro búsqueda"><i className="fas fa-times text-[8px]" /></button>
                   </span>
                 )}
                 {filters.status && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded-full">
                     {filters.status}
-                    <button onClick={() => updateFilter('status', '')}><i className="fas fa-times text-[8px]" /></button>
+                    <button onClick={() => updateFilter('status', '')} aria-label="Quitar filtro estado"><i className="fas fa-times text-[8px]" /></button>
                   </span>
                 )}
                 {filters.tipo_medio && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-success-light text-success-dark rounded-full">
                     {filters.tipo_medio}
-                    <button onClick={() => updateFilter('tipo_medio', '')}><i className="fas fa-times text-[8px]" /></button>
+                    <button onClick={() => updateFilter('tipo_medio', '')} aria-label="Quitar filtro tipo medio"><i className="fas fa-times text-[8px]" /></button>
                   </span>
                 )}
                 {filters.event_day_id && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full">
                     {eventDays.find(d => d.id === filters.event_day_id)?.label || 'Jornada'}
-                    <button onClick={() => updateFilter('event_day_id', '')}><i className="fas fa-times text-[8px]" /></button>
+                    <button onClick={() => updateFilter('event_day_id', '')} aria-label="Quitar filtro jornada"><i className="fas fa-times text-[8px]" /></button>
                   </span>
                 )}
                 <button
@@ -260,52 +265,24 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 </div>
               )}
               {processing === 'bulk' && (
-                <div className="w-3.5 h-3.5 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                <ButtonSpinner className="w-3.5 h-3.5" />
               )}
             </div>
           </div>
         )}
       </div>
 
-      {/* ═══════ SCROLLABLE: Single unified table ═══════ */}
+      {/* ═══════ SCROLLABLE: Virtualized table ═══════ */}
       {registrations.length === 0 ? (
         <EmptyState message="No hay registros para este evento" icon="fa-inbox" />
       ) : (
-        <div className="overflow-auto flex-1">
-          <table className="w-full text-base">
-            <thead className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm">
-              <tr>
-                <th className="p-3 pl-4 text-left w-10">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleSelectAll}
-                    className="rounded border-field-border text-brand"
-                  />
-                </th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
-                <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-edge">
-              {registrations.map(reg => (
-                <AdminRow
-                  key={reg.id}
-                  reg={reg}
-                  onViewDetail={onViewDetail}
-                  onReject={onReject}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <VirtualizedTable
+          registrations={registrations}
+          allSelected={allSelected}
+          toggleSelectAll={toggleSelectAll}
+          onViewDetail={onViewDetail}
+          onReject={onReject}
+        />
       )}
 
       {/* Footer */}
@@ -315,6 +292,109 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
           {hasSel && <span className="text-brand">{selectedIds.size} seleccionados</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────── VirtualizedTable ─────────────────── */
+
+const ROW_HEIGHT = 56; // Estimated px per row
+const VIRTUALIZE_THRESHOLD = 50; // Only virtualize when rows > threshold
+
+function VirtualizedTable({
+  registrations,
+  allSelected,
+  toggleSelectAll,
+  onViewDetail,
+  onReject,
+}: {
+  registrations: RegistrationFull[];
+  allSelected: boolean;
+  toggleSelectAll: () => void;
+  onViewDetail: (reg: RegistrationFull) => void;
+  onReject: (reg: RegistrationFull) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = registrations.length > VIRTUALIZE_THRESHOLD;
+
+  const virtualizer = useVirtualizer({
+    count: registrations.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+    enabled: shouldVirtualize,
+  });
+
+  const thead = (
+    <thead className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm">
+      <tr>
+        <th className="p-3 pl-4 text-left w-10">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleSelectAll}
+            className="rounded border-field-border text-brand"
+            aria-label="Seleccionar todos los registros"
+          />
+        </th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
+        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
+      </tr>
+    </thead>
+  );
+
+  // For small datasets, render normally (no virtualization overhead)
+  if (!shouldVirtualize) {
+    return (
+      <div className="overflow-auto max-h-[70vh]">
+        <table className="w-full text-base">
+          {thead}
+          <tbody className="divide-y divide-edge">
+            {registrations.map(reg => (
+              <AdminRow key={reg.id} reg={reg} onViewDetail={onViewDetail} onReject={onReject} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // Virtualized: only render visible rows + overscan
+  const items = virtualizer.getVirtualItems();
+
+  return (
+    <div ref={parentRef} className="overflow-auto max-h-[70vh]">
+      <table className="w-full text-base">
+        {thead}
+        <tbody>
+          {/* Top spacer */}
+          {items.length > 0 && (
+            <tr><td colSpan={10} style={{ height: items[0].start, padding: 0 }} /></tr>
+          )}
+          {items.map(virtualRow => {
+            const reg = registrations[virtualRow.index];
+            return (
+              <AdminRow
+                key={reg.id}
+                reg={reg}
+                onViewDetail={onViewDetail}
+                onReject={onReject}
+              />
+            );
+          })}
+          {/* Bottom spacer */}
+          {items.length > 0 && (
+            <tr><td colSpan={10} style={{ height: virtualizer.getTotalSize() - (items[items.length - 1].end), padding: 0 }} /></tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
