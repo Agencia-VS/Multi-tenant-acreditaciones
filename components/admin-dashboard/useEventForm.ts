@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { isoToLocalDatetime } from '@/lib/dates';
-import type { Event, FormFieldDefinition, ZoneMatchField } from '@/types';
+import type { Event, EventVisibility, FormFieldDefinition, ZoneMatchField } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -19,6 +19,7 @@ export interface EventForm {
   descripcion: string;
   fecha_limite_acreditacion: string;
   qr_enabled: boolean;
+  visibility: EventVisibility;
 }
 
 export interface QuotaRule {
@@ -42,6 +43,7 @@ const INITIAL_FORM: EventForm = {
   opponent_name: '', opponent_logo_url: '',
   league: '', descripcion: '',
   fecha_limite_acreditacion: '', qr_enabled: false,
+  visibility: 'public',
 };
 
 export const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
@@ -106,6 +108,7 @@ export function useEventForm() {
       descripcion: event.descripcion || '',
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
       qr_enabled: event.qr_enabled || false,
+      visibility: (event as Event & { visibility?: string }).visibility as EventVisibility || 'public',
     });
     const eventConfig = event.config ?? {};
     setZonas(eventConfig.zonas || []);

@@ -126,6 +126,35 @@ export default function EventFormFields({
         </div>
       </div>
 
+      {/* Visibilidad */}
+      <div>
+        <label className="text-xs text-body mb-1 block">
+          <i className="fas fa-eye mr-1 text-blue-500" />
+          Visibilidad del evento
+        </label>
+        <div className="flex gap-2">
+          {([
+            { value: 'public' as const, label: 'Público', icon: 'fa-globe', desc: 'Visible en landing' },
+            { value: 'invite_only' as const, label: 'Por Invitación', icon: 'fa-envelope', desc: 'Solo con link de invitación' },
+          ]).map(({ value, label, icon, desc }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, visibility: value }))}
+              className={`flex-1 p-2.5 rounded-xl border-2 text-left transition text-sm ${
+                form.visibility === value
+                  ? 'border-brand bg-info-light'
+                  : 'border-edge hover:border-brand/40'
+              }`}
+            >
+              <i className={`fas ${icon} mr-1.5 ${form.visibility === value ? 'text-brand' : 'text-muted'}`} />
+              <span className={`font-medium ${form.visibility === value ? 'text-brand' : 'text-heading'}`}>{label}</span>
+              <p className="text-xs text-muted mt-0.5">{desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Zonas del evento */}
       <div>
         <label className="text-xs text-body mb-1 block">

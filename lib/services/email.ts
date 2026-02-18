@@ -495,3 +495,74 @@ async function logEmail(
     // No bloquear por error de log
   }
 }
+
+/**
+ * Enviar email de invitación a un evento
+ */
+export async function sendInvitationEmail({
+  to,
+  nombre,
+  eventName,
+  tenantId,
+  token,
+}: {
+  to: string;
+  nombre?: string;
+  eventName: string;
+  tenantId: string;
+  token: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Obtener branding del tenant
+    const supabase = createSupabaseAdminClient();
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('nombre, slug, color_primario, color_secundario, logo_url')
+      .eq('id', tenantId)
+      .single();
+
+    const tenantName = tenant?.nombre || 'Organización';
+    const tenantSlug = tenant?.slug || '';
+    const primaryColor = tenant?.color_primario || '#2563eb';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const inviteUrl = `${baseUrl}/${tenantSlug}/acreditacion?invite=${token}`;
+    const greeting = nombre ? `Hola ${escapeHtml(nombre)}` : 'Hola';
+
+    const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: ${primaryColor}; padding: 24px; text-align: center; border-radius: 12px 12px 0 0;">
+        ${tenant?.logo_url ? `<img src="${tenant.logo_url}" alt="${escapeHtml(tenantName)}" style="height: 48px; margin-bottom: 12px;" />` : ''}
+        <h1 style="color: ${tenant?.color_secundario || '#ffffff'}; font-size: 20px; margin: 0;">
+          Invitación a Acreditación
+        </h1>
+      </div>
+      <div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+        <p style="font-size: 16px; color: #374151;">${greeting},</p>
+        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+          Has sido invitado/a a acreditarte para el evento <strong style="color: #111827;">${escapeHtml(eventName)}</strong>
+          de <strong>${escapeHtml(tenantName)}</strong>.
+        </p>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${inviteUrl}"
+             style="display: inline-block; background: ${primaryColor}; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+            Completar Acreditación
+          </a>
+        </div>
+        <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 24px;">
+          Si no esperabas esta invitación, puedes ignorar este mensaje.
+        </p>
+      </div>
+    </div>`;
+
+    await resend.emails.send({
+      from: getFromEmail(),
+      to,
+      subject: `Invitación: ${eventName} — ${tenantName}`,
+      html,
+    });
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error enviando email' };
+  }
+}

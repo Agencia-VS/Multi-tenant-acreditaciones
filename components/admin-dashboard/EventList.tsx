@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
-import { EmptyState } from '@/components/shared/ui';
+import { EmptyState, useToast } from '@/components/shared/ui';
 import type { Event } from '@/types';
 
 interface EventListProps {
@@ -13,6 +13,24 @@ interface EventListProps {
 export default function EventList({ onCreateNew, onEditEvent }: EventListProps) {
   const { tenant, events, selectedEvent, selectEvent, showSuccess, showError, fetchData } = useAdmin();
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const getInviteLink = (ev: Event) => {
+    if (!tenant || ev.visibility !== 'invite_only' || !ev.invite_token) return null;
+    const base = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${base}/${tenant.slug}/acreditacion?invite=${ev.invite_token}`;
+  };
+
+  const copyLink = async (link: string, eventId: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedId(eventId);
+      showSuccess('Link copiado al portapapeles');
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      showError('Error al copiar');
+    }
+  };
 
   const handleToggleActive = async (ev: Event) => {
     try {
@@ -74,14 +92,22 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
           {events.map(ev => (
             <div
               key={ev.id}
-              className={`px-6 py-4 flex items-center justify-between hover:bg-canvas/50 transition ${
+              className={`px-6 py-4 hover:bg-canvas/50 transition ${
                 selectedEvent?.id === ev.id ? 'bg-accent-light/30 border-l-4 border-l-brand' : ''
               }`}
             >
+              <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className={`w-3 h-3 rounded-full ${ev.is_active ? 'bg-success' : 'bg-edge'}`} />
                 <div>
-                  <p className="text-sm font-medium text-heading">{ev.nombre}</p>
+                  <p className="text-sm font-medium text-heading">
+                    {ev.nombre}
+                    {ev.visibility === 'invite_only' && (
+                      <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        <i className="fas fa-envelope mr-1" />Invitación
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-body">
                     {ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-CL') : 'Sin fecha'}
                     {ev.venue && ` · ${ev.venue}`}
@@ -143,6 +169,48 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
                   </button>
                 )}
               </div>
+              </div>
+
+              {/* Link de invitación compartible */}
+              {(() => {
+                const link = getInviteLink(ev);
+                if (!link) return null;
+                const isCopied = copiedId === ev.id;
+                return (
+                  <div className="mt-3 ml-7 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <i className="fas fa-link text-blue-500 text-xs" />
+                      <span className="text-xs font-semibold text-blue-700">Link de invitación</span>
+                      <span className="text-xs text-blue-500">— Comparte este link para que se acrediten</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-white px-3 py-2 rounded-lg border border-blue-200 text-heading truncate block">
+                        {link}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => copyLink(link, ev.id)}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                          isCopied
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        <i className={`fas ${isCopied ? 'fa-check' : 'fa-copy'}`} />
+                        {isCopied ? 'Copiado' : 'Copiar'}
+                      </button>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`Te invito a acreditarte: ${link}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition flex items-center gap-1.5"
+                      >
+                        <i className="fab fa-whatsapp" /> WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

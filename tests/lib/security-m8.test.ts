@@ -69,12 +69,12 @@ describe('eventCreateSchema', () => {
     const result = safeParse(eventCreateSchema, {
       ...valid,
       venue: 'Santiago',
-      tipo: 'deportivo',
+      event_type: 'deportivo',
       qr_enabled: true,
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.tipo).toBe('deportivo');
+      expect(result.data.event_type).toBe('deportivo');
     }
   });
 });

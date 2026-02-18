@@ -6,7 +6,7 @@
  * Incluye filtros por tenant, estado, búsqueda y agrupación visual.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { FormFieldDefinition, Tenant, EventFull, ZoneMatchField, EventType, EventDayFormData, BulkTemplateColumn } from '@/types';
+import type { FormFieldDefinition, Tenant, EventFull, ZoneMatchField, EventType, EventVisibility, EventDayFormData, BulkTemplateColumn } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
@@ -16,6 +16,7 @@ import EventQuotasTab from './EventQuotasTab';
 import EventZonesTab from './EventZonesTab';
 import EventDaysTab from './EventDaysTab';
 import EventBulkTemplateTab from './EventBulkTemplateTab';
+import EventInvitationsTab from './EventInvitationsTab';
 
 type SAEvent = EventFull;
 
@@ -45,7 +46,7 @@ export default function EventosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SAEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'bulk' | 'cupos' | 'zonas' | 'dias'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'bulk' | 'cupos' | 'zonas' | 'dias' | 'invitaciones'>('general');
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
@@ -111,6 +112,7 @@ export default function EventosPage() {
     qr_enabled: false,
     fecha_limite_acreditacion: '',
     event_type: 'simple' as EventType,
+    visibility: 'public' as EventVisibility,
     fecha_inicio: '',
     fecha_fin: '',
   });
@@ -232,6 +234,7 @@ export default function EventosPage() {
       qr_enabled: false,
       fecha_limite_acreditacion: '',
       event_type: 'simple' as EventType,
+      visibility: 'public' as EventVisibility,
       fecha_inicio: '',
       fecha_fin: '',
     });
@@ -261,6 +264,7 @@ export default function EventosPage() {
       qr_enabled: event.qr_enabled,
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
       event_type: event.event_type || 'simple',
+      visibility: (event.visibility as EventVisibility) || 'public',
       fecha_inicio: event.fecha_inicio || '',
       fecha_fin: event.fecha_fin || '',
     });
@@ -514,7 +518,7 @@ export default function EventosPage() {
 
             {/* Tabs */}
             <div className="px-8 pt-4 flex gap-1 border-b overflow-x-auto">
-              {(['general', 'form', 'bulk', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : [])] as const).map((tab) => (
+              {(['general', 'form', 'bulk', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : []), ...(editing && eventForm.visibility === 'invite_only' ? ['invitaciones' as const] : [])] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as typeof activeTab)}
@@ -530,6 +534,7 @@ export default function EventosPage() {
                   {tab === 'cupos' && <><i className="fas fa-chart-pie mr-2" />Cupos ({quotaRules.length})</>}
                   {tab === 'zonas' && <><i className="fas fa-map-signs mr-2" />Zonas ({zoneRules.length})</>}
                   {tab === 'dias' && <><i className="fas fa-calendar-week mr-2" />Días ({eventDays.length})</>}
+                  {tab === 'invitaciones' && <><i className="fas fa-envelope mr-2" />Invitaciones</>}
                 </button>
               ))}
             </div>
@@ -599,6 +604,32 @@ export default function EventosPage() {
                         >
                           <i className={`fas ${icon} mr-2 ${eventForm.event_type === value ? 'text-brand' : 'text-muted'}`} />
                           <span className={`text-sm font-semibold ${eventForm.event_type === value ? 'text-brand' : 'text-heading'}`}>{label}</span>
+                          <p className="text-xs text-body mt-0.5">{desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Visibilidad del evento */}
+                  <div>
+                    <label className="block text-sm font-medium text-label mb-1">Visibilidad</label>
+                    <div className="flex gap-3">
+                      {([
+                        { value: 'public', label: 'Público', icon: 'fa-globe', desc: 'Visible en landing del tenant' },
+                        { value: 'invite_only', label: 'Por Invitación', icon: 'fa-envelope', desc: 'Requiere link de invitación' },
+                      ] as const).map(({ value, label, icon, desc }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setEventForm(prev => ({ ...prev, visibility: value }))}
+                          className={`flex-1 p-3 rounded-lg border-2 text-left transition ${
+                            eventForm.visibility === value
+                              ? 'border-brand bg-info-light'
+                              : 'border-field-border hover:border-brand/40'
+                          }`}
+                        >
+                          <i className={`fas ${icon} mr-2 ${eventForm.visibility === value ? 'text-brand' : 'text-muted'}`} />
+                          <span className={`text-sm font-semibold ${eventForm.visibility === value ? 'text-brand' : 'text-heading'}`}>{label}</span>
                           <p className="text-xs text-body mt-0.5">{desc}</p>
                         </button>
                       ))}
@@ -774,6 +805,11 @@ export default function EventosPage() {
                 />
               )}
 
+              {/* Invitations Tab (invite_only, editing only) */}
+              {activeTab === 'invitaciones' && editing && (
+                <EventInvitationsTab eventId={editing.id} tenantSlug={editing.tenant_slug || ''} />
+              )}
+
               <FormActions
                 saving={saving}
                 onCancel={() => setShowForm(false)}
@@ -899,6 +935,11 @@ export default function EventosPage() {
                                   <i className="fas fa-qrcode mr-1" />QR
                                 </span>
                               )}
+                              {event.visibility === 'invite_only' && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                                  <i className="fas fa-envelope mr-1" />Invitación
+                                </span>
+                              )}
                               <span className="px-2 py-1 bg-info-light text-brand rounded-full">
                                 {event.form_fields?.length || 0} campos
                               </span>
@@ -937,6 +978,39 @@ export default function EventosPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* Link de invitación compartible */}
+                        {event.visibility === 'invite_only' && event.invite_token && (
+                          <div className="mt-3 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <i className="fas fa-link text-blue-500 text-xs" />
+                              <span className="text-xs font-semibold text-blue-700">Link de invitación</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <code className="flex-1 text-xs bg-white px-3 py-2 rounded-lg border border-blue-200 text-heading truncate block">
+                                {typeof window !== 'undefined' ? `${window.location.origin}/${event.tenant_slug}/acreditacion?invite=${event.invite_token}` : `/${event.tenant_slug}/acreditacion?invite=${event.invite_token}`}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const link = `${window.location.origin}/${event.tenant_slug}/acreditacion?invite=${event.invite_token}`;
+                                  navigator.clipboard.writeText(link).then(() => showSuccess('Link copiado'));
+                                }}
+                                className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition flex items-center gap-1.5"
+                              >
+                                <i className="fas fa-copy" /> Copiar
+                              </button>
+                              <a
+                                href={`https://wa.me/?text=${encodeURIComponent(`Te invito a acreditarte: ${typeof window !== 'undefined' ? window.location.origin : ''}/${event.tenant_slug}/acreditacion?invite=${event.invite_token}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition flex items-center gap-1.5"
+                              >
+                                <i className="fab fa-whatsapp" /> WhatsApp
+                              </a>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

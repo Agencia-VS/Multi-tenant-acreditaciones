@@ -9,9 +9,10 @@ export { getTenantBySlug, getTenantById, listTenants, createTenant, updateTenant
 export { getActiveEvent, getEventById, getEventFull, listEventsByTenant, listAllEvents, createEvent, updateEvent, deactivateEvent, deleteEvent } from './events';
 export { listEventDays, getCurrentEventDay, createEventDay, createEventDaysBulk, updateEventDay, deleteEventDay, syncEventDays, getRegistrationDays, getEventDayCheckinStats } from './eventDays';
 export { getTeamMembers, addTeamMember, removeTeamMember, updateTeamMember, getTeamMembersForEvent } from './teams';
-export { sendApprovalEmail, sendRejectionEmail, sendBulkApprovalEmails, sendWelcomeEmail } from './email';
+export { sendApprovalEmail, sendRejectionEmail, sendBulkApprovalEmails, sendWelcomeEmail, sendInvitationEmail } from './email';
 export { logAuditAction, getAuditLogs } from './audit';
 export { getCurrentUser, isSuperAdmin, isTenantAdmin, getUserTenantRole, hasAccessToTenant } from './auth';
 export { requireAuth } from './requireAuth';
 export type { AuthResult, RequireAuthOptions, AuthRole } from './requireAuth';
 export { shouldForcePasswordChange, validatePassword, getForceChangeRedirectUrl, PASSWORD_RULES } from './passwordPolicy';
+export { listInvitations, getInvitationByToken, validateInviteToken, createInvitations, markInvitationSent, acceptInvitation, deleteInvitation, expireEventInvitations } from './invitations';

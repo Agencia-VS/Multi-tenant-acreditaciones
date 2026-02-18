@@ -11,6 +11,22 @@ import { z } from 'zod';
 
 export const uuidSchema = z.string().uuid('ID inválido');
 
+/** Transforma empty string / null / undefined → null */
+const coerceEmpty = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? null : v == null ? null : v;
+
+/** Color hex — acepta string hex válido, empty string → null, null → null */
+const hexColor = z.preprocess(
+  coerceEmpty,
+  z.string().regex(/^#[0-9a-fA-F]{3,8}$/).nullable()
+);
+
+/** URL — acepta URL válida, empty string → null, null → null */
+const optionalUrl = z.preprocess(
+  coerceEmpty,
+  z.string().url().nullable()
+);
+
 export const rutSchema = z
   .string()
   .min(1, 'RUT es requerido')
@@ -64,13 +80,20 @@ export const emailZoneContentPostSchema = z.object({
 export const eventCreateSchema = z.object({
   tenant_id: uuidSchema,
   nombre: safeString.pipe(z.string().min(1, 'Nombre es requerido')),
-  fecha: z.string().optional(),
-  fecha_fin: z.string().optional(),
-  venue: safeString.optional().default(''),
-  descripcion: z.string().max(2000).optional().default(''),
-  activo: z.boolean().optional().default(true),
-  tipo: z.enum(['simple', 'deportivo', 'multidia']).optional().default('simple'),
+  fecha: z.string().nullable().optional(),
+  fecha_fin: z.string().nullable().optional(),
+  fecha_inicio: z.string().nullable().optional(),
+  fecha_limite_acreditacion: z.string().nullable().optional(),
+  hora: z.string().nullable().optional(),
+  venue: safeString.nullable().optional(),
+  descripcion: z.string().max(2000).nullable().optional().default(''),
+  is_active: z.boolean().optional().default(true),
+  event_type: z.enum(['simple', 'deportivo', 'multidia']).optional().default('simple'),
+  visibility: z.enum(['public', 'invite_only']).optional().default('public'),
   qr_enabled: z.boolean().optional().default(false),
+  league: safeString.nullable().optional(),
+  opponent_name: safeString.nullable().optional(),
+  opponent_logo_url: z.string().nullable().optional(),
   cupos_globales: z.number().int().min(0).optional(),
   cupos_tipo_medio: z.record(z.string(), z.number().int().min(0)).optional(),
   form_config_id: uuidSchema.optional().nullable(),
@@ -84,13 +107,13 @@ export const tenantCreateSchema = z.object({
   nombre: safeString.pipe(z.string().min(1, 'Nombre es requerido')),
   slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/, 'Slug solo puede contener letras minúsculas, números y guiones'),
   activo: z.boolean().optional().default(true),
-  color_primario: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().default('#1a1a2e'),
-  color_secundario: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().default('#ffffff'),
-  color_light: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().default('#f0f0f0'),
-  color_dark: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().default('#1a1a2e'),
-  logo_url: z.string().url().optional().nullable(),
-  shield_url: z.string().url().optional().nullable(),
-  background_url: z.string().url().optional().nullable(),
+  color_primario: hexColor.optional().default('#1a1a2e'),
+  color_secundario: hexColor.optional().default('#ffffff'),
+  color_light: hexColor.optional().default('#f0f0f0'),
+  color_dark: hexColor.optional().default('#1a1a2e'),
+  logo_url: optionalUrl,
+  shield_url: optionalUrl,
+  background_url: optionalUrl,
   config: z.record(z.string(), z.any()).optional(),
 }).passthrough();
 

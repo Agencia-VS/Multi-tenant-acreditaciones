@@ -7,15 +7,22 @@ import type { Event, EventFull, EventFormData } from '@/types';
 
 /**
  * Obtener el evento activo de un tenant (para landing y formulario)
+ * @param publicOnly - si true, solo retorna eventos con visibility='public'
  */
-export async function getActiveEvent(tenantId: string): Promise<EventFull | null> {
+export async function getActiveEvent(tenantId: string, opts?: { publicOnly?: boolean }): Promise<EventFull | null> {
   const supabase = createSupabaseAdminClient();
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('v_event_full')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('is_active', true)
+    .eq('is_active', true);
+
+  if (opts?.publicOnly) {
+    query = query.eq('visibility', 'public');
+  }
+
+  const { data, error } = await query
     .order('fecha', { ascending: true })
     .limit(1)
     .single();
@@ -110,6 +117,8 @@ export async function createEvent(data: EventFormData): Promise<Event> {
       form_fields: (data.form_fields || []) as any,
       config: (data.config || {}) as any,
       event_type: data.event_type || 'simple',
+      visibility: data.visibility || 'public',
+      invite_token: data.visibility === 'invite_only' ? crypto.randomUUID() : null,
       fecha_inicio: data.fecha_inicio || null,
       fecha_fin: data.fecha_fin || null,
       is_active: true,
@@ -130,10 +139,26 @@ export async function updateEvent(eventId: string, data: Partial<EventFormData>)
   // Sanitize: remove immutable/computed fields, convert empty strings to null for optional fields
   const sanitized: Record<string, unknown> = {};
   const nullableStrings = ['descripcion', 'fecha', 'hora', 'venue', 'league', 'opponent_name', 'opponent_logo_url', 'fecha_limite_acreditacion', 'fecha_inicio', 'fecha_fin'];
+  // Exclude immutable, computed, and legacy field names that don't exist in DB
+  const excludeKeys = ['id', 'created_at', 'tenant', 'activo', 'tipo'];
 
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-    if (['id', 'created_at', 'tenant'].includes(key)) continue;
+    if (excludeKeys.includes(key)) continue;
     sanitized[key] = nullableStrings.includes(key) && (value === '' || value === undefined) ? null : value;
+  }
+
+  // Auto-generate invite_token when switching to invite_only (if not already set)
+  if (sanitized.visibility === 'invite_only') {
+    const { data: existing } = await supabase
+      .from('events')
+      .select('invite_token')
+      .eq('id', eventId)
+      .single();
+    if (!existing?.invite_token) {
+      sanitized.invite_token = crypto.randomUUID();
+    }
+  } else if (sanitized.visibility === 'public') {
+    sanitized.invite_token = null;
   }
 
   const { data: event, error } = await supabase

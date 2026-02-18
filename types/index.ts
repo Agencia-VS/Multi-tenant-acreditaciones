@@ -27,15 +27,21 @@ export type Tenant = NonNull<Tables<'tenants'>,
 // ─── Tipos de Evento ───────────────────────────────────────────────────────
 
 export type EventType = 'simple' | 'deportivo' | 'multidia';
+export type EventVisibility = 'public' | 'invite_only';
 
 /** Evento — derivado de `events` */
 export type Event = NonNull<Tables<'events'>,
   'is_active' | 'qr_enabled' | 'created_at' | 'updated_at'
 > & {
   event_type: EventType;
+  visibility: EventVisibility;
+  invite_token: string | null;
   form_fields: FormFieldDefinition[];
   config: EventConfig;
 };
+
+/** Invitación a evento — derivado de `event_invitations` */
+export type EventInvitation = Tables<'event_invitations'>;
 
 /** Día de evento multidía — derivado de `event_days` */
 export type EventDay = NonNull<Tables<'event_days'>,
@@ -186,6 +192,8 @@ export type EventFull = NonNull<Tables<'v_event_full'>,
   'id' | 'tenant_id' | 'nombre' | 'is_active' | 'qr_enabled' | 'created_at' | 'updated_at'
 > & {
   event_type: EventType;
+  visibility: EventVisibility;
+  invite_token: string | null;
   form_fields: FormFieldDefinition[];
   config: EventConfig;
   tenant_config: TenantConfig;
@@ -351,20 +359,21 @@ export interface TenantFormData {
 export interface EventFormData {
   tenant_id: string;
   nombre: string;
-  descripcion?: string;
-  fecha?: string;
-  hora?: string;
-  venue?: string;
-  fecha_limite_acreditacion?: string;
-  opponent_name?: string;
-  opponent_logo_url?: string;
-  league?: string;
+  descripcion?: string | null;
+  fecha?: string | null;
+  hora?: string | null;
+  venue?: string | null;
+  fecha_limite_acreditacion?: string | null;
+  opponent_name?: string | null;
+  opponent_logo_url?: string | null;
+  league?: string | null;
   qr_enabled?: boolean;
   form_fields?: FormFieldDefinition[];
   config?: EventConfig;
   event_type?: EventType;
-  fecha_inicio?: string;
-  fecha_fin?: string;
+  visibility?: EventVisibility;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
 }
 
 export interface DashboardStats {

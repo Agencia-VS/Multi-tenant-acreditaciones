@@ -2,6 +2,10 @@
  * Formulario de Acreditación del Tenant
  * NO requiere autenticación — cualquier persona puede registrarse.
  * Si el usuario está logueado, se pre-llenan sus datos.
+ *
+ * Visibilidad:
+ * - public      → acceso libre
+ * - invite_only → requiere ?invite=<token> que coincida con event.invite_token
  */
 import { getTenantBySlug } from '@/lib/services/tenants';
 import { getActiveEvent } from '@/lib/services/events';
@@ -16,10 +20,13 @@ import { BackButton } from '@/components/shared/ui';
 
 export default async function AcreditacionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenant: string }>;
+  searchParams: Promise<{ invite?: string }>;
 }) {
   const { tenant: slug } = await params;
+  const { invite: inviteToken } = await searchParams;
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
 
@@ -42,6 +49,32 @@ export default async function AcreditacionPage({
         </div>
       </main>
     );
+  }
+
+  // ─── Verificar visibilidad del evento ───
+  const visibility = event.visibility || 'public';
+
+  // Evento por invitación: validar que el token del URL coincida con el del evento
+  if (visibility === 'invite_only') {
+    const eventToken = event.invite_token;
+    if (!inviteToken || inviteToken !== eventToken) {
+      return (
+        <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
+          <div className="text-center">
+            <i className="fas fa-envelope text-5xl text-edge mb-4" />
+            <h1 className="text-2xl font-bold text-label">Evento por Invitación</h1>
+            <p className="text-body mt-2">
+              {!inviteToken
+                ? 'Necesitas un link de invitación para acceder a este evento.'
+                : 'El link de invitación no es válido o ha expirado.'}
+            </p>
+            <Link href={`/${slug}`} className="mt-4 inline-block text-brand hover:underline">
+              Volver al inicio
+            </Link>
+          </div>
+        </main>
+      );
+    }
   }
 
   // Verificar si la acreditación está cerrada (override manual + fecha límite)

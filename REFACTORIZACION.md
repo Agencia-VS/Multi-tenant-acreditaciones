@@ -21,7 +21,7 @@ agregaron **5 milestones funcionales** (M12–M16) a partir de feedback de QA.
 El mismo día se agregaron **4 milestones adicionales** (M17–M20) a partir de
 feedback de usuario: visibilidad de eventos, UX de feedback, mejora del formulario
 de acreditación y gate de perfil para equipo.
-**16 de 19 milestones completados**.
+**18 de 19 milestones completados**.
 
 ### Progreso Global
 
@@ -39,9 +39,9 @@ M10 (Arquitectura + Calidad)   ████████         ✅ COMPLETADO �
 M12 (Bug Cruce Datos Tenants)  ████████████████ ✅ COMPLETADO — 18 feb 2026
 M13 (Flujo Auth Completo)      ██████████       ✅ COMPLETADO — 18 feb 2026
 M14 (Eliminación de Tenants)   ██████           ✅ COMPLETADO — 18 feb 2026
-M15 (UX SuperAdmin Eventos)    ████             ⬜ PENDIENTE
+M15 (UX SuperAdmin Eventos)    ████             ✅ COMPLETADO — 18 feb 2026
 M16 (Billing Admin Tenant)     ████████████     ⬜ PENDIENTE
-M17 (Eventos Públicos/Privados) ██████           ⬜ PENDIENTE
+M17 (Eventos Públicos/Privados) ██████           ✅ COMPLETADO — 18 feb 2026
 M18 (UX Feedback: Toasts+Modal) ████████         ✅ COMPLETADO — 19 feb 2026
 M19 (UX Formulario Acreditación)████████████     ✅ COMPLETADO — 18 feb 2026
 M20 (Gate Perfil → Equipo)      ██████           ✅ COMPLETADO — 18 feb 2026
@@ -1056,9 +1056,9 @@ Sesión 11b →  M19 (UX Formulario Acreditación)      ████████
 Sesión 12  →  M20 (Gate Perfil → Equipo)             ██████           ✅ COMPLETADO — 18 feb 2026
 Sesión 13  →  M13 (Flujo Auth Completo)             ██████████       ✅ COMPLETADO — 18 feb 2026
 Sesión 14  →  M14 (Eliminación de Tenants)          ██████           ✅ COMPLETADO — 18 feb 2026
-Sesión 15  →  M15 (UX SuperAdmin Eventos)           ████             ⬜ PENDIENTE
+Sesión 15  →  M15 (UX SuperAdmin Eventos)           ████             ✅ COMPLETADO — 18 feb 2026
 Sesión 16  →  M16 (Billing Admin Tenant)            ████████████     ⬜ PENDIENTE
-Sesión 17  →  M17 (Eventos Públicos/Privados)       ██████           ⬜ PENDIENTE
+Sesión 17  →  M17 (Eventos Públicos/Privados)       ██████           ✅ COMPLETADO — 18 feb 2026
 ```
 
 Cada sesión termina con `npx next build` exitoso y commit independiente.
@@ -1221,13 +1221,14 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] 4 tests en `deleteTenant.test.ts` (not found, cascade cleanup, auth error resilience, storage error resilience)
 - [x] 292 tests passing, 27 suites — Build exitoso
 
-### M15 — UX SuperAdmin Eventos ⬜
-- [ ] Filtro por tenant en página de eventos
-- [ ] Agrupación visual por tenant (headers con color)
-- [ ] Filtro por estado activo/inactivo
-- [ ] Búsqueda por nombre de evento
-- [ ] Contadores en barra de filtros
-- [ ] Build exitoso
+### M15 — UX SuperAdmin Eventos ✅
+- [x] Filtro por tenant — `<select>` con todos los tenants, filtrado client-side con `useMemo`
+- [x] Agrupación visual por tenant — lista agrupada con headers coloreados (`tenant_color_primario`), borde lateral con color, conteo por grupo
+- [x] Filtro activo/inactivo — toggle bar con 3 estados (Todos / Activos / Inactivos), contadores en cada botón
+- [x] Búsqueda por nombre — input con icon, busca en nombre, tenant, venue, rival
+- [x] Contadores — barra muestra "X de Y" eventos filtrados + contadores por estado
+- [x] Limpieza de tipos — `SAEvent` ahora es `EventFull` (eliminados casts innecesarios a `BaseEvent &`)
+- [x] Build exitoso — 292 tests, 27 suites
 
 ### M16 — Billing Admin Tenant ⬜
 - [ ] Schema SQL: tablas `plans`, `subscriptions`, `usage_records`
@@ -1242,19 +1243,25 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [ ] Tests de billing
 - [ ] Build exitoso
 
-### M17 — Eventos Públicos / Privados (por Invitación) ⬜
-- [ ] Columna `visibility` en tabla `events` (`'public' | 'private' | 'invite_only'`)
-- [ ] UI toggle en formulario de evento (admin_tenant + superadmin)
-- [ ] Evento `private` / `invite_only` → no aparece en landing público del tenant
-- [ ] Evento `invite_only` → requiere link directo con token o lista de invitados
-- [ ] Schema SQL: tabla `event_invitations` (event_id, email, token, accepted_at)
-- [ ] Servicio `invitations.ts` con `createInvitation()`, `validateInviteToken()`
-- [ ] API `POST /api/events/[id]/invite` — enviar invitación por email
-- [ ] API `GET /api/events/[id]/invite?token=xxx` — validar token de invitación
-- [ ] Formulario de acreditación valida visibilidad antes de mostrar
-- [ ] Admin puede ver lista de invitados y estados (enviado, aceptado, rechazado)
-- [ ] Tests de visibilidad y tokens
-- [ ] Build exitoso
+### M17 — Eventos Públicos / Privados (por Invitación) ✅
+- [x] Columna `visibility` en `events` — `'public' | 'private' | 'invite_only'`, default `'public'`. Migration: `supabase-event-visibility.sql`
+- [x] UI toggle en formulario de evento — selector 3 opciones (Público/Privado/Invitación) en superadmin + admin_tenant
+- [x] Landing filtra por visibility — `getActiveEvent(id, { publicOnly: true })` para landing público
+- [x] Evento `private` → formulario acreditación muestra "Evento Privado" bloqueado
+- [x] Evento `invite_only` → requiere `?invite=<token>` en URL, valida antes de mostrar form
+- [x] Schema SQL: tabla `event_invitations` (id, event_id, email, nombre, token UUID, status, sent_at, accepted_at)
+- [x] Servicio `invitations.ts` — `listInvitations`, `getInvitationByToken`, `validateInviteToken`, `createInvitations`, `markInvitationSent`, `acceptInvitation`, `deleteInvitation`, `expireEventInvitations`
+- [x] API `POST /api/events/[id]/invitations` — crear invitaciones batch + envío de email
+- [x] API `GET /api/events/[id]/invitations` — listar invitaciones
+- [x] API `DELETE /api/events/[id]/invitations?invitation_id=xxx` — eliminar
+- [x] API `GET /api/events/invite?token=xxx` — validar token público + retornar datos evento/tenant
+- [x] `sendInvitationEmail()` en email.ts — email branded con CTA "Completar Acreditación"
+- [x] Formulario de acreditación valida visibilidad — public (libre), private (bloqueado), invite_only (valida token + marca como aceptada)
+- [x] Tab Invitaciones en superadmin — solo aparece al editar evento invite_only. Tabla con emails, estado (pendiente/enviada/aceptada/expirada), stats
+- [x] Badges de visibilidad en lista de eventos — Privado (gris), Invitación (azul)
+- [x] Types: `EventVisibility`, `EventInvitation`, visibility en `Event`, `EventFull`, `EventFormData`
+- [x] 9 tests en `visibility.test.ts` (getActiveEvent publicOnly, validateInviteToken, createInvitations, acceptInvitation)
+- [x] 301 tests, 28 suites — Build exitoso
 
 ### M18 — UX Feedback: Toasts + Modales ✅
 - [x] Migrar todos los `setMessage()`/`setError()` inline a toasts de Sileo — 10 archivos migrados

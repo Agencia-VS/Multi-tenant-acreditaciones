@@ -16,7 +16,7 @@ export default async function TenantPage({
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
 
-  const event = await getActiveEvent(tenant.id);
+  const event = await getActiveEvent(tenant.id, { publicOnly: true });
 
   return <TenantLanding tenant={tenant} event={event} slug={slug} />;
 }

@@ -358,6 +358,8 @@ export type Database = {
           tenant_id: string
           updated_at: string | null
           venue: string | null
+          visibility: string
+          invite_token: string | null
         }
         Insert: {
           config?: Json | null
@@ -380,6 +382,8 @@ export type Database = {
           tenant_id: string
           updated_at?: string | null
           venue?: string | null
+          visibility?: string
+          invite_token?: string | null
         }
         Update: {
           config?: Json | null
@@ -402,6 +406,8 @@ export type Database = {
           tenant_id?: string
           updated_at?: string | null
           venue?: string | null
+          visibility?: string
+          invite_token?: string | null
         }
         Relationships: [
           {
@@ -416,6 +422,50 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_tenant_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_invitations: {
+        Row: {
+          id: string
+          event_id: string
+          email: string
+          nombre: string | null
+          token: string
+          status: string
+          sent_at: string | null
+          accepted_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          email: string
+          nombre?: string | null
+          token?: string
+          status?: string
+          sent_at?: string | null
+          accepted_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          email?: string
+          nombre?: string | null
+          token?: string
+          status?: string
+          sent_at?: string | null
+          accepted_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -852,6 +902,8 @@ export type Database = {
           tenant_slug: string | null
           updated_at: string | null
           venue: string | null
+          visibility: string | null
+          invite_token: string | null
         }
         Relationships: [
           {
