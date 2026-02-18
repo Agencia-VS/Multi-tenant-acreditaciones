@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormFieldDefinition, Tenant, Event as BaseEvent, ZoneMatchField, EventType, EventDayFormData, BulkTemplateColumn } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
-import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
+import { useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import EventFormFieldsTab from './EventFormFieldsTab';
@@ -47,7 +47,7 @@ export default function EventosPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'form' | 'bulk' | 'cupos' | 'zonas' | 'dias'>('general');
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
-  const { toast, showSuccess, showError, dismiss } = useToast();
+  const { showSuccess, showError } = useToast();
 
   // Event form state
   const [eventForm, setEventForm] = useState({
@@ -451,7 +451,6 @@ export default function EventosPage() {
 
   return (
     <div>
-      <Toast toast={toast} onDismiss={dismiss} />
       <PageHeader
         title="Eventos"
         subtitle="Gestión de eventos y formularios de acreditación"

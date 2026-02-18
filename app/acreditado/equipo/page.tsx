@@ -7,9 +7,13 @@
  * Estos miembros aparecen como "frecuentes" al acreditar por equipo.
  */
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import type { TeamMember } from '@/types';
 import { validateRut, cleanRut, formatRut } from '@/lib/validation';
+import { isProfileComplete, getMissingProfileFields } from '@/lib/profile';
+import { useToast, ConfirmDialog, ButtonSpinner } from '@/components/shared/ui';
+import { useConfirmation } from '@/hooks';
 
 interface MemberForm {
   rut: string;
@@ -34,12 +38,14 @@ export default function EquipoPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<MemberForm>({ ...emptyForm });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
+  const { confirmation, confirm, cancel, execute } = useConfirmation();
   const [rutError, setRutError] = useState('');
   const [profileMedio, setProfileMedio] = useState('');
   const [profileTipoMedio, setProfileTipoMedio] = useState('');
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
+  const [missingFields, setMissingFields] = useState<Array<{ key: string; label: string }>>([]);
 
   // Cargar medio y tipo_medio del perfil del manager — se fuerzan en todos los miembros
   useEffect(() => {
@@ -50,6 +56,16 @@ export default function EquipoPage() {
         if (data.found && data.profile) {
           if (data.profile.medio) setProfileMedio(data.profile.medio);
           if (data.profile.tipo_medio) setProfileTipoMedio(data.profile.tipo_medio);
+
+          // Gate: verificar si el perfil está completo
+          if (!isProfileComplete(data.profile)) {
+            setProfileIncomplete(true);
+            setMissingFields(getMissingProfileFields(data.profile));
+          }
+        } else {
+          // No tiene perfil → bloquear
+          setProfileIncomplete(true);
+          setMissingFields(getMissingProfileFields(null));
         }
       } catch { /* ignore */ }
     };
@@ -94,8 +110,6 @@ export default function EquipoPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
-    setSuccess('');
 
     // Validar RUT antes de enviar
     const rutResult = validateRut(form.rut);
@@ -121,41 +135,47 @@ export default function EquipoPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Error al agregar miembro');
+        showError(data.error || 'Error al agregar miembro');
         setSaving(false);
         return;
       }
 
-      setSuccess(`${form.nombre} ${form.apellido} agregado al equipo`);
+      showSuccess(`${form.nombre} ${form.apellido} agregado al equipo`);
       setForm({ ...emptyForm, medio: profileMedio, tipo_medio: profileTipoMedio });
       setShowForm(false);
       setRutError('');
       await loadMembers();
     } catch {
-      setError('Error de conexión');
+      showError('Error de conexión');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (memberId: string, memberName: string) => {
-    if (!confirm(`¿Eliminar a ${memberName} de tu equipo?`)) return;
-    
-    setDeletingId(memberId);
-    try {
-      const res = await fetch(`/api/teams?member_id=${memberId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setMembers((prev) => prev.filter((m) => m.id !== memberId));
-        setSuccess(`${memberName} eliminado del equipo`);
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Error al eliminar');
-      }
-    } catch {
-      setError('Error de conexión');
-    } finally {
-      setDeletingId(null);
-    }
+  const handleDelete = (memberId: string, memberName: string) => {
+    confirm({
+      title: '¿Eliminar miembro?',
+      message: `${memberName} será eliminado de tu equipo. Podrás volver a agregarlo después.`,
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+      onConfirm: async () => {
+        setDeletingId(memberId);
+        try {
+          const res = await fetch(`/api/teams?member_id=${memberId}`, { method: 'DELETE' });
+          if (res.ok) {
+            setMembers((prev) => prev.filter((m) => m.id !== memberId));
+            showSuccess(`${memberName} eliminado del equipo`);
+          } else {
+            const data = await res.json();
+            showError(data.error || 'Error al eliminar');
+          }
+        } catch {
+          showError('Error de conexión');
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
   };
 
   const inputClass = 'w-full px-4 py-3 rounded-lg border border-field-border text-heading transition';
@@ -163,6 +183,41 @@ export default function EquipoPage() {
 
   return (
     <div>
+      {/* Gate: perfil incompleto → banner bloqueante */}
+      {profileIncomplete && (
+        <div className="max-w-2xl mx-auto mt-8">
+          <div className="bg-warning-light border border-warning rounded-xl p-6 text-center space-y-4">
+            <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto">
+              <i className="fas fa-exclamation-triangle text-warning text-2xl" />
+            </div>
+            <h2 className="text-xl font-bold text-heading">Completa tu perfil</h2>
+            <p className="text-body">
+              Para gestionar tu equipo necesitas completar los siguientes datos en tu perfil:
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {missingFields.map(({ key, label }) => (
+                <span
+                  key={key}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-warning/10 text-warning-dark rounded-full text-sm font-medium"
+                >
+                  <i className="fas fa-circle text-[6px]" />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <Link
+              href="/acreditado/perfil?from=equipo"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover transition"
+            >
+              <i className="fas fa-user-edit" />
+              Completar Perfil
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Contenido del equipo — oculto si perfil incompleto */}
+      {!profileIncomplete && (<>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
@@ -180,7 +235,7 @@ export default function EquipoPage() {
                 tipo_medio: profileTipoMedio || prev.tipo_medio,
               }));
             }
-            setShowForm(!showForm); setError(''); setSuccess(''); setRutError('');
+            setShowForm(!showForm); setRutError('');
           }}
           className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
             showForm
@@ -196,23 +251,8 @@ export default function EquipoPage() {
         </button>
       </div>
 
-      {/* Messages */}
-      {error && (
-        <div className="bg-danger-light border-l-4 border-danger p-3 text-danger-dark text-sm rounded mb-4">
-          <i className="fas fa-exclamation-triangle mr-2" />{error}
-          <button onClick={() => setError('')} className="float-right text-danger hover:text-danger-dark">
-            <i className="fas fa-times" />
-          </button>
-        </div>
-      )}
-      {success && (
-        <div className="bg-success-light border-l-4 border-success p-3 text-success-dark text-sm rounded mb-4">
-          <i className="fas fa-check-circle mr-2" />{success}
-          <button onClick={() => setSuccess('')} className="float-right text-success hover:text-success-dark">
-            <i className="fas fa-times" />
-          </button>
-        </div>
-      )}
+      {/* ConfirmDialog para eliminar */}
+      <ConfirmDialog {...confirmation} onConfirm={execute} onCancel={cancel} />
 
       {/* Add Member Form */}
       {showForm && (
@@ -447,6 +487,7 @@ export default function EquipoPage() {
           })}
         </div>
       )}
+      </>)}
     </div>
   );
 }

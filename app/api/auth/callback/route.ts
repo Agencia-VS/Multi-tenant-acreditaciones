@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { linkProfileToUser } from '@/lib/services/profiles';
+import { getOrCreateProfile } from '@/lib/services/profiles';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -17,10 +17,26 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error && data.user) {
-      // Si el usuario tiene RUT en metadata, vincular con perfil existente
-      const rut = data.user.user_metadata?.rut;
-      if (rut) {
-        await linkProfileToUser(rut, data.user.id);
+      // Crear o vincular perfil con datos del user_metadata (guardados en signUp)
+      const meta = data.user.user_metadata || {};
+      if (meta.rut) {
+        try {
+          await getOrCreateProfile(
+            {
+              rut: meta.rut,
+              nombre: meta.nombre || '',
+              apellido: meta.apellido || '',
+              email: data.user.email || '',
+              cargo: '',
+              organizacion: '',
+              tipo_medio: '',
+              datos_extra: {},
+            },
+            data.user.id
+          );
+        } catch (e) {
+          console.error('[auth/callback] Error creando perfil:', e);
+        }
       }
     }
 

@@ -8,10 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { updateRegistrationStatus, getRegistrationFull } from '@/lib/services';
 import { sendApprovalEmail, sendRejectionEmail } from '@/lib/services/email';
 import { logAuditAction } from '@/lib/services/audit';
-import { getCurrentUser } from '@/lib/services/auth';
 import { requireAuth } from '@/lib/services/requireAuth';
+import { registrationPatchSchema, safeParse } from '@/lib/schemas';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { RegistrationStatus, Tenant } from '@/types';
+import type { Tenant } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
@@ -20,17 +20,14 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, motivo_rechazo, send_email, datos_extra } = body as {
-      status?: RegistrationStatus;
-      motivo_rechazo?: string;
-      send_email?: boolean;
-      datos_extra?: Record<string, unknown>;
-    };
-
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const parsed = safeParse(registrationPatchSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { status, motivo_rechazo, send_email, datos_extra } = parsed.data;
+
+    // Auth: requiere admin de tenant o superadmin
+    const { user } = await requireAuth(request);
 
     // Case 1: Update datos_extra fields (e.g., zona assignment by admin)
     if (datos_extra && !status) {
@@ -104,6 +101,7 @@ export async function PATCH(
 
     return NextResponse.json(registration);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -137,15 +135,13 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
+    // Auth: requiere admin de tenant o superadmin
+    const { user } = await requireAuth(request);
 
     const supabase = (await import('@/lib/supabase/server')).createSupabaseAdminClient();
     const { error } = await supabase.from('registrations').delete().eq('id', id);
@@ -158,6 +154,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

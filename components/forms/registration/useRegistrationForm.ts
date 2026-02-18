@@ -17,6 +17,16 @@ import type {
 } from './types';
 import { STEP_KEYS } from './types';
 
+/* ── Sileo toast helper (fire-and-forget, no React state needed) ── */
+const fireToast = (type: 'success' | 'error', text: string) => {
+  if (typeof window !== 'undefined') {
+    import('sileo').then(({ sileo }) => {
+      if (type === 'success') sileo.success({ title: text, duration: 4000 });
+      else sileo.error({ title: text, duration: 5000 });
+    });
+  }
+};
+
 /* ═══════════════════════════════════════════════════════
    CSV / Bulk helpers (internal)
    ═══════════════════════════════════════════════════════ */
@@ -150,13 +160,15 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     if (!userProfile?.id) return;
     let cancelled = false;
     setLoadingTeam(true);
-    fetch('/api/teams')
+    // M12: Pasar event_id para enriquecer equipo con datos del contexto del evento
+    const teamUrl = eventId ? `/api/teams?event_id=${eventId}` : '/api/teams';
+    fetch(teamUrl)
       .then(res => res.ok ? res.json() : [])
       .then((data: TeamMember[]) => { if (!cancelled) setTeamMembers(data); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingTeam(false); });
     return () => { cancelled = true; };
-  }, [userProfile?.id]);
+  }, [userProfile?.id, eventId]);
 
   useEffect(() => {
     if (tipoMedio && responsable.organizacion) {
@@ -292,12 +304,15 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       setMessage({ type: 'error', text: `Has alcanzado el máximo de cupos` });
       return;
     }
+    // M12: buildDynamicData ya es tenant-scoped. Usar dynamicData.cargo (si existe)
+    // en vez del cargo global del perfil para evitar cruce entre tenants.
+    const dynamicData = buildDynamicData(p.datos_base);
     const newA: AcreditadoData = {
       id: crypto.randomUUID(),
       rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
       email: p.email || '', telefono: p.telefono || '',
-      cargo: eventHasCargo ? (p.cargo || '') : '',
-      dynamicData: buildDynamicData(p.datos_base),
+      cargo: eventHasCargo ? (dynamicData['cargo'] || p.cargo || '') : '',
+      dynamicData,
       isResponsable: false,
     };
     setAcreditados(prev => [...prev, newA]);
@@ -325,12 +340,14 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       const alreadyAdded = acreditados.some(a => a.rut && cleanRut(a.rut) === cleanRut(p.rut));
       if (alreadyAdded) continue;
       if (acreditados.length + newAcreditados.length >= maxCupos) break;
+      // M12: Usar dynamicData.cargo (tenant-scoped) en vez de p.cargo (global)
+      const dynamicData = buildDynamicData(p.datos_base);
       newAcreditados.push({
         id: crypto.randomUUID(),
         rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
         email: p.email || '', telefono: p.telefono || '',
-        cargo: eventHasCargo ? (p.cargo || '') : '',
-        dynamicData: buildDynamicData(p.datos_base),
+        cargo: eventHasCargo ? (dynamicData['cargo'] || p.cargo || '') : '',
+        dynamicData,
         isResponsable: false,
       });
     }
@@ -436,6 +453,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
     setBulkRows(prev => [...prev, ...newBulkRows]);
     setMessage({ type: 'success', text: `${rows.length} persona${rows.length !== 1 ? 's' : ''} importada${rows.length !== 1 ? 's' : ''} para carga masiva` });
+    fireToast('success', `${rows.length} persona${rows.length !== 1 ? 's' : ''} importada${rows.length !== 1 ? 's' : ''}`);
     e.target.value = '';
   };
 
@@ -580,12 +598,15 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
     if (results.every(r => r.ok)) {
       setStep('success');
+      fireToast('success', `${results.length} acreditación${results.length !== 1 ? 'es' : ''} enviada${results.length !== 1 ? 's' : ''} correctamente`);
       onSuccess?.();
     } else if (results.some(r => r.ok)) {
       setMessage({ type: 'error', text: `${results.filter(r => !r.ok).length} acreditación(es) fallaron. Revisa los detalles.` });
+      fireToast('error', `${results.filter(r => !r.ok).length} acreditación(es) fallaron`);
       setStep('success');
     } else {
       setMessage({ type: 'error', text: 'Ninguna acreditación pudo ser enviada. Intenta nuevamente.' });
+      fireToast('error', 'Error al enviar acreditaciones');
     }
   };
 

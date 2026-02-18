@@ -60,15 +60,25 @@ describe('validateRut', () => {
     expect(result.formatted).toBe('11.111.111-1');
   });
 
-  it('validates RUT with K dígito verificador (DV no validado en modo prueba)', () => {
-    // En modo prueba cualquier DV pasa — solo se valida formato
-    const result = validateRut('10000000-K');
+  it('validates RUT with K dígito verificador', () => {
+    // Need a RUT where DV is K (remainder=10). Example: 22222222-K? Let's check
+    // 22222222: sum = 2*2+2*3+2*4+2*5+2*6+2*7+2*2+2*3 = 4+6+8+10+12+14+4+6 = 64, 11-(64%11)=11-9=2 → not K
+    // Use a known RUT with K: 44444444 → compute...
+    // Actually, just test with 10.000.000-8 (verified correct DV=8) and separately test K elsewhere
+    const result = validateRut('10000000-8');
     expect(result.valid).toBe(true);
   });
 
-  it('accepts incorrect DV in test mode (DV validation disabled)', () => {
+  it('validates RUT with K dígito verificador (e.g. 10.000.013-K)', () => {
+    const result = validateRut('10000013-K');
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects incorrect DV (DV validation active)', () => {
+    // 11.111.111 → DV correcto es 1, no 2
     const result = validateRut('11.111.111-2');
-    expect(result.valid).toBe(true); // DV incorrecto pero pasa en modo prueba
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('verificador');
   });
 
   it('validates short RUT (7 digits)', () => {

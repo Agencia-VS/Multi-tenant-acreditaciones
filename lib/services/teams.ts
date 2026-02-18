@@ -3,6 +3,10 @@
  * 
  * Un Manager puede crear y gestionar una lista de "Sujetos" bajo su cuenta
  * para acreditarlos masivamente.
+ * 
+ * NOTA (M12): team_members es un directorio GLOBAL de frecuentes.
+ * Para evitar cruce de datos entre tenants, usar getTeamMembersForEvent()
+ * que enriquece cada miembro con datos del contexto del evento.
  */
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
@@ -153,4 +157,79 @@ export async function updateTeamMember(
 
   if (error) throw new Error(`Error actualizando miembro: ${error.message}`);
   return data as TeamMember;
+}
+
+/**
+ * Obtener equipo enriquecido con datos del contexto de un evento.
+ * 
+ * Resuelve el problema de cruce de datos entre tenants (M12):
+ * - Los campos profesionales (cargo, medio, tipo_medio) se sobreescriben
+ *   con datos del tenant/evento específico si existen.
+ * - Prioridad: registration del evento > datos_base._tenant[tenantId] > perfil global
+ */
+export async function getTeamMembersForEvent(
+  managerProfileId: string,
+  eventId: string
+): Promise<TeamMember[]> {
+  const supabase = createSupabaseAdminClient();
+
+  // 1. Obtener tenant_id del evento
+  const { data: event } = await supabase
+    .from('events')
+    .select('tenant_id')
+    .eq('id', eventId)
+    .single();
+
+  if (!event) throw new Error('Evento no encontrado');
+  const tenantId = event.tenant_id;
+
+  // 2. Obtener equipo base (global)
+  const members = await getTeamMembers(managerProfileId);
+  if (members.length === 0) return members;
+
+  // 3. Buscar registrations existentes en este evento para los miembros
+  const memberProfileIds = members
+    .filter(m => m.member_profile?.id)
+    .map(m => m.member_profile!.id);
+
+  const { data: registrations } = await supabase
+    .from('registrations')
+    .select('profile_id, datos_extra')
+    .eq('event_id', eventId)
+    .in('profile_id', memberProfileIds);
+
+  const regMap = new Map<string, Record<string, unknown>>(
+    (registrations || []).map(r => [r.profile_id, (r.datos_extra || {}) as Record<string, unknown>])
+  );
+
+  // 4. Enriquecer cada miembro con datos del contexto del evento
+  return members.map(m => {
+    if (!m.member_profile) return m;
+
+    const enrichedProfile = { ...m.member_profile };
+    const profileId = m.member_profile.id;
+
+    // Fuente A: datos_base._tenant[tenantId] (datos guardados por el sistema de autofill)
+    const datosBase = (m.member_profile.datos_base || {}) as Record<string, unknown>;
+    const tenantMap = (datosBase._tenant || {}) as Record<string, Record<string, unknown>>;
+    const tenantData = tenantId ? tenantMap[tenantId] : null;
+
+    if (tenantData) {
+      if (tenantData.cargo) enrichedProfile.cargo = String(tenantData.cargo);
+      if (tenantData.medio) enrichedProfile.medio = String(tenantData.medio);
+      if (tenantData.tipo_medio) enrichedProfile.tipo_medio = String(tenantData.tipo_medio);
+    }
+
+    // Fuente B: registration existente en este evento (máxima prioridad)
+    const eventReg = regMap.get(profileId);
+    if (eventReg) {
+      if (eventReg.cargo) enrichedProfile.cargo = String(eventReg.cargo);
+      if (eventReg.medio || eventReg.organizacion) {
+        enrichedProfile.medio = String(eventReg.medio || eventReg.organizacion);
+      }
+      if (eventReg.tipo_medio) enrichedProfile.tipo_medio = String(eventReg.tipo_medio);
+    }
+
+    return { ...m, member_profile: enrichedProfile };
+  });
 }

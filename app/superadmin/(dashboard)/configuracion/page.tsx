@@ -5,18 +5,18 @@
  */
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/shared/ui';
 
 export default function ConfiguracionPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newNombre, setNewNombre] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const { showSuccess, showError } = useToast();
 
   const handleCreateSuperadmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setMessage('');
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -34,13 +34,13 @@ export default function ConfiguracionPage() {
       });
 
       if (res.ok) {
-        setMessage('SuperAdmin creado exitosamente');
+        showSuccess('SuperAdmin creado exitosamente');
         setNewEmail('');
         setNewNombre('');
         setNewPassword('');
       } else {
         const data = await res.json();
-        setMessage(`Error: ${data.error}`);
+        showError(data.error || 'Error al crear SuperAdmin');
       }
     } finally {
       setSaving(false);
@@ -61,14 +61,6 @@ export default function ConfiguracionPage() {
             <i className="fas fa-user-shield mr-2 text-brand" />
             Crear Super Administrador
           </h2>
-
-          {message && (
-            <div className={`p-3 rounded-lg text-sm mb-4 ${
-              message.startsWith('Error') ? 'bg-danger-light text-danger-dark' : 'bg-success-light text-success-dark'
-            }`}>
-              {message}
-            </div>
-          )}
 
           <form onSubmit={handleCreateSuperadmin} className="space-y-4 max-w-lg">
             <div>

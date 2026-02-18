@@ -4,7 +4,7 @@
  * SuperAdmin — Gestión de Admins por Tenant
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Toast, useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
+import { useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 
 interface Tenant { id: string; nombre: string; slug: string; }
 interface TenantAdmin {
@@ -25,8 +25,7 @@ export default function AdminsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ tenant_id: '', email: '', nombre: '', password: '', rol: 'admin' });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const { toast, showSuccess, showError, dismiss } = useToast();
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     const [tenantsRes] = await Promise.all([fetch('/api/tenants')]);
@@ -55,7 +54,6 @@ export default function AdminsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
     try {
       const res = await fetch(`/api/tenants/${form.tenant_id}/admins`, {
         method: 'POST',
@@ -73,7 +71,7 @@ export default function AdminsPage() {
         loadData();
       } else {
         const data = await res.json();
-        setError(data.error || 'Error al crear admin');
+        showError(data.error || 'Error al crear admin');
       }
     } finally {
       setSaving(false);
@@ -82,7 +80,6 @@ export default function AdminsPage() {
 
   return (
     <div>
-      <Toast toast={toast} onDismiss={dismiss} />
       <PageHeader
         title="Administradores"
         subtitle="Gestión de admins por tenant"
@@ -97,12 +94,6 @@ export default function AdminsPage() {
       />
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Nuevo Administrador" maxWidth="max-w-lg">
-
-            {error && (
-              <div className="bg-danger-light border-l-4 border-danger p-3 text-danger-dark text-sm rounded mb-4">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>

@@ -1,15 +1,15 @@
 /**
  * API: Teams — Gestión de equipos del Manager
- * GET    — Obtener equipo del manager
+ * GET    — Obtener equipo del manager (con enrichment opcional por evento)
  * POST   — Agregar miembro al equipo
  * DELETE — Eliminar miembro del equipo
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTeamMembers, addTeamMember, removeTeamMember } from '@/lib/services';
+import { getTeamMembers, getTeamMembersForEvent, addTeamMember, removeTeamMember } from '@/lib/services';
 import { getProfileByUserId, getCurrentUser } from '@/lib/services';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -22,7 +22,14 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const members = await getTeamMembers(profile.id);
+    // Si se provee event_id, enriquecer con datos del contexto del evento (M12)
+    const { searchParams } = new URL(request.url);
+    const eventId = searchParams.get('event_id');
+
+    const members = eventId
+      ? await getTeamMembersForEvent(profile.id, eventId)
+      : await getTeamMembers(profile.id);
+
     return NextResponse.json(members);
   } catch (error) {
     return NextResponse.json(

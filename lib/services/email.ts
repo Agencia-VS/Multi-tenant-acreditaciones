@@ -21,6 +21,37 @@ function getFromEmail(): string {
 
 /* ─── Template Engine ─────────────────────────────────────────────── */
 
+/** Escapa caracteres HTML para prevenir inyección en emails */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Valida que un string sea un color CSS seguro (hex o nombre simple) */
+function safeColor(color: string | null | undefined, fallback: string): string {
+  if (!color) return fallback;
+  // Solo permitir #hex y nombres de colores simples
+  if (/^#[0-9a-fA-F]{3,8}$/.test(color)) return color;
+  if (/^[a-zA-Z]{1,20}$/.test(color)) return color;
+  return fallback;
+}
+
+/** Valida que un string sea una URL segura (https) */
+function safeUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return escapeHtml(url);
+    }
+  } catch { /* invalid URL */ }
+  return '';
+}
+
 interface TemplateVars {
   nombre: string;
   apellido: string;
@@ -40,7 +71,12 @@ interface TemplateVars {
   info_general: string;
 }
 
-/** Reemplaza todas las variables {key} en un string */
+/**
+ * Reemplaza todas las variables {key} en un string.
+ * Las variables de texto del usuario se escapan para prevenir HTML injection.
+ * Las variables de contenido HTML (qr_section, instrucciones, info, notas) NO se escapan
+ * porque son generadas por el sistema o por admins de confianza.
+ */
 function replaceVars(template: string, vars: TemplateVars): string {
   return template
     .replace(/\{nombre\}/g, vars.nombre)
@@ -143,21 +179,21 @@ function buildVars(
   const notas = zoneContent?.notas_importantes || '';
 
   return {
-    nombre: registration.profile_nombre || '',
-    apellido: registration.profile_apellido || '',
-    evento: registration.event_nombre || '',
+    nombre: escapeHtml(registration.profile_nombre || ''),
+    apellido: escapeHtml(registration.profile_apellido || ''),
+    evento: escapeHtml(registration.event_nombre || ''),
     fecha: registration.event_fecha
-      ? new Date(registration.event_fecha).toLocaleDateString('es-CL', {
+      ? escapeHtml(new Date(registration.event_fecha).toLocaleDateString('es-CL', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-        })
+        }))
       : '',
-    lugar: registration.event_venue || '',
-    organizacion: registration.organizacion || '-',
-    cargo: registration.cargo || '-',
-    motivo: motivo || registration.motivo_rechazo || '',
-    tenant: tenant.nombre,
-    zona: extractZona(registration),
-    area: extractField(registration, 'area') || extractField(registration, 'tipo_credencial') || '',
+    lugar: escapeHtml(registration.event_venue || ''),
+    organizacion: escapeHtml(registration.organizacion || '-'),
+    cargo: escapeHtml(registration.cargo || '-'),
+    motivo: escapeHtml(motivo || registration.motivo_rechazo || ''),
+    tenant: escapeHtml(tenant.nombre),
+    zona: escapeHtml(extractZona(registration)),
+    area: escapeHtml(extractField(registration, 'area') || extractField(registration, 'tipo_credencial') || ''),
     qr_section: qrSection,
     instrucciones_acceso: instrucciones,
     info_especifica: especifica,
@@ -216,9 +252,9 @@ function fallbackApprovalHtml(registration: RegistrationFull, tenant: Tenant, va
 
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
-      <div style="background: ${tenant.color_primario}; padding: 30px; text-align: center;">
-        ${tenant.logo_url ? `<img src="${tenant.logo_url}" alt="${tenant.nombre}" style="height: 60px;" />` : ''}
-        <h1 style="color: ${tenant.color_secundario}; margin: 10px 0 0;">Acreditación Aprobada</h1>
+      <div style="background: ${safeColor(tenant.color_primario, '#1a1a2e')}; padding: 30px; text-align: center;">
+        ${tenant.logo_url ? `<img src="${safeUrl(tenant.logo_url)}" alt="${escapeHtml(tenant.nombre)}" style="height: 60px;" />` : ''}
+        <h1 style="color: ${safeColor(tenant.color_secundario, '#ffffff')}; margin: 10px 0 0;">Acreditación Aprobada</h1>
       </div>
       <div style="padding: 30px; background: #ffffff;">
         <p>Estimado/a <strong>${vars.nombre} ${vars.apellido}</strong>,</p>
@@ -242,7 +278,7 @@ function fallbackApprovalHtml(registration: RegistrationFull, tenant: Tenant, va
         
         <p style="color: #666; font-size: 13px;">Este es un correo automático del sistema de acreditaciones.</p>
       </div>
-      <div style="background: ${tenant.color_dark || '#1a1a2e'}; padding: 15px; text-align: center;">
+      <div style="background: ${safeColor(tenant.color_dark, '#1a1a2e')}; padding: 15px; text-align: center;">
         <p style="color: #999; font-size: 12px; margin: 0;">${vars.tenant} — Sistema de Acreditaciones</p>
       </div>
     </div>
@@ -252,9 +288,9 @@ function fallbackApprovalHtml(registration: RegistrationFull, tenant: Tenant, va
 function fallbackRejectionHtml(tenant: Tenant, vars: TemplateVars): string {
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
-      <div style="background: ${tenant.color_primario}; padding: 30px; text-align: center;">
-        ${tenant.logo_url ? `<img src="${tenant.logo_url}" alt="${tenant.nombre}" style="height: 60px;" />` : ''}
-        <h1 style="color: ${tenant.color_secundario}; margin: 10px 0 0;">Acreditación No Aprobada</h1>
+      <div style="background: ${safeColor(tenant.color_primario, '#1a1a2e')}; padding: 30px; text-align: center;">
+        ${tenant.logo_url ? `<img src="${safeUrl(tenant.logo_url)}" alt="${escapeHtml(tenant.nombre)}" style="height: 60px;" />` : ''}
+        <h1 style="color: ${safeColor(tenant.color_secundario, '#ffffff')}; margin: 10px 0 0;">Acreditación No Aprobada</h1>
       </div>
       <div style="padding: 30px; background: #ffffff;">
         <p>Estimado/a <strong>${vars.nombre} ${vars.apellido}</strong>,</p>
@@ -269,7 +305,7 @@ function fallbackRejectionHtml(tenant: Tenant, vars: TemplateVars): string {
         <p>Si tiene consultas, por favor contacte al organizador del evento.</p>
         <p style="color: #666; font-size: 13px;">Este es un correo automático del sistema de acreditaciones.</p>
       </div>
-      <div style="background: ${tenant.color_dark || '#1a1a2e'}; padding: 15px; text-align: center;">
+      <div style="background: ${safeColor(tenant.color_dark, '#1a1a2e')}; padding: 15px; text-align: center;">
         <p style="color: #999; font-size: 12px; margin: 0;">${vars.tenant} — Sistema de Acreditaciones</p>
       </div>
     </div>

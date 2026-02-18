@@ -6,9 +6,11 @@
  * Usa la API /api/profiles/lookup (admin client) para evitar problemas de RLS.
  */
 import { useState, useEffect } from 'react';
-import { LoadingSpinner } from '@/components/shared/ui';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { LoadingSpinner, useToast } from '@/components/shared/ui';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { formatRut, cleanRut, validateEmail, validatePhone, sanitize } from '@/lib/validation';
+import { isProfileComplete, getMissingProfileFields, REQUIRED_PROFILE_FIELDS } from '@/lib/profile';
 
 interface Profile {
   id: string;
@@ -36,6 +38,14 @@ export default function PerfilPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const { showSuccess, showError } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const fromEquipo = searchParams.get('from') === 'equipo';
+
+  /** Campos requeridos que aún faltan */
+  const missingRequired = profile ? getMissingProfileFields(profile) : [];
+  const requiredKeys = new Set<string>(REQUIRED_PROFILE_FIELDS.map(f => f.key));
 
   useEffect(() => {
     loadProfile();
@@ -115,11 +125,28 @@ export default function PerfilPage() {
       const data = await res.json();
       if (!res.ok) {
         setMessage(data.error || 'Error al guardar');
+        showError(data.error || 'Error al guardar');
       } else {
         setMessage('Perfil actualizado correctamente');
+        showSuccess('Perfil actualizado correctamente');
+
+        // Si vino desde equipo y ahora el perfil está completo → redirigir
+        if (fromEquipo && profile) {
+          const updated = {
+            ...profile,
+            nombre: sanitize(profile.nombre),
+            apellido: sanitize(profile.apellido),
+            medio: profile.medio ? sanitize(profile.medio) : null,
+            tipo_medio: profile.tipo_medio,
+          };
+          if (isProfileComplete(updated)) {
+            setTimeout(() => router.push('/acreditado/equipo'), 1200);
+          }
+        }
       }
     } catch {
       setMessage('Error de conexión');
+      showError('Error de conexión');
     }
     setSaving(false);
   };
@@ -149,6 +176,22 @@ export default function PerfilPage() {
 
   const inputClass = 'w-full px-3 py-2 rounded-lg border border-field-border text-heading transition';
   const errorInputClass = 'w-full px-3 py-2 rounded-lg border border-danger text-heading ring-1 ring-danger';
+  const missingInputClass = 'w-full px-3 py-2 rounded-lg border border-warning text-heading ring-1 ring-warning bg-warning-light/20';
+
+  /** True si el campo es requerido y está vacío */
+  const isMissing = (key: string) => requiredKeys.has(key) && missingRequired.some(f => f.key === key);
+
+  /** Label con badge de requerido si el campo falta */
+  const RequiredLabel = ({ field, children }: { field: string; children: React.ReactNode }) => (
+    <label className="block text-sm font-medium text-label mb-1">
+      {children}
+      {isMissing(field) && (
+        <span className="ml-2 text-xs text-warning font-semibold">
+          <i className="fas fa-exclamation-circle mr-0.5" />Requerido
+        </span>
+      )}
+    </label>
+  );
 
   return (
     <div>
@@ -156,6 +199,19 @@ export default function PerfilPage() {
         <h1 className="text-2xl sm:text-3xl font-bold text-heading">Mi Perfil</h1>
         <p className="text-body mt-1">Estos datos se usarán para pre-rellenar futuras acreditaciones</p>
       </div>
+
+      {/* Banner: viene desde equipo con perfil incompleto */}
+      {fromEquipo && missingRequired.length > 0 && (
+        <div className="bg-warning-light border border-warning rounded-lg p-4 mb-6 flex items-start gap-3">
+          <i className="fas fa-exclamation-triangle text-warning mt-0.5" />
+          <div>
+            <p className="font-semibold text-heading text-sm">Completa los campos marcados para acceder a tu equipo</p>
+            <p className="text-body text-xs mt-1">
+              Campos faltantes: {missingRequired.map(f => f.label).join(', ')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={`p-3 rounded-lg text-sm mb-6 ${
@@ -186,23 +242,23 @@ export default function PerfilPage() {
           <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Datos Personales</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-label mb-1">Nombre</label>
+              <RequiredLabel field="nombre">Nombre</RequiredLabel>
               <input
                 type="text"
                 required
                 value={profile.nombre}
                 onChange={(e) => setProfile(prev => prev ? { ...prev, nombre: e.target.value } : null)}
-                className={inputClass}
+                className={isMissing('nombre') ? missingInputClass : inputClass}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-label mb-1">Apellido</label>
+              <RequiredLabel field="apellido">Apellido</RequiredLabel>
               <input
                 type="text"
                 required
                 value={profile.apellido}
                 onChange={(e) => setProfile(prev => prev ? { ...prev, apellido: e.target.value } : null)}
-                className={inputClass}
+                className={isMissing('apellido') ? missingInputClass : inputClass}
               />
             </div>
           </div>
@@ -251,26 +307,26 @@ export default function PerfilPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-label mb-1">
+            <RequiredLabel field="medio">
               Medio / Empresa
               <span className="text-accent text-xs ml-2"><i className="fas fa-magic mr-1" />Auto-rellena en equipo</span>
-            </label>
+            </RequiredLabel>
             <input
               type="text"
               value={profile.medio || ''}
               onChange={(e) => setProfile(prev => prev ? { ...prev, medio: e.target.value } : null)}
               placeholder="ej: Canal 13, Radio ADN, ESPN Chile"
-              className={`${inputClass} border-accent-light`}
+              className={isMissing('medio') ? missingInputClass : `${inputClass} border-accent-light`}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-label mb-1">Tipo de Medio</label>
+              <RequiredLabel field="tipo_medio">Tipo de Medio</RequiredLabel>
               <select
                 value={profile.tipo_medio || ''}
                 onChange={(e) => setProfile(prev => prev ? { ...prev, tipo_medio: e.target.value || null } : null)}
-                className={inputClass}
+                className={isMissing('tipo_medio') ? missingInputClass : inputClass}
               >
                 <option value="">Selecciona...</option>
                 {TIPOS_MEDIO.map((tm) => (

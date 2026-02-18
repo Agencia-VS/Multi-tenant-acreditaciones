@@ -8,11 +8,13 @@ import { NextRequest } from 'next/server';
 const mockGetCurrentUser = vi.fn();
 const mockGetProfileByUserId = vi.fn();
 const mockGetTeamMembers = vi.fn();
+const mockGetTeamMembersForEvent = vi.fn();
 const mockAddTeamMember = vi.fn();
 const mockRemoveTeamMember = vi.fn();
 
 vi.mock('@/lib/services', () => ({
   getTeamMembers: (...args: unknown[]) => mockGetTeamMembers(...args),
+  getTeamMembersForEvent: (...args: unknown[]) => mockGetTeamMembersForEvent(...args),
   addTeamMember: (...args: unknown[]) => mockAddTeamMember(...args),
   removeTeamMember: (...args: unknown[]) => mockRemoveTeamMember(...args),
   getProfileByUserId: (...args: unknown[]) => mockGetProfileByUserId(...args),
@@ -26,7 +28,8 @@ describe('GET /api/teams', () => {
 
   it('returns 401 when not authenticated', async () => {
     mockGetCurrentUser.mockResolvedValue(null);
-    const res = await GET();
+    const req = new NextRequest('http://localhost/api/teams');
+    const res = await GET(req);
     expect(res.status).toBe(401);
   });
 
@@ -34,7 +37,8 @@ describe('GET /api/teams', () => {
     mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
     mockGetProfileByUserId.mockResolvedValue(null);
 
-    const res = await GET();
+    const req = new NextRequest('http://localhost/api/teams');
+    const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual([]);
@@ -47,11 +51,33 @@ describe('GET /api/teams', () => {
       { id: 'm-1', nombre: 'Ana', rut: '11111111-1' },
     ]);
 
-    const res = await GET();
+    const req = new NextRequest('http://localhost/api/teams');
+    const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);
     expect(body[0].nombre).toBe('Ana');
+    // Sin event_id, usa getTeamMembers (global)
+    expect(mockGetTeamMembers).toHaveBeenCalledWith('prof-1');
+    expect(mockGetTeamMembersForEvent).not.toHaveBeenCalled();
+  });
+
+  it('uses getTeamMembersForEvent when event_id is provided (M12)', async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    mockGetProfileByUserId.mockResolvedValue({ id: 'prof-1' });
+    mockGetTeamMembersForEvent.mockResolvedValue([
+      { id: 'm-1', member_profile: { nombre: 'Ana', cargo: 'Fotógrafo' } },
+    ]);
+
+    const req = new NextRequest('http://localhost/api/teams?event_id=evt-123');
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].member_profile.cargo).toBe('Fotógrafo');
+    // Con event_id, usa getTeamMembersForEvent (enriched)
+    expect(mockGetTeamMembersForEvent).toHaveBeenCalledWith('prof-1', 'evt-123');
+    expect(mockGetTeamMembers).not.toHaveBeenCalled();
   });
 });
 

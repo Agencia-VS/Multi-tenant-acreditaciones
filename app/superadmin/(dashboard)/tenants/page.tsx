@@ -5,7 +5,7 @@
  * CRUD completo: crear, editar, activar/desactivar tenants
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Toast, useToast, PageHeader, Modal, LoadingSpinner, FormActions } from '@/components/shared/ui';
+import { useToast, PageHeader, Modal, LoadingSpinner, FormActions } from '@/components/shared/ui';
 import ImageUploadField from '@/components/shared/ImageUploadField';
 
 interface Tenant {
@@ -45,7 +45,7 @@ export default function TenantsPage() {
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [form, setForm] = useState(emptyTenant);
   const [saving, setSaving] = useState(false);
-  const { toast, showSuccess, showError, dismiss } = useToast();
+  const { showSuccess, showError } = useToast();
 
   const loadTenants = useCallback(async () => {
     const res = await fetch('/api/tenants?withStats=true');
@@ -119,7 +119,6 @@ export default function TenantsPage() {
 
   return (
     <div>
-      <Toast toast={toast} onDismiss={dismiss} />
       <PageHeader
         title="Tenants"
         subtitle="Organizaciones registradas en la plataforma"

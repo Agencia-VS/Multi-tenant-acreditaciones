@@ -12,16 +12,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/services/requireAuth';
 
 const BUCKET = 'assets';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/gif'];
+const ALLOWED_FOLDERS = ['general', 'logos', 'eventos', 'profiles', 'credentials'];
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth: requiere admin de tenant o superadmin
+    await requireAuth(request, { role: 'admin_tenant', tenantId: request.headers.get('x-tenant-id') || undefined });
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const folder = (formData.get('folder') as string) || 'general';
+    const rawFolder = (formData.get('folder') as string) || 'general';
+    // Sanitize folder: only allow safe characters, prevent path traversal
+    const folder = ALLOWED_FOLDERS.includes(rawFolder) ? rawFolder : 'general';
 
     if (!file) {
       return NextResponse.json({ error: 'No se envió ningún archivo' }, { status: 400 });
@@ -45,14 +52,16 @@ export async function POST(request: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // Generate unique filename
+    // Validate ext against allowed types
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
+    const safeExt = ALLOWED_EXTS.includes(ext) ? ext : 'png';
     const timestamp = Date.now();
     const safeName = file.name
       .replace(/\.[^/.]+$/, '')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .substring(0, 40);
-    const filePath = `${folder}/${timestamp}-${safeName}.${ext}`;
+    const filePath = `${folder}/${timestamp}-${safeName}.${safeExt}`;
 
     // Convert File to ArrayBuffer then to Buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -88,6 +97,7 @@ export async function POST(request: NextRequest) {
       path: filePath,
     });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     console.error('Upload handler error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno del servidor' },

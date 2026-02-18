@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/services/requireAuth';
+import { emailTemplatePostSchema, safeParse } from '@/lib/schemas';
 import type { EmailTemplateType } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -16,6 +18,9 @@ export async function GET(request: NextRequest) {
     if (!tenantId) {
       return NextResponse.json({ error: 'tenant_id requerido' }, { status: 400 });
     }
+
+    // Auth: requiere admin del tenant
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
@@ -30,6 +35,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data || []);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -40,17 +46,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenant_id, tipo, subject, body_html, info_general } = body as {
-      tenant_id: string;
-      tipo: EmailTemplateType;
-      subject: string;
-      body_html: string;
-      info_general?: string;
-    };
-
-    if (!tenant_id || !tipo) {
-      return NextResponse.json({ error: 'tenant_id y tipo son requeridos' }, { status: 400 });
+    const parsed = safeParse(emailTemplatePostSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { tenant_id, tipo, subject, body_html, info_general } = parsed.data;
+
+    // Auth: requiere admin del tenant
+    await requireAuth(request, { role: 'admin_tenant', tenantId: tenant_id });
 
     const supabase = createSupabaseAdminClient();
 
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result.data);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

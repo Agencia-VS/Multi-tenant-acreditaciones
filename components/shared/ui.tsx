@@ -233,6 +233,15 @@ export function Modal({
 
 /* ─────────────────────────── ConfirmDialog ───────────────────────── */
 
+/**
+ * Modal de confirmación reutilizable con accesibilidad.
+ * Se integra con el hook `useConfirmation()` de hooks/.
+ *
+ * Ejemplo:
+ *   const { confirmation, confirm, cancel, execute } = useConfirmation();
+ *   confirm({ title: '¿Eliminar?', message: '...', onConfirm: fn, variant: 'danger' });
+ *   <ConfirmDialog {...confirmation} onConfirm={execute} onCancel={cancel} />
+ */
 export function ConfirmDialog({
   open,
   onConfirm,
@@ -252,29 +261,85 @@ export function ConfirmDialog({
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
 }) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Focus cancel button (safer default) when dialog opens
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => cancelRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [open, onCancel]);
+
+  // Lock body scroll
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
   if (!open) return null;
-  const btnColor = {
-    danger: 'bg-danger hover:bg-danger/90',
-    warning: 'bg-warn hover:bg-warn/90',
-    info: 'bg-brand hover:bg-brand-hover',
+
+  const icons = {
+    danger: { icon: 'fa-trash-alt', bg: 'bg-danger-light', color: 'text-danger' },
+    warning: { icon: 'fa-exclamation-triangle', bg: 'bg-warn-light', color: 'text-warn' },
+    info: { icon: 'fa-info-circle', bg: 'bg-accent-light', color: 'text-brand' },
   };
+  const btnColor = {
+    danger: 'bg-danger hover:bg-danger/90 text-white',
+    warning: 'bg-warn hover:bg-warn/90 text-white',
+    info: 'bg-brand hover:bg-brand-hover text-on-brand',
+  };
+  const v = icons[variant];
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-surface rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-5">
-        <h3 className="text-lg font-bold text-heading mb-2">{title}</h3>
-        <p className="text-sm sm:text-base text-body mb-5">{message}</p>
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+      aria-describedby="confirm-dialog-message"
+    >
+      {/* Backdrop click to cancel */}
+      <div className="absolute inset-0" onClick={onCancel} />
+
+      <div className="relative bg-surface rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-edge">
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div className={`w-12 h-12 rounded-full ${v.bg} flex items-center justify-center`}>
+            <i className={`fas ${v.icon} text-xl ${v.color}`} />
+          </div>
+        </div>
+
+        <h3 id="confirm-dialog-title" className="text-lg font-bold text-heading text-center mb-2">{title}</h3>
+        <p id="confirm-dialog-message" className="text-sm sm:text-base text-body text-center mb-5">{message}</p>
+
         <div className="flex gap-3">
           <button
-            onClick={onConfirm}
-            className={`flex-1 py-2.5 text-white rounded-lg font-medium transition ${btnColor[variant]}`}
-          >
-            {confirmLabel}
-          </button>
-          <button
+            ref={cancelRef}
             onClick={onCancel}
             className="flex-1 py-2.5 bg-subtle text-body rounded-lg font-medium hover:bg-edge transition"
           >
             {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 py-2.5 rounded-lg font-medium transition ${btnColor[variant]}`}
+          >
+            {confirmLabel}
           </button>
         </div>
       </div>

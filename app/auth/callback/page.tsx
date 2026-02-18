@@ -24,10 +24,19 @@ function CallbackHandler() {
         return;
       }
 
-      // Link profile if RUT exists in user metadata
+      // Crear/vincular perfil con datos del metadata (guardados en signUp)
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata?.rut) {
-        await fetch('/api/profiles/lookup?rut=' + user.user_metadata.rut);
+        await fetch('/api/profiles/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rut: user.user_metadata.rut,
+            nombre: user.user_metadata.nombre || '',
+            apellido: user.user_metadata.apellido || '',
+            email: user.email || '',
+          }),
+        });
       }
 
       const next = searchParams.get('next') || '/acreditado';

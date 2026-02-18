@@ -7,7 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { listTenants, listActiveTenants, createTenant, updateTenant, getCurrentUser, isSuperAdmin, logAuditAction } from '@/lib/services';
+import { listTenants, listActiveTenants, createTenant, updateTenant, logAuditAction } from '@/lib/services';
+import type { TenantFormData } from '@/types';
+import { requireAuth } from '@/lib/services/requireAuth';
+import { tenantCreateSchema, tenantUpdateSchema, safeParse } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +19,8 @@ export async function GET(request: NextRequest) {
     const withStats = searchParams.get('withStats') === 'true';
 
     if (all || withStats) {
+      // listTenants (incluyendo inactivos) requiere superadmin
+      await requireAuth(request, { role: 'superadmin' });
       const tenants = await listTenants();
       return NextResponse.json(tenants);
     }
@@ -23,6 +28,7 @@ export async function GET(request: NextRequest) {
     const tenants = await listActiveTenants();
     return NextResponse.json(tenants);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -32,13 +38,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user || !(await isSuperAdmin(user.id))) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const { user } = await requireAuth(request, { role: 'superadmin' });
 
     const body = await request.json();
-    const tenant = await createTenant(body);
+    const parsed = safeParse(tenantCreateSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const tenant = await createTenant(parsed.data as TenantFormData);
 
     await logAuditAction(user.id, 'tenant.created', 'tenant', tenant.id, {
       nombre: tenant.nombre,
@@ -50,6 +57,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(tenant, { status: 201 });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -59,10 +67,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user || !(await isSuperAdmin(user.id))) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const { user } = await requireAuth(request, { role: 'superadmin' });
 
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get('id');
@@ -71,7 +76,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const tenant = await updateTenant(tenantId, body);
+    const parsed = safeParse(tenantUpdateSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const tenant = await updateTenant(tenantId, parsed.data as Partial<TenantFormData>);
 
     await logAuditAction(user.id, 'tenant.updated', 'tenant', tenant.id, {
       nombre: tenant.nombre,
@@ -82,6 +91,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(tenant);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

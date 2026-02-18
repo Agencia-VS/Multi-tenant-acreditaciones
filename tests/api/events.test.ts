@@ -2,10 +2,9 @@
  * Tests: API /api/events — HTTP layer (auth, validation, status codes)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ── Mocks ──
-const mockGetCurrentUser = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockUpdateEvent = vi.fn();
 const mockDeactivateEvent = vi.fn();
@@ -14,6 +13,7 @@ const mockListEventsByTenant = vi.fn();
 const mockListAllEvents = vi.fn();
 const mockGetActiveEvent = vi.fn();
 const mockLogAuditAction = vi.fn();
+const mockRequireAuth = vi.fn();
 
 vi.mock('@/lib/services', () => ({
   createEvent: (...args: unknown[]) => mockCreateEvent(...args),
@@ -24,8 +24,16 @@ vi.mock('@/lib/services', () => ({
   listAllEvents: (...args: unknown[]) => mockListAllEvents(...args),
   getActiveEvent: (...args: unknown[]) => mockGetActiveEvent(...args),
   logAuditAction: (...args: unknown[]) => mockLogAuditAction(...args),
-  getCurrentUser: () => mockGetCurrentUser(),
 }));
+
+vi.mock('@/lib/services/requireAuth', () => ({
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
+}));
+
+vi.mock('@/lib/schemas', async () => {
+  const actual = await vi.importActual('@/lib/schemas');
+  return actual;
+});
 
 vi.mock('@/lib/services/tenants', () => ({
   getTenantBySlug: vi.fn().mockResolvedValue({ id: 'tenant-1' }),
@@ -33,16 +41,34 @@ vi.mock('@/lib/services/tenants', () => ({
 
 import { GET, POST, PATCH, DELETE } from '@/app/api/events/route';
 
+/** Helper: simula requireAuth exitoso */
+function authOk(userId = 'user-1') {
+  mockRequireAuth.mockResolvedValue({ user: { id: userId }, role: 'authenticated' });
+}
+/** Helper: simula requireAuth fallido (401) */
+function authFail() {
+  mockRequireAuth.mockRejectedValue(NextResponse.json({ error: 'No autenticado' }, { status: 401 }));
+}
+
 describe('GET /api/events', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns all events when no filters', async () => {
+  it('returns all events when superadmin and no filters', async () => {
+    authOk();
     mockListAllEvents.mockResolvedValue([{ id: 'e-1', nombre: 'Evento 1' }]);
 
     const req = new NextRequest('http://localhost/api/events');
     const res = await GET(req);
     expect(res.status).toBe(200);
     expect(mockListAllEvents).toHaveBeenCalled();
+  });
+
+  it('returns 401 for listAllEvents when not authenticated', async () => {
+    authFail();
+
+    const req = new NextRequest('http://localhost/api/events');
+    const res = await GET(req);
+    expect(res.status).toBe(401);
   });
 
   it('returns events by tenant when tenant_id is provided', async () => {
@@ -69,24 +95,24 @@ describe('POST /api/events', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 401 when not authenticated', async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+    authFail();
 
     const req = new NextRequest('http://localhost/api/events', {
       method: 'POST',
-      body: JSON.stringify({ nombre: 'Test Event', tenant_id: 't-1' }),
+      body: JSON.stringify({ nombre: 'Test Event', tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(401);
   });
 
   it('returns 201 on successful event creation', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
-    mockCreateEvent.mockResolvedValue({ id: 'e-1', nombre: 'Test', tenant_id: 't-1' });
+    authOk();
+    mockCreateEvent.mockResolvedValue({ id: 'e-1', nombre: 'Test', tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' });
     mockLogAuditAction.mockResolvedValue(undefined);
 
     const req = new NextRequest('http://localhost/api/events', {
       method: 'POST',
-      body: JSON.stringify({ nombre: 'Test', tenant_id: 't-1' }),
+      body: JSON.stringify({ nombre: 'Test', tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
@@ -97,7 +123,7 @@ describe('PATCH /api/events', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 401 when not authenticated', async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+    authFail();
 
     const req = new NextRequest('http://localhost/api/events?id=e-1', {
       method: 'PATCH',
@@ -108,7 +134,7 @@ describe('PATCH /api/events', () => {
   });
 
   it('returns 400 when id is missing', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
 
     const req = new NextRequest('http://localhost/api/events', {
       method: 'PATCH',
@@ -119,7 +145,7 @@ describe('PATCH /api/events', () => {
   });
 
   it('returns 200 on successful update', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockUpdateEvent.mockResolvedValue({ id: 'e-1', nombre: 'Updated' });
     mockLogAuditAction.mockResolvedValue(undefined);
 
@@ -136,7 +162,7 @@ describe('DELETE /api/events', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 401 when not authenticated', async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+    authFail();
 
     const req = new NextRequest('http://localhost/api/events?id=e-1', { method: 'DELETE' });
     const res = await DELETE(req);
@@ -144,7 +170,7 @@ describe('DELETE /api/events', () => {
   });
 
   it('returns 400 when id is missing', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
 
     const req = new NextRequest('http://localhost/api/events', { method: 'DELETE' });
     const res = await DELETE(req);
@@ -152,7 +178,7 @@ describe('DELETE /api/events', () => {
   });
 
   it('deactivates event by default', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockDeactivateEvent.mockResolvedValue(undefined);
     mockLogAuditAction.mockResolvedValue(undefined);
 
@@ -164,7 +190,7 @@ describe('DELETE /api/events', () => {
   });
 
   it('hard deletes when action=delete', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockDeleteEvent.mockResolvedValue(undefined);
     mockLogAuditAction.mockResolvedValue(undefined);
 

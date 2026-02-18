@@ -6,13 +6,14 @@
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { BackButton } from '@/components/shared/ui';
+import { BackButton, useToast } from '@/components/shared/ui';
 
 export default function SuperAdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { showError } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +30,7 @@ export default function SuperAdminLoginPage() {
 
       if (authError) {
         setError('Credenciales inválidas');
+        showError('Credenciales inválidas');
         return;
       }
 
@@ -41,12 +43,14 @@ export default function SuperAdminLoginPage() {
       if (!sa) {
         await supabase.auth.signOut();
         setError('No tienes permisos de Super Administrador');
+        showError('Sin permisos de Super Administrador');
         return;
       }
 
       window.location.href = '/superadmin';
     } catch {
       setError('Error de conexión');
+      showError('Error de conexión');
     } finally {
       setLoading(false);
     }

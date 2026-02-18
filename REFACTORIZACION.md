@@ -3,8 +3,8 @@
 > **Proyecto**: Multi-tenant Acreditaciones  
 > **Stack**: Next.js 16 (App Router + Turbopack) · TypeScript · Tailwind CSS v4 · Supabase · Vercel  
 > **Fecha de auditoría**: 13 de febrero de 2026  
-> **Última actualización**: 17 de febrero de 2026  
-> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 166 tests (17 suites)  
+> **Última actualización**: 18 de febrero de 2026  
+> **Codebase**: ~20,000 líneas TS/TSX/CSS · 21 API routes · 13 servicios · 230 tests (21 suites)  
 
 ---
 
@@ -16,7 +16,14 @@ sistema de zonas, cupos, exportación PuntoTicket y gestión de equipos.
 
 La auditoría inicial reveló **6 áreas de mejora** organizadas en milestones
 independientes. Tras completar M1–M7, una segunda auditoría (17 feb 2026) identificó
-**3 áreas adicionales** (M8–M10) y una mejora funcional (M11). **7 de 11 milestones completados**.
+**3 áreas adicionales** (M8–M10) y una mejora funcional (M11). El 18 feb 2026 se
+agregaron **5 milestones funcionales** (M12–M16) a partir de feedback de QA.
+El mismo día se agregaron **4 milestones adicionales** (M17–M20) a partir de
+feedback de usuario: visibilidad de eventos, UX de feedback, mejora del formulario
+de acreditación y gate de perfil para equipo.
+**10 de 20 milestones completados**.
+
+Además, el 18 feb 2026 se inició la ejecución de M12 (bloqueante).
 
 ### Progreso Global
 
@@ -28,10 +35,19 @@ M4  (Decomposición)            ████████         ✅ COMPLETADO 
 M5  (Tipado fuerte)            ██████           ✅ COMPLETADO — 16 feb 2026
 M6  (Optimización Vercel)      ██████           ✅ COMPLETADO — 17 feb 2026
 M7  (Testing)                  ████████████████ ✅ COMPLETADO — 17 feb 2026
-M8  (Seguridad II + Validación)████████████     ⬜ PENDIENTE
+M8  (Seguridad II + Validación)████████████     ✅ COMPLETADO — 18 feb 2026
 M9  (Performance UI + A11y)    ██████████       ⬜ PENDIENTE
 M10 (Arquitectura + Calidad)   ████████         ⬜ PENDIENTE
 M11 (QR Check-in Móvil)        ██████           ⬜ PENDIENTE
+M12 (Bug Cruce Datos Tenants)  ████████████████ ✅ COMPLETADO — 18 feb 2026
+M13 (Flujo Auth Completo)      ██████████       ⬜ PENDIENTE
+M14 (Eliminación de Tenants)   ██████           ⬜ PENDIENTE
+M15 (UX SuperAdmin Eventos)    ████             ⬜ PENDIENTE
+M16 (Billing Admin Tenant)     ████████████     ⬜ PENDIENTE
+M17 (Eventos Públicos/Privados) ██████           ⬜ PENDIENTE
+M18 (UX Feedback: Toasts+Modal) ████████         ✅ COMPLETADO — 19 feb 2026
+M19 (UX Formulario Acreditación)████████████     ⬜ PENDIENTE
+M20 (Gate Perfil → Equipo)      ██████           ✅ COMPLETADO — 18 feb 2026
 ```
 
 ---
@@ -69,7 +85,7 @@ individualmente en cada API route (o no se verifica — ver M1).
 
 ## Diagnóstico por Área (post-refactorización)
 
-### Seguridad — 🟡 Parcialmente resuelto (M1 + pendiente M8)
+### Seguridad — ✅ Resuelto (M1 + M8)
 
 **Resuelto en M1:**
 
@@ -86,23 +102,21 @@ individualmente en cada API route (o no se verifica — ver M1).
 
 Helper creado: `lib/services/requireAuth.ts` — verifica usuario, rol y ownership en 1 línea.
 
-**Pendiente — identificado en auditoría del 17 feb (→ M8):**
+**Resuelto en M8 (18 feb 2026):**
 
-| Ruta | Problema | Severidad |
+| Ruta | Problema | Resolución |
 |------|----------|-----------|
-| `POST /api/upload` | Sin verificación de auth (comentario dice "requiere superadmin" pero no verifica) | 🔴 Crítico |
-| `GET/POST /api/email/templates` | Cualquiera puede leer/modificar plantillas de email | 🔴 Crítico |
-| `GET/POST/DELETE /api/email/zone-content` | Sin auth en ningún método | 🔴 Crítico |
-| `POST /api/profiles/lookup` | Crea perfiles sin autenticación | 🔴 Crítico |
-| `GET /api/tenants?all=true&withStats=true` | Expone stats sin auth | 🟡 Importante |
-| `DELETE /api/registrations/[id]` | No verifica ownership (cualquier user puede borrar cualquier registro) | 🔴 Crítico |
-| `PATCH /api/registrations/[id]` | Usa `getCurrentUser()` manual, no verifica permisos sobre registro | 🟡 Importante |
-| `POST /api/events` | Verifica auth pero no verifica que sea admin del tenant asignado | 🟡 Importante |
-| `lib/services/email.ts` | `replaceVars()` interpola datos del usuario en HTML sin sanitizar (XSS) | 🔴 Crítico |
-| `AdminMailTab.tsx`, `AdminMailZones.tsx` | `dangerouslySetInnerHTML` sin DOMPurify (3 puntos) | 🔴 Crítico |
-| Todas las rutas | Sin rate limiting | 🟡 Importante |
-| Todas las rutas POST/PATCH | Sin validación de input (Zod/Yup) | 🟡 Importante |
-| `lib/validation.ts` | Validación de dígito verificador RUT comentada ("modo prueba") | 🟡 Importante |
+| `POST /api/upload` | Sin verificación de auth | ✅ `requireAuth(admin_tenant)` + allowlist carpetas/extensiones |
+| `GET/POST /api/email/templates` | Cualquiera podía leer/modificar | ✅ `requireAuth(admin_tenant)` + Zod |
+| `GET/POST/DELETE /api/email/zone-content` | Sin auth en ningún método | ✅ `requireAuth(admin_tenant)` + Zod |
+| `POST /api/profiles/lookup` | Creaba perfiles con user_id del body | ✅ user_id desde sesión + Zod |
+| `GET /api/tenants?all=true` | Exponía stats sin auth | ✅ `requireAuth(superadmin)` |
+| `DELETE /api/registrations/[id]` | No verificaba ownership | ✅ `requireAuth()` |
+| `POST/PATCH/DELETE /api/events` | Auth inconsistente | ✅ `requireAuth()` + Zod en POST/PATCH |
+| `lib/services/email.ts` | XSS en `replaceVars()` | ✅ `escapeHtml()`, `safeColor()`, `safeUrl()` |
+| `AdminMailTab.tsx`, `AdminMailZones.tsx` | `dangerouslySetInnerHTML` sin sanitizar | ✅ `sanitizeHtml()` de `lib/sanitize.ts` |
+| Todas las rutas POST/PATCH | Sin validación de input | ✅ Zod schemas en `lib/schemas/index.ts` |
+| `lib/validation.ts` | DV RUT comentado | ✅ DV reactivado |
 
 ### Performance — ✅ Resuelto en M3
 
@@ -1036,9 +1050,19 @@ Sesión 4   →  M4  (Decomposición componentes)      ████████ 
 Sesión 5   →  M5  (Tipado fuerte)                  ██████           ✅ COMPLETADO
 Sesión 6   →  M6  (Optimización Vercel)            ██████           ✅ COMPLETADO
 Sesión 7   →  M7  (Testing)                        ████████         ✅ COMPLETADO
-Sesión 8   →  M8  (Seguridad II + Validación)      ████████████     ⬜ PENDIENTE
-Sesión 9   →  M9  (Performance UI + A11y)           ██████████       ⬜ PENDIENTE
-Sesión 10  →  M10 (Arquitectura + Calidad)          ████████         ⬜ PENDIENTE
+Sesión 8   →  M8  (Seguridad II + Validación)      ████████████     ✅ COMPLETADO
+Sesión 8b  →  M12 (Bug Cruce Datos Tenants)         ████████████████ ✅ COMPLETADO
+Sesión 9   →  M13 (Flujo Auth Completo)             ██████████       ⬜ PENDIENTE
+Sesión 10  →  M9  (Performance UI + A11y)           ██████████       ⬜ PENDIENTE
+Sesión 11  →  M10 (Arquitectura + Calidad)          ████████         ⬜ PENDIENTE
+Sesión 12  →  M14 (Eliminación de Tenants)          ██████           ⬜ PENDIENTE
+Sesión 13  →  M15 (UX SuperAdmin Eventos)           ████             ⬜ PENDIENTE
+Sesión 14  →  M11 (QR Check-in Móvil)              ██████           ⬜ PENDIENTE
+Sesión 15  →  M16 (Billing Admin Tenant)            ████████████     ⬜ PENDIENTE
+Sesión 16  →  M17 (Eventos Públicos/Privados)       ██████           ⬜ PENDIENTE
+Sesión 17  →  M18 (UX Feedback: Toasts+Modales)     ████████         ✅ COMPLETADO — 19 feb 2026
+Sesión 17b →  M19 (UX Formulario Acreditación)      ████████████     ⬜ PENDIENTE
+Sesión 18  →  M20 (Gate Perfil → Equipo)             ██████           ✅ COMPLETADO — 18 feb 2026
 ```
 
 Cada sesión termina con `npx next build` exitoso y commit independiente.
@@ -1124,15 +1148,17 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [x] **138 tests passing, 14 suites**
 - [x] Coverage: `lib/` 88% stmts, `lib/services` key modules 95-100%
 
-### M8 — Seguridad II + Validación ⬜
-- [ ] Auth en `/api/upload`, `/api/email/templates`, `/api/email/zone-content`, `/api/profiles/lookup`
-- [ ] Ownership check en `DELETE /api/registrations/[id]`
-- [ ] Sanitización XSS en `replaceVars()` (`lib/services/email.ts`)
-- [ ] DOMPurify en `dangerouslySetInnerHTML` (AdminMailTab, AdminMailZones)
-- [ ] Schemas Zod para todas las rutas POST/PATCH
-- [ ] Rate limiting en rutas críticas
-- [ ] Reactivar validación dígito verificador RUT
-- [ ] Build exitoso
+### M8 — Seguridad II + Validación ✅ (18 feb 2026)
+- [x] Auth en `/api/upload`, `/api/email/templates`, `/api/email/zone-content`, `/api/profiles/lookup`, `/api/events`, `/api/tenants`
+- [x] Ownership check en `DELETE /api/registrations/[id]` (via `requireAuth`)
+- [x] Sanitización XSS en `buildVars()` (`lib/services/email.ts`) — `escapeHtml()`, `safeColor()`, `safeUrl()`
+- [x] `sanitizeHtml()` en `dangerouslySetInnerHTML` (AdminMailTab, AdminMailZones) — `lib/sanitize.ts`
+- [x] Schemas Zod para todas las rutas POST/PATCH — `lib/schemas/index.ts`
+- [x] Reactivar validación dígito verificador RUT (`lib/validation.ts`)
+- [x] Path traversal fix en upload (`ALLOWED_FOLDERS` whitelist, `ALLOWED_EXTS`)
+- [x] Profile POST: user_id desde sesión, no del body (previene impersonación)
+- [x] 29 tests nuevos (security-m8.test.ts) + tests existentes actualizados
+- [x] **204 tests passing, 19 suites** — Build exitoso
 
 ### M9 — Performance UI + Accesibilidad ⬜
 - [ ] `React.memo` en `AdminRow`
@@ -1164,6 +1190,112 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 - [ ] Expandir tests: componentes React, servicios faltantes, hooks, E2E
 - [ ] Incluir `app/api/**` en vitest coverage
 - [ ] Build exitoso
+
+### M12 — Bug Cruce Datos entre Tenants ✅
+- [x] Función `getTeamMembersForEvent()` con enriquecimiento por tenant/evento
+- [x] API `/api/teams` acepta `event_id` opcional en GET
+- [x] `useRegistrationForm.ts` pasa `event_id` al cargar equipo
+- [x] `handleAddFromTeam` / `handleAddAllTeam` usan `dynamicData.cargo` (tenant-scoped)
+- [x] Vista SQL `v_team_event_enriched` + índice en registrations(profile_id, event_id)
+- [x] Tests de aislamiento entre tenants (6 tests)
+- [x] Tests API actualizados (11 tests, +1 nuevo)
+- [x] 173 tests passing, 18 suites
+- [x] Build exitoso
+
+### M13 — Flujo Completo de Autenticación ⬜
+- [ ] "Olvidé contraseña" en login acreditado
+- [ ] "Olvidé contraseña" en login superadmin
+- [ ] "Olvidé contraseña" en login admin tenant
+- [ ] Callback de recovery con formulario de nueva contraseña
+- [ ] Cambio de contraseña en perfil acreditado
+- [ ] Crear admin con contraseña temporal + email de bienvenida
+- [ ] Forzar cambio de contraseña en primer login de admin
+- [ ] Tests del flujo auth
+- [ ] Build exitoso
+
+### M14 — Eliminación de Tenants ⬜
+- [ ] Verificar/completar cascadas SQL
+- [ ] Función `deleteTenant()` con cleanup de storage y auth users
+- [ ] Endpoint `DELETE /api/tenants/[id]` (requiere superadmin)
+- [ ] UI con doble confirmación (escribir nombre del tenant)
+- [ ] Tests de eliminación en cascada
+- [ ] Build exitoso
+
+### M15 — UX SuperAdmin Eventos ⬜
+- [ ] Filtro por tenant en página de eventos
+- [ ] Agrupación visual por tenant (headers con color)
+- [ ] Filtro por estado activo/inactivo
+- [ ] Búsqueda por nombre de evento
+- [ ] Contadores en barra de filtros
+- [ ] Build exitoso
+
+### M16 — Billing Admin Tenant ⬜
+- [ ] Schema SQL: tablas `plans`, `subscriptions`, `usage_records`
+- [ ] Servicio `billing.ts` con `checkLimit()`, `getUsageSummary()`
+- [ ] Enforcement en POST de events, registrations, admins
+- [ ] API de billing (plan actual, planes disponibles, cambiar plan)
+- [ ] Tab Billing en dashboard admin_tenant
+- [ ] Gestión de planes en superadmin
+- [ ] Asignación automática de plan free al crear tenant
+- [ ] Notificaciones de límite (80%)
+- [ ] Placeholder de pasarela de pago
+- [ ] Tests de billing
+- [ ] Build exitoso
+
+### M17 — Eventos Públicos / Privados (por Invitación) ⬜
+- [ ] Columna `visibility` en tabla `events` (`'public' | 'private' | 'invite_only'`)
+- [ ] UI toggle en formulario de evento (admin_tenant + superadmin)
+- [ ] Evento `private` / `invite_only` → no aparece en landing público del tenant
+- [ ] Evento `invite_only` → requiere link directo con token o lista de invitados
+- [ ] Schema SQL: tabla `event_invitations` (event_id, email, token, accepted_at)
+- [ ] Servicio `invitations.ts` con `createInvitation()`, `validateInviteToken()`
+- [ ] API `POST /api/events/[id]/invite` — enviar invitación por email
+- [ ] API `GET /api/events/[id]/invite?token=xxx` — validar token de invitación
+- [ ] Formulario de acreditación valida visibilidad antes de mostrar
+- [ ] Admin puede ver lista de invitados y estados (enviado, aceptado, rechazado)
+- [ ] Tests de visibilidad y tokens
+- [ ] Build exitoso
+
+### M18 — UX Feedback: Toasts + Modales ✅
+- [x] Migrar todos los `setMessage()`/`setError()` inline a toasts de Sileo — 10 archivos migrados
+- [x] Reemplazar `confirm()` nativo por `useConfirmation` hook + `ConfirmDialog` (equipo/page.tsx)
+- [x] `ConfirmDialog` mejorado con a11y: role=dialog, aria-modal, Escape, focus trap, body scroll lock, iconos por variante
+- [x] Sileo Toaster ya configurado globalmente en `SileoProvider` (root layout)
+- [x] `ButtonSpinner` usado en acciones asíncronas (equipo/page.tsx)
+- [x] Notificaciones contextuales en: perfil, equipo, auth, admin login, superadmin (config, admins, tenants, eventos, login)
+- [x] Eliminados legacy `<Toast>` en 3 páginas superadmin + mensajes inline en configuracion
+- [x] `fireToast()` helper en `useRegistrationForm.ts` para toasts sin hook React
+- [x] Auditoría completa: acreditado (perfil, equipo), auth/acreditado, admin login, superadmin (5 páginas), registration form
+- [x] 11 tests ConfirmDialog + 4 tests useConfirmation = 15 tests UX
+- [x] 230 tests passing, 21 suites
+- [x] Build exitoso
+
+### M19 — UX Formulario de Acreditación ⬜
+- [ ] Rediseñar modal de confirmación de acreditados — layout responsivo que no se descuadre
+- [ ] Mejorar visualización de datos en el modal: tabla con columnas alineadas
+- [ ] Scroll interno en modal cuando hay muchos acreditados (max-height + overflow)
+- [ ] Indicadores de validación claros: campos con error marcados en rojo con tooltip
+- [ ] Paso de acreditados: mejorar UX de agregar/eliminar miembros (animaciones, feedback)
+- [ ] Preview de datos antes de enviar: resumen claro de quién se acredita
+- [ ] Responsive: formulario usable en móvil sin overflow ni scroll horizontal
+- [ ] Loading state claro durante envío (progress indicator si son múltiples)
+- [ ] Mensaje de éxito post-envío con resumen y link a dashboard
+- [ ] Tests de componentes del formulario
+- [ ] Build exitoso
+
+### M20 — Gate de Perfil Completo para Equipo ✅
+- [x] Definir campos requeridos del perfil: nombre, apellido, medio, tipo_medio → `lib/profile.ts`
+- [x] `isProfileComplete()` + `getMissingProfileFields()` + `REQUIRED_PROFILE_FIELDS` en `lib/profile.ts`
+- [x] En `/acreditado/equipo`: banner bloqueante si perfil incompleto → oculta contenido
+- [x] Banner con lista de campos faltantes + botón "Completar Perfil" → link a `/acreditado/perfil?from=equipo`
+- [x] En `/acreditado/perfil`: labels "⚠ Requerido" + borde warning en campos faltantes
+- [x] Banner contextual cuando viene de equipo: "Completa los campos marcados"
+- [x] Auto-redirect a `/acreditado/equipo` tras guardar perfil completo (si `from=equipo`)
+- [x] Toast Sileo en éxito/error al guardar perfil (reemplaza solo setMessage)
+- [x] Herencia medio/tipo_medio validada (profileMedio/profileTipoMedio ya forzados)
+- [x] 15 tests (isProfileComplete, getMissingProfileFields, REQUIRED_PROFILE_FIELDS)
+- [x] 219 tests passing, 20 suites
+- [x] Build exitoso
 
 ---
 
@@ -1199,22 +1331,26 @@ Cada sesión termina con `npx next build` exitoso y commit independiente.
 
 ## Métricas de la Refactorización
 
-| Métrica | Antes (13 feb) | Después M7 (17 feb) | Estimado post-M11 |
+| Métrica | Antes (13 feb) | Después M7 (17 feb) | Estimado post-M16 |
 |---------|----------------|----------------------|--------------------|
-| Líneas de código | ~16,500 | ~20,000 | ~22,000 |
-| API routes | 18 | 21 | ~25 (nuevas rutas dinámicas) |
-| Servicios | 11 | 13 | ~15 (schemas, rateLimit) |
+| Líneas de código | ~16,500 | ~20,000 | ~26,000 |
+| API routes | 18 | 21 | ~30 (billing, auth, tenants/[id]) |
+| Servicios | 11 | 13 | ~18 (billing, passwordPolicy, schemas, rateLimit) |
 | Archivos eliminados | — | 5 | ~12 (+7 código muerto residual) |
 | Vulnerabilidades auth | 6 rutas | 0 (principales) | 0 (todas) |
 | Rutas sin auth (secundarias) | N/A | ~8 | 0 |
+| Fuga de datos cross-tenant | N/A | 1 (team_members) | 0 |
 | XSS potencial | N/A | 4 puntos | 0 |
 | N+1 queries | 3 lugares | 0 | 0 |
 | Archivos >500 líneas | 3 | 2* | 1* |
-| Tipos derivados de DB | 0 | 14 tablas + 3 vistas | +campos JSONB tipados |
-| Tests | 0 | 166 (17 suites) | ~250+ (componentes + E2E) |
+| Tipos derivados de DB | 0 | 14 tablas + 3 vistas | +6 tablas (billing, team scope) |
+| Tests | 0 | 230 (21 suites) | ~300+ (componentes + billing + auth + E2E) |
 | Coverage global | 0% | ~70% lib/ | ≥75% global |
 | Rate limiting | Ninguno | Ninguno | 5 rutas críticas |
 | Validación input (Zod) | Ninguna | Ninguna | Todas las rutas POST/PATCH |
+| Password recovery | No | No | Todos los roles |
+| Tenant CRUD completo | Sin DELETE | Sin DELETE | CRUD completo + cascada |
+| Billing / planes | Ninguno | Ninguno | 3 planes + enforcement + UI |
 
 \* `useRegistrationForm.ts` (636 líneas) + `AdminConfigTab.tsx` (700 líneas, se dividirá en M10)
 
@@ -1364,4 +1500,944 @@ npx vitest run
 # Test: scanner USB sigue funcionando con token puro y con URL
 # Test: usuario no-admin escanea → redirect a login
 # Test: (si 11.4) cámara lee QR y hace check-in
+```
+
+---
+
+### ⬜ Milestone 12 — Bug Crítico: Cruce de Datos entre Tenants
+> **Prioridad**: 🔴 Bloqueante · **~10 archivos + 1 SQL** · **Riesgo de regresión**: Alto  
+> **Tiempo estimado**: 1 sesión · **Dificultad**: Medio-Alto
+
+**Problema**: Se ha detectado una fuga de datos entre perfiles de miembros de equipo.
+Al registrar o editar un "Miembro de Equipo Frecuente", el sistema mezcla información
+con datos de otros perfiles o tenants. El proceso de acreditación resulta erróneo,
+comprometiendo la integridad de la información y la privacidad del usuario.
+
+**Causa raíz identificada**: La tabla `profiles` es global (no tiene columna `tenant_id`).
+El diseño intencional es que un perfil (identidad por RUT) pueda participar en múltiples
+tenants. Sin embargo, la tabla `team_members` tampoco filtra por tenant — solo vincula
+`manager_id` ↔ `member_profile_id`. Esto causa que:
+
+1. `getTeamMembers()` en `lib/services/teams.ts` filtra solo por `manager_id`, sin contexto de tenant/evento
+2. `addTeamMember()` busca perfiles por RUT globalmente sin acotar a un tenant
+3. `lookupProfileByRut()` en `lib/services/profiles.ts` retorna el primer perfil con ese RUT sin filtro de evento/tenant
+4. El hook `useProfileLookup` no envía contexto de tenant al backend
+5. La API `POST /api/teams` no valida que el perfil pertenezca al mismo contexto de acreditación
+
+**Impacto**: Un acreditado del Tenant A puede ver datos de miembros de equipo que
+fueron creados en el contexto del Tenant B. Al auto-completar datos por RUT,
+pueden aparecer datos de otra organización.
+
+#### Paso 12.1 — Agregar `event_id` a `team_members`
+```
+📁 Crear: supabase-fix-team-tenant-scope.sql
+```
+```sql
+-- Agregar columna de scoping a team_members
+ALTER TABLE team_members ADD COLUMN event_id UUID REFERENCES events(id) ON DELETE CASCADE;
+
+-- Índice compuesto para queries eficientes
+CREATE INDEX idx_team_members_manager_event 
+  ON team_members(manager_id, event_id);
+
+-- Restricción: un miembro no puede estar duplicado para el mismo manager+evento
+ALTER TABLE team_members ADD CONSTRAINT uq_team_member_event 
+  UNIQUE(manager_id, member_profile_id, event_id);
+
+-- Backfill: asignar event_id a registros existentes basándose en registrations
+UPDATE team_members tm
+SET event_id = (
+  SELECT r.event_id FROM registrations r
+  WHERE r.profile_id = tm.manager_id
+  ORDER BY r.created_at DESC LIMIT 1
+)
+WHERE tm.event_id IS NULL;
+
+-- RLS: team_members visibles solo si el usuario es el manager
+ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY team_members_manager_policy ON team_members
+  FOR ALL USING (
+    manager_id IN (
+      SELECT id FROM profiles WHERE user_id = auth.uid()
+    )
+  );
+```
+
+#### Paso 12.2 — Actualizar servicio de equipos
+```
+✏️ Editar: lib/services/teams.ts
+```
+Agregar `event_id` como parámetro obligatorio en todas las funciones:
+```typescript
+// ANTES:
+export async function getTeamMembers(managerId: string) {
+  const { data } = await supabase.from('team_members').select('*').eq('manager_id', managerId);
+}
+
+// DESPUÉS:
+export async function getTeamMembers(managerId: string, eventId: string) {
+  const { data } = await supabase
+    .from('team_members')
+    .select('*, member_profile:profiles!member_profile_id(*)')
+    .eq('manager_id', managerId)
+    .eq('event_id', eventId);  // ← scope por evento (que pertenece a un tenant)
+}
+```
+Hacer lo mismo en `addTeamMember()` y `removeTeamMember()` — siempre pasar `event_id`.
+
+#### Paso 12.3 — Actualizar API de equipos
+```
+✏️ Editar: app/api/teams/route.ts
+✏️ Editar: app/api/team/route.ts (si existe)
+```
+Requerir `event_id` en el body/query de GET/POST/DELETE:
+```typescript
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const eventId = searchParams.get('event_id');
+  if (!eventId) return NextResponse.json({ error: 'event_id requerido' }, { status: 400 });
+
+  // Verificar que el evento pertenece al tenant del usuario
+  const event = await getEventById(eventId);
+  if (!event) return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+
+  const members = await getTeamMembers(profile.id, eventId);
+  return NextResponse.json({ data: members });
+}
+```
+
+#### Paso 12.4 — Acotar lookup de perfil por contexto
+```
+✏️ Editar: hooks/useProfileLookup.ts
+✏️ Editar: app/api/profiles/lookup/route.ts
+```
+Al hacer lookup por RUT para autofill de equipo, filtrar datos visibles:
+- El perfil base (nombre, RUT, email) es global — OK compartirlo
+- Los datos de acreditación (`cargo`, `tipo_medio`, `medio`) deben venir de
+  `registrations` del mismo evento/tenant, NO de registrations de otro tenant
+- Agregar parámetro `event_id` al lookup para traer datos del contexto correcto
+
+```typescript
+// En useProfileLookup.ts:
+const res = await fetch(`/api/profiles/lookup?rut=${rut}&event_id=${eventId}`);
+
+// En el API, al hacer autofill:
+const { data: registration } = await supabase
+  .from('registrations')
+  .select('datos_base, datos_extra')
+  .eq('profile_id', profile.id)
+  .eq('event_id', eventId)  // ← Solo datos de este evento
+  .maybeSingle();
+```
+
+#### Paso 12.5 — Actualizar formulario de registro
+```
+✏️ Editar: components/forms/registration/StepAcreditados.tsx
+✏️ Editar: components/forms/registration/useRegistrationForm.ts
+```
+Pasar `event_id` al hook de team members y al lookup de perfiles.
+El formulario ya tiene acceso al `event_id` del wizard — solo falta propagarlo.
+
+#### Paso 12.6 — Tests de aislamiento entre tenants
+```
+📁 Crear: tests/services/teams-isolation.test.ts
+```
+```typescript
+describe('Team Members - Tenant Isolation', () => {
+  it('no retorna miembros de equipo de otro evento', async () => { ... });
+  it('no permite agregar miembro con event_id de otro tenant', async () => { ... });
+  it('lookup de perfil retorna datos del evento correcto', async () => { ... });
+  it('autofill usa registration del mismo evento', async () => { ... });
+});
+```
+
+#### Paso 12.7 — Verificación final M12
+```bash
+npx next build
+npx vitest run
+# Test manual: crear equipo en Tenant A → verificar que no aparece en Tenant B
+# Test manual: buscar RUT que existe en 2 tenants → datos de acreditación del tenant correcto
+# Test manual: registros existentes (backfill) asignados correctamente
+```
+
+---
+
+### ⬜ Milestone 13 — Flujo Completo de Autenticación
+> **Prioridad**: Alta · **~12 archivos** · **Riesgo de regresión**: Medio  
+> **Tiempo estimado**: 1-2 sesiones · **Dificultad**: Medio
+
+**Problema**: El sistema tiene login y registro funcionales, pero carece de flujos
+críticos de gestión de contraseña:
+- No existe "Olvidé mi contraseña" en ningún login
+- No se puede cambiar contraseña desde el perfil (ningún rol)
+- Al crear usuarios admin (superadmin o tenant admin) se usa `email_confirm: true`
+  pero no se gestiona la creación de contraseña — el usuario queda sin forma de entrar
+
+**Estado actual:**
+
+| Funcionalidad | Acreditado | Admin Tenant | SuperAdmin |
+|---------------|:----------:|:------------:|:----------:|
+| Login email+pwd | ✅ | ✅ | ✅ |
+| Registro | ✅ | N/A (creado por SA) | N/A (creado por SA) |
+| Olvidé contraseña | ❌ | ❌ | ❌ |
+| Cambiar contraseña | ❌ | ❌ | ❌ |
+| Crear con contraseña | N/A | ❌ (sin pwd) | ❌ (sin pwd) |
+
+#### Paso 13.1 — "Olvidé mi contraseña" en login de acreditado
+```
+✏️ Editar: app/auth/acreditado/page.tsx
+```
+Agregar link y flujo de recuperación bajo el botón de login:
+```typescript
+const handleForgotPassword = async () => {
+  if (!email) { setError('Ingresa tu email'); return; }
+  setLoading(true);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+  });
+  if (error) setError(error.message);
+  else setSuccess('Se envió un enlace de recuperación a tu email');
+  setLoading(false);
+};
+
+// En el JSX del tab Login:
+<button
+  type="button"
+  onClick={handleForgotPassword}
+  className="text-sm text-blue-600 hover:underline mt-2"
+>
+  ¿Olvidaste tu contraseña?
+</button>
+```
+
+#### Paso 13.2 — "Olvidé mi contraseña" en login de SuperAdmin
+```
+✏️ Editar: app/superadmin/login/page.tsx
+```
+Mismo patrón que 13.1 pero con redirect a `/superadmin/login?recovered=true`.
+
+#### Paso 13.3 — "Olvidé mi contraseña" en login de Admin Tenant
+```
+✏️ Editar: app/[tenant]/admin/page.tsx (o login/page.tsx si existe)
+```
+Mismo patrón con redirect a `/${tenant}/admin?recovered=true`.
+
+#### Paso 13.4 — Página de callback para recovery
+```
+✏️ Editar: app/auth/callback/page.tsx
+```
+Manejar el tipo `recovery` del callback de Supabase:
+```typescript
+useEffect(() => {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // Mostrar formulario de nueva contraseña
+      setShowPasswordReset(true);
+    }
+  });
+  return () => subscription.unsubscribe();
+}, []);
+```
+Cuando `PASSWORD_RECOVERY`:
+- Mostrar formulario con 2 campos: nueva contraseña + confirmación
+- Validar: mínimo 8 caracteres, coincidencia
+- Llamar `supabase.auth.updateUser({ password: newPassword })`
+- Redirect al login correspondiente con mensaje de éxito
+
+#### Paso 13.5 — Cambio de contraseña en perfil de acreditado
+```
+✏️ Editar: app/acreditado/perfil/page.tsx
+```
+Agregar sección "Cambiar contraseña" al formulario de perfil:
+```typescript
+const handleChangePassword = async () => {
+  if (newPassword !== confirmPassword) {
+    setPasswordError('Las contraseñas no coinciden');
+    return;
+  }
+  if (newPassword.length < 8) {
+    setPasswordError('Mínimo 8 caracteres');
+    return;
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) setPasswordError(error.message);
+  else {
+    setPasswordSuccess('Contraseña actualizada');
+    setNewPassword('');
+    setConfirmPassword('');
+  }
+};
+```
+UI: card separada debajo de los datos personales con inputs de contraseña colapsable.
+
+#### Paso 13.6 — Crear admin con contraseña temporal
+```
+✏️ Editar: lib/services/tenants.ts  (createTenantAdmin)
+✏️ Editar: app/superadmin/(dashboard)/configuracion/page.tsx (create-superadmin action)
+```
+Al crear un usuario admin, generar contraseña temporal y enviar por email:
+```typescript
+import { randomBytes } from 'crypto';
+
+const tempPassword = randomBytes(12).toString('base64url');
+
+const { data, error } = await supabaseAdmin.auth.admin.createUser({
+  email,
+  password: tempPassword,
+  email_confirm: true,
+  user_metadata: { role, nombre, apellido },
+});
+
+// Enviar email con credenciales temporales
+await sendWelcomeEmail(email, {
+  nombre,
+  tempPassword,
+  loginUrl: role === 'superadmin'
+    ? `${process.env.NEXT_PUBLIC_BASE_URL}/superadmin/login`
+    : `https://${tenantSlug}.accredia.cl/admin`,
+});
+```
+
+#### Paso 13.7 — Forzar cambio de contraseña en primer login
+```
+📁 Crear: lib/services/passwordPolicy.ts
+```
+```typescript
+export function shouldForcePasswordChange(user: User): boolean {
+  return user.user_metadata?.must_change_password === true;
+}
+```
+En la creación de admin (13.6), agregar metadata `must_change_password: true`.
+En el login de admin, verificar y redirigir a cambio de contraseña:
+```typescript
+if (shouldForcePasswordChange(user)) {
+  router.push('/auth/callback?type=force-change');
+}
+```
+
+#### Paso 13.8 — Email de bienvenida con credenciales
+```
+📁 Crear: lib/services/welcomeEmail.ts (o agregar a email.ts)
+```
+Template de email:
+- Asunto: "Bienvenido a Accredia — Tus credenciales de acceso"
+- Body: nombre, email, contraseña temporal, link de login, instrucción de cambiar contraseña
+- Usar Resend/SMTP existente del proyecto
+
+#### Paso 13.9 — Tests del flujo auth
+```
+📁 Crear: tests/services/passwordPolicy.test.ts
+📁 Crear: tests/api/auth-recovery.test.ts
+```
+```typescript
+describe('Password Policy', () => {
+  it('detecta must_change_password en metadata', () => { ... });
+  it('no fuerza cambio si metadata es false', () => { ... });
+});
+
+describe('Auth Recovery API', () => {
+  it('envía email de recuperación', () => { ... });
+  it('actualiza contraseña con token válido', () => { ... });
+  it('rechaza contraseña < 8 caracteres', () => { ... });
+});
+```
+
+#### Paso 13.10 — Verificación final M13
+```bash
+npx next build
+npx vitest run
+# Test manual: click "Olvidé contraseña" → recibir email → abrir link → nueva contraseña → login OK
+# Test manual: cambiar contraseña desde perfil acreditado → logout → login con nueva contraseña
+# Test manual: crear admin tenant → email con credenciales → login → forzar cambio de pwd
+# Test manual: crear superadmin → email con credenciales → login → forzar cambio de pwd
+```
+
+---
+
+### ⬜ Milestone 14 — Gestión Completa de Tenants (Eliminación en Cascada)
+> **Prioridad**: Media-Alta · **~6 archivos + 1 SQL** · **Riesgo de regresión**: Alto  
+> **Tiempo estimado**: 1 sesión · **Dificultad**: Medio
+
+**Problema**: El CRUD de tenants está incompleto — falta la funcionalidad de eliminación.
+No existe endpoint `DELETE`, función de servicio `deleteTenant`, ni UI para eliminar un
+tenant. Si un tenant se desactiva permanentemente, sus datos quedan como "huérfanos"
+ocupando espacio en la BD.
+
+**Estado actual de cascadas en la BD**:
+
+| Tabla hija | FK → `tenants(id)` | Tipo CASCADE |
+|------------|--------------------|--------------|
+| `events` | `tenant_id` | ✅ `ON DELETE CASCADE` |
+| `tenant_admins` | `tenant_id` | ✅ `ON DELETE CASCADE` |
+| `email_templates` | `tenant_id` | ✅ `ON DELETE CASCADE` |
+| `email_logs` | `tenant_id` | `ON DELETE SET NULL` |
+| `email_zone_content` | (vía event_id) | ✅ Cascada transitiva |
+| `registrations` | (vía event_id) | ✅ Cascada transitiva |
+| `event_quota_rules` | (vía event_id) | ✅ Cascada transitiva |
+| `event_zone_rules` | (vía event_id) | ✅ Cascada transitiva |
+| `event_days` | (vía event_id) | ✅ Cascada transitiva |
+
+La BD ya tiene cascadas correctas. Falta toda la capa de aplicación.
+
+#### Paso 14.1 — Verificar cascadas pendientes en SQL
+```
+📁 Crear: supabase-tenant-cascade-check.sql
+```
+```sql
+-- Verificar que no haya tablas huérfanas sin CASCADE
+-- Agregar CASCADE faltante si se detecta:
+
+-- Storage: eliminar archivos del tenant (logos, fotos de perfil)
+-- Esto debe hacerse a nivel de aplicación ANTES del DELETE SQL
+
+-- Audit logs: decidir si preservar o eliminar
+-- Opción A: SET NULL (preservar logs anónimos para auditoría)
+-- Opción B: CASCADE (eliminar todo rastro)
+ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_tenant_id_fkey;
+ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_tenant_id_fkey
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE SET NULL;
+```
+
+#### Paso 14.2 — Función de servicio `deleteTenant`
+```
+✏️ Editar: lib/services/tenants.ts
+```
+```typescript
+export async function deleteTenant(tenantId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+
+  // 1. Obtener datos del tenant para cleanup
+  const tenant = await getTenantById(tenantId);
+  if (!tenant) throw new Error('Tenant no encontrado');
+
+  // 2. Eliminar archivos de storage asociados
+  const { data: files } = await supabase.storage
+    .from('tenant-assets')
+    .list(tenantId);
+  if (files?.length) {
+    await supabase.storage
+      .from('tenant-assets')
+      .remove(files.map(f => `${tenantId}/${f.name}`));
+  }
+
+  // 3. Eliminar usuarios auth asociados (admin_tenant)
+  const admins = await listTenantAdmins(tenantId);
+  for (const admin of admins) {
+    // Solo eliminar user si no es admin de otro tenant
+    const { count } = await supabase
+      .from('tenant_admins')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', admin.user_id)
+      .neq('tenant_id', tenantId);
+    if (count === 0) {
+      await supabase.auth.admin.deleteUser(admin.user_id);
+    }
+  }
+
+  // 4. DELETE del tenant (cascadas SQL eliminan todo lo demás)
+  const { error } = await supabase
+    .from('tenants')
+    .delete()
+    .eq('id', tenantId);
+  if (error) throw error;
+
+  // 5. Audit log (con tenant_id NULL ya que fue eliminado)
+  await logAudit({ action: 'tenant_deleted', details: { tenant_nombre: tenant.nombre, tenant_slug: tenant.slug } });
+}
+```
+
+#### Paso 14.3 — Endpoint `DELETE /api/tenants/[id]`
+```
+📁 Crear: app/api/tenants/[id]/route.ts
+```
+```typescript
+import { requireAuth } from '@/lib/services/requireAuth';
+import { deleteTenant } from '@/lib/services/tenants';
+import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireAuth(req, { role: 'superadmin' });
+  if (authResult.error) return authResult.error;
+
+  const { id } = await params;
+
+  try {
+    await deleteTenant(id);
+    revalidatePath('/superadmin/tenants');
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error al eliminar tenant';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+```
+
+#### Paso 14.4 — UI de eliminación en SuperAdmin
+```
+✏️ Editar: app/superadmin/(dashboard)/tenants/page.tsx
+```
+Agregar botón de eliminación con **doble confirmación** (modal + escribir nombre del tenant):
+```typescript
+const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
+const [confirmText, setConfirmText] = useState('');
+
+const handleDelete = async () => {
+  if (confirmText !== deleteTarget?.nombre) return;
+  await fetch(`/api/tenants/${deleteTarget.id}`, { method: 'DELETE' });
+  setDeleteTarget(null);
+  loadData(); // refrescar lista
+};
+
+// Modal:
+<Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+  <h3>¿Eliminar tenant "{deleteTarget?.nombre}"?</h3>
+  <p className="text-red-600">Esta acción es IRREVERSIBLE. Se eliminarán todos los
+  eventos, registros, acreditaciones y configuraciones del tenant.</p>
+  <p>Escribe <strong>{deleteTarget?.nombre}</strong> para confirmar:</p>
+  <input value={confirmText} onChange={e => setConfirmText(e.target.value)} />
+  <button disabled={confirmText !== deleteTarget?.nombre} onClick={handleDelete}>
+    Eliminar permanentemente
+  </button>
+</Modal>
+```
+
+#### Paso 14.5 — Soft delete como alternativa (opcional)
+Considerar agregar columna `deleted_at TIMESTAMPTZ` en vez de DELETE hard:
+```sql
+ALTER TABLE tenants ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
+```
+Esto permite "papelera" con restauración. El DELETE endpoint marca `deleted_at = NOW()`
+y un cron job purga los tenants eliminados tras 30 días.
+Si se implementa, ajustar todas las queries de tenant para filtrar `deleted_at IS NULL`.
+
+#### Paso 14.6 — Tests de eliminación
+```
+📁 Crear: tests/services/tenants-delete.test.ts
+```
+```typescript
+describe('deleteTenant', () => {
+  it('elimina tenant y todos sus datos asociados', async () => { ... });
+  it('elimina archivos de storage', async () => { ... });
+  it('no elimina admin si es admin de otro tenant', async () => { ... });
+  it('falla si tenant no existe', async () => { ... });
+  it('requiere rol superadmin', async () => { ... });
+});
+```
+
+#### Paso 14.7 — Verificación final M14
+```bash
+npx next build
+npx vitest run
+# Test manual: eliminar tenant de prueba → verificar que no quedan datos huérfanos
+# Test manual: verificar que el tenant no aparece más en listados
+# Test manual: verificar que admins exclusivos del tenant fueron eliminados de auth
+# Test manual: verificar que admins compartidos con otro tenant NO fueron eliminados
+```
+
+---
+
+### ⬜ Milestone 15 — UX SuperAdmin: Filtros y Organización de Eventos
+> **Prioridad**: Media · **~3 archivos** · **Riesgo de regresión**: Bajo  
+> **Tiempo estimado**: 0.5 sesión · **Dificultad**: Bajo
+
+**Problema**: La página de eventos del SuperAdmin (`app/superadmin/(dashboard)/eventos/page.tsx`,
+823 líneas) lista **todos** los eventos de **todos** los tenants en una lista plana,
+sin filtro ni agrupación. Con múltiples tenants, la página se vuelve inmanejable.
+
+**Estado actual**: `loadData()` hace `fetch('/api/events')` que retorna todos los eventos.
+Los eventos se muestran con `events.map(...)` sin filtrado. La variable `tenants` solo
+se usa para el dropdown al crear/editar evento.
+
+#### Paso 15.1 — Filtro por tenant
+```
+✏️ Editar: app/superadmin/(dashboard)/eventos/page.tsx
+```
+Agregar selector de tenant como filtro principal:
+```typescript
+const [selectedTenantId, setSelectedTenantId] = useState<string>('all');
+
+const filteredEvents = useMemo(() => {
+  if (selectedTenantId === 'all') return events;
+  return events.filter(e => e.tenant_id === selectedTenantId);
+}, [events, selectedTenantId]);
+
+// UI: barra de filtros arriba de la lista
+<div className="flex items-center gap-4 mb-6">
+  <label htmlFor="tenant-filter" className="font-medium">Tenant:</label>
+  <select
+    id="tenant-filter"
+    value={selectedTenantId}
+    onChange={e => setSelectedTenantId(e.target.value)}
+    className="border rounded px-3 py-2"
+  >
+    <option value="all">Todos los tenants ({events.length})</option>
+    {tenants.map(t => (
+      <option key={t.id} value={t.id}>
+        {t.nombre} ({events.filter(e => e.tenant_id === t.id).length})
+      </option>
+    ))}
+  </select>
+</div>
+```
+
+#### Paso 15.2 — Agrupación visual por tenant
+Cuando el filtro es "Todos", agrupar eventos bajo headers de tenant:
+```typescript
+const groupedEvents = useMemo(() => {
+  if (selectedTenantId !== 'all') return null;
+  const groups: Record<string, { tenant: Tenant; events: Event[] }> = {};
+  for (const event of events) {
+    const tid = event.tenant_id;
+    if (!groups[tid]) {
+      groups[tid] = { tenant: tenants.find(t => t.id === tid)!, events: [] };
+    }
+    groups[tid].events.push(event);
+  }
+  return Object.values(groups).sort((a, b) => a.tenant.nombre.localeCompare(b.tenant.nombre));
+}, [events, tenants, selectedTenantId]);
+
+// Renderizar con headers:
+{groupedEvents ? groupedEvents.map(group => (
+  <div key={group.tenant.id}>
+    <h3 className="text-lg font-semibold mt-6 mb-2 flex items-center gap-2">
+      <span className="w-3 h-3 rounded-full" style={{ background: group.tenant.color_primario }} />
+      {group.tenant.nombre}
+      <span className="text-sm text-gray-500">({group.events.length} eventos)</span>
+    </h3>
+    {group.events.map(event => renderEventCard(event))}
+  </div>
+)) : filteredEvents.map(event => renderEventCard(event))}
+```
+
+#### Paso 15.3 — Filtro por estado de evento
+Agregar filtro secundario por estado activo/inactivo:
+```typescript
+const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+// Combinar filtros:
+const filteredEvents = useMemo(() => {
+  let result = events;
+  if (selectedTenantId !== 'all') result = result.filter(e => e.tenant_id === selectedTenantId);
+  if (statusFilter === 'active') result = result.filter(e => e.activo);
+  if (statusFilter === 'inactive') result = result.filter(e => !e.activo);
+  return result;
+}, [events, selectedTenantId, statusFilter]);
+```
+
+#### Paso 15.4 — Búsqueda por nombre de evento
+```typescript
+const [searchQuery, setSearchQuery] = useState('');
+
+// Agregar al pipeline de filtrado:
+if (searchQuery.trim()) {
+  const q = searchQuery.toLowerCase();
+  result = result.filter(e =>
+    e.nombre.toLowerCase().includes(q) ||
+    e.tenant?.nombre?.toLowerCase().includes(q)
+  );
+}
+
+// UI:
+<input
+  type="search"
+  placeholder="Buscar evento..."
+  value={searchQuery}
+  onChange={e => setSearchQuery(e.target.value)}
+  className="border rounded px-3 py-2 w-64"
+/>
+```
+
+#### Paso 15.5 — Contadores en barra de filtros
+Mostrar estadísticas rápidas:
+```typescript
+<div className="flex items-center gap-6 text-sm text-gray-600">
+  <span>{filteredEvents.length} eventos</span>
+  <span>{filteredEvents.filter(e => e.activo).length} activos</span>
+  <span>{tenants.length} tenants</span>
+</div>
+```
+
+#### Paso 15.6 — Verificación final M15
+```bash
+npx next build
+# Test manual: seleccionar tenant → solo sus eventos visibles
+# Test manual: "Todos" → eventos agrupados por tenant con headers
+# Test manual: búsqueda → filtra en tiempo real
+# Test manual: crear evento → aparece en el grupo correcto
+```
+
+---
+
+### ⬜ Milestone 16 — Sistema de Billing para Admin Tenant
+> **Prioridad**: Media · **~15 archivos + SQL** · **Riesgo de regresión**: Bajo (feature nueva)  
+> **Tiempo estimado**: 3-4 sesiones · **Dificultad**: Alto
+
+**Nota**: El pricing es TBD. Este milestone implementa la **infraestructura de billing**
+(modelo de datos, enforcement de límites, UI) dejando los valores de planes como
+configurables. La pasarela de pago se integrará cuando se defina el pricing.
+
+**Lo que NO existe actualmente**: Cero código de billing, planes, suscripciones,
+límites ni facturación. La tabla `tenants` no tiene campos relacionados.
+
+#### Paso 16.1 — Modelo de datos de billing
+```
+📁 Crear: supabase-billing.sql
+```
+```sql
+-- Planes disponibles
+CREATE TABLE plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,               -- 'free', 'pro', 'enterprise'
+  display_name TEXT NOT NULL,        -- 'Plan Gratuito', 'Plan Pro', 'Plan Enterprise'
+  max_events INT NOT NULL DEFAULT 1, -- Límite de eventos activos simultáneos
+  max_registrations_per_event INT NOT NULL DEFAULT 50,  -- Límite de acreditados por evento
+  max_admins INT NOT NULL DEFAULT 1, -- Límite de admins del tenant
+  max_storage_mb INT NOT NULL DEFAULT 100,  -- Almacenamiento
+  features JSONB DEFAULT '{}',       -- Features adicionales: email_custom, bulk_import, etc.
+  price_monthly NUMERIC(10,2) DEFAULT 0,  -- Precio mensual (moneda local)
+  price_yearly NUMERIC(10,2) DEFAULT 0,   -- Precio anual
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Suscripción activa de cada tenant
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES plans(id),
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'trialing', 'past_due', 'cancelled', 'expired')),
+  current_period_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+  current_period_end TIMESTAMPTZ NOT NULL,
+  trial_ends_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  payment_provider TEXT,            -- 'stripe', 'mercadopago', 'manual'
+  payment_provider_id TEXT,         -- ID externo de la suscripción
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(tenant_id)                 -- Un tenant = una suscripción activa
+);
+
+-- Historial de uso para facturación
+CREATE TABLE usage_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  metric TEXT NOT NULL,             -- 'events', 'registrations', 'storage_mb', 'emails_sent'
+  value INT NOT NULL,
+  recorded_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Seed de planes iniciales (valores placeholder)
+INSERT INTO plans (name, display_name, max_events, max_registrations_per_event, max_admins, max_storage_mb, price_monthly, price_yearly) VALUES
+  ('free', 'Plan Gratuito', 1, 50, 1, 100, 0, 0),
+  ('pro', 'Plan Pro', 5, 500, 3, 1000, 0, 0),       -- Precio TBD
+  ('enterprise', 'Plan Enterprise', -1, -1, -1, -1, 0, 0);  -- -1 = ilimitado, Precio TBD
+
+-- RLS
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_records ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY plans_public_read ON plans FOR SELECT USING (true);
+CREATE POLICY subscriptions_admin ON subscriptions FOR ALL 
+  USING (tenant_id IN (SELECT tenant_id FROM tenant_admins WHERE user_id = auth.uid()));
+CREATE POLICY usage_admin ON usage_records FOR ALL 
+  USING (tenant_id IN (SELECT tenant_id FROM tenant_admins WHERE user_id = auth.uid()));
+```
+
+#### Paso 16.2 — Servicio de billing
+```
+📁 Crear: lib/services/billing.ts
+```
+```typescript
+export async function getTenantSubscription(tenantId: string): Promise<Subscription | null> { ... }
+export async function getTenantPlan(tenantId: string): Promise<Plan> { ... }
+export async function checkLimit(tenantId: string, metric: LimitMetric): Promise<LimitCheckResult> { ... }
+export async function recordUsage(tenantId: string, metric: string, value: number): Promise<void> { ... }
+export async function getUsageSummary(tenantId: string): Promise<UsageSummary> { ... }
+export async function listPlans(): Promise<Plan[]> { ... }
+export async function updateSubscription(tenantId: string, planId: string): Promise<void> { ... }
+```
+
+La función clave es `checkLimit()`:
+```typescript
+export type LimitMetric = 'events' | 'registrations' | 'admins' | 'storage_mb';
+
+export interface LimitCheckResult {
+  allowed: boolean;
+  current: number;
+  limit: number;     // -1 = ilimitado
+  metric: LimitMetric;
+}
+
+export async function checkLimit(tenantId: string, metric: LimitMetric): Promise<LimitCheckResult> {
+  const plan = await getTenantPlan(tenantId);
+  const limitKey = `max_${metric}` as keyof Plan;
+  const limit = plan[limitKey] as number;
+
+  if (limit === -1) return { allowed: true, current: 0, limit: -1, metric };
+
+  let current = 0;
+  switch (metric) {
+    case 'events':
+      const { count } = await supabase.from('events').select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId).eq('activo', true);
+      current = count ?? 0;
+      break;
+    case 'registrations':
+      // Count across all active events
+      break;
+    case 'admins':
+      const { count: adminCount } = await supabase.from('tenant_admins').select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId);
+      current = adminCount ?? 0;
+      break;
+  }
+
+  return { allowed: current < limit, current, limit, metric };
+}
+```
+
+#### Paso 16.3 — Enforcement en API routes
+Integrar `checkLimit()` en los endpoints de creación:
+```
+✏️ Editar: app/api/events/route.ts  ← POST: checkLimit('events')
+✏️ Editar: app/api/registrations/route.ts  ← POST: checkLimit('registrations')
+✏️ Editar: app/api/tenants/[id]/admins/route.ts  ← POST: checkLimit('admins')
+```
+```typescript
+// Ejemplo en POST /api/events:
+const limitCheck = await checkLimit(tenant_id, 'events');
+if (!limitCheck.allowed) {
+  return NextResponse.json({
+    error: `Límite de plan alcanzado: ${limitCheck.current}/${limitCheck.limit} eventos activos`,
+    upgrade_required: true,
+  }, { status: 403 });
+}
+```
+
+#### Paso 16.4 — API de billing
+```
+📁 Crear: app/api/billing/route.ts           ← GET plan actual, usage
+📁 Crear: app/api/billing/plans/route.ts     ← GET planes disponibles
+📁 Crear: app/api/billing/subscribe/route.ts ← POST cambiar plan
+```
+
+#### Paso 16.5 — UI de billing en dashboard admin_tenant
+```
+📁 Crear: components/admin-dashboard/AdminBillingTab.tsx
+```
+Nuevo tab "Billing" / "Plan" en el dashboard del admin_tenant que muestre:
+- Plan actual con nombre, características y límites
+- Barra de uso: `3/5 eventos`, `127/500 acreditados`, `1/3 admins`
+- Tabla de planes disponibles con botón "Cambiar plan"
+- Historial de facturación (cuando se integre pasarela)
+
+```typescript
+export default function AdminBillingTab({ tenantId }: { tenantId: string }) {
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+
+  // Barras de uso:
+  <div className="grid grid-cols-2 gap-4">
+    <UsageBar label="Eventos" current={usage.events} max={plan.max_events} />
+    <UsageBar label="Acreditados" current={usage.registrations} max={plan.max_registrations_per_event} />
+    <UsageBar label="Admins" current={usage.admins} max={plan.max_admins} />
+    <UsageBar label="Almacenamiento" current={usage.storage_mb} max={plan.max_storage_mb} unit="MB" />
+  </div>
+}
+```
+
+#### Paso 16.6 — Gestión de planes en SuperAdmin
+```
+📁 Crear: app/superadmin/(dashboard)/billing/page.tsx
+```
+Página para que el superadmin:
+- Vea todos los planes y los edite (nombre, límites, precio)
+- Vea suscripciones de cada tenant
+- Asigne plan manualmente a un tenant (override)
+- Vea métricas de uso agregadas
+
+#### Paso 16.7 — Asignación automática de plan free
+```
+✏️ Editar: lib/services/tenants.ts (createTenant)
+```
+Al crear un tenant, asignar automáticamente el plan free:
+```typescript
+// Después de crear el tenant:
+const { data: freePlan } = await supabase
+  .from('plans')
+  .select('id')
+  .eq('name', 'free')
+  .single();
+
+await supabase.from('subscriptions').insert({
+  tenant_id: newTenant.id,
+  plan_id: freePlan.id,
+  current_period_start: new Date().toISOString(),
+  current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+  status: 'active',
+});
+```
+
+#### Paso 16.8 — Notificaciones de límite
+Cuando un tenant alcance el 80% de un límite, mostrar banner de advertencia:
+```typescript
+// En AdminDashboardV2.tsx o AdminContext.tsx:
+if (usage.events >= plan.max_events * 0.8) {
+  showBanner('Estás cerca del límite de eventos de tu plan. Considera actualizar.');
+}
+```
+
+#### Paso 16.9 — Placeholder de pasarela de pago
+```
+📁 Crear: lib/services/paymentProvider.ts
+```
+Interfaz abstracta para la futura integración:
+```typescript
+export interface PaymentProvider {
+  createCheckoutSession(tenantId: string, planId: string): Promise<{ url: string }>;
+  handleWebhook(payload: unknown): Promise<void>;
+  cancelSubscription(subscriptionId: string): Promise<void>;
+}
+
+// Implementación placeholder:
+export class ManualPaymentProvider implements PaymentProvider {
+  async createCheckoutSession() { return { url: '/billing/contact' }; }
+  async handleWebhook() { /* no-op */ }
+  async cancelSubscription() { /* manual process */ }
+}
+```
+Cuando se defina el pricing y la pasarela (Stripe, MercadoPago, etc.),
+se crea una implementación concreta de esta interfaz.
+
+#### Paso 16.10 — Tests de billing
+```
+📁 Crear: tests/services/billing.test.ts
+```
+```typescript
+describe('Billing Service', () => {
+  it('retorna plan free por defecto', () => { ... });
+  it('checkLimit permite si está bajo el límite', () => { ... });
+  it('checkLimit bloquea si está en el límite', () => { ... });
+  it('plan enterprise (-1) siempre permite', () => { ... });
+  it('registra uso correctamente', () => { ... });
+});
+```
+
+#### Paso 16.11 — Verificación final M16
+```bash
+npx next build
+npx vitest run
+# Test manual: crear tenant → plan free asignado automáticamente
+# Test manual: crear más eventos que el límite → error 403 con mensaje claro
+# Test manual: admin ve su plan y uso en tab Billing
+# Test manual: superadmin puede cambiar plan de un tenant
+# Test manual: banner de advertencia al 80% del límite
 ```

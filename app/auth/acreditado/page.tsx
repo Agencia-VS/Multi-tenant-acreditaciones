@@ -9,7 +9,7 @@ import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { BackButton } from '@/components/shared/ui';
+import { BackButton, useToast } from '@/components/shared/ui';
 
 export default function AcreditadoAuthPage() {
   return (
@@ -34,6 +34,7 @@ function AcreditadoAuthContent() {
   const [success, setSuccess] = useState('');
   const [transitioning, setTransitioning] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
+  const { showSuccess, showError } = useToast();
 
   const supabase = getSupabaseBrowserClient();
 
@@ -54,15 +55,37 @@ function AcreditadoAuthContent() {
     setLoading(true);
     setError('');
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     });
 
     if (authError) {
       setError('Credenciales inválidas. Verifica tu email y contraseña.');
+      showError('Credenciales inválidas');
       setLoading(false);
       return;
+    }
+
+    // Si el usuario tiene RUT en metadata, asegurar que exista su perfil
+    const meta = authData.user?.user_metadata;
+    if (meta?.rut) {
+      try {
+        const checkRes = await fetch('/api/profiles/lookup');
+        const checkData = await checkRes.json();
+        if (!checkData.found) {
+          await fetch('/api/profiles/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rut: meta.rut,
+              nombre: meta.nombre || '',
+              apellido: meta.apellido || '',
+              email: authData.user?.email || '',
+            }),
+          });
+        }
+      } catch { /* ignore — perfil se creará luego */ }
     }
 
     router.push(returnTo || '/acreditado');
@@ -83,11 +106,13 @@ function AcreditadoAuthContent() {
 
     if (authError) {
       setError(authError.message);
+      showError(authError.message);
       setLoading(false);
       return;
     }
 
-    if (authData.user) {
+    if (authData.session) {
+      // Auto-confirm habilitado: crear perfil inmediatamente (ya hay cookie)
       await fetch('/api/profiles/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,15 +121,14 @@ function AcreditadoAuthContent() {
           nombre: form.nombre,
           apellido: form.apellido,
           email: form.email,
-          user_id: authData.user.id,
         }),
       });
-    }
-
-    if (authData.session) {
       router.push(returnTo || '/acreditado');
     } else {
+      // Email confirmation requerido: los datos están en user_metadata
+      // El perfil se creará en el callback cuando confirme el email
       setSuccess('Cuenta creada. Revisa tu email para confirmarla.');
+      showSuccess('Cuenta creada. Revisa tu email para confirmarla.');
     }
 
     setLoading(false);

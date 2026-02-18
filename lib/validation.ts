@@ -61,9 +61,7 @@ export interface RutValidationResult {
 /**
  * Valida un RUT chileno.
  * 
- * MODO ACTUAL: solo formato (dígitos + guión + DV).
- * TODO: Reactivar validación de dígito verificador cuando salga de modo prueba.
- *       Descomentar el bloque de computeDV abajo.
+ * Verifica formato (dígitos + guión + DV) y dígito verificador (módulo 11).
  */
 export function validateRut(raw: string): RutValidationResult {
   if (!raw || !raw.trim()) {
@@ -78,13 +76,13 @@ export function validateRut(raw: string): RutValidationResult {
     return { valid: false, error: 'Formato inválido. Ej: 12.345.678-9' };
   }
 
-  // Validación de dígito verificador DESACTIVADA (modo prueba)
-  // const body = parseInt(match[1], 10);
-  // const dv = match[2];
-  // const expectedDV = computeDV(body);
-  // if (dv !== expectedDV) {
-  //   return { valid: false, error: 'Dígito verificador incorrecto' };
-  // }
+  // Validación de dígito verificador
+  const body = parseInt(match[1], 10);
+  const dv = match[2];
+  const expectedDV = computeDV(body);
+  if (dv !== expectedDV) {
+    return { valid: false, error: 'Dígito verificador incorrecto' };
+  }
 
   return { valid: true, formatted: formatRut(cleaned) };
 }
@@ -126,8 +124,11 @@ export function validatePhone(phone: string): { valid: boolean; error?: string }
 }
 
 /**
- * Sanitiza un string: trim + normaliza espacios internos
+ * Sanitiza un string: trim + normaliza espacios internos + elimina tags HTML
  */
 export function sanitize(value: string): string {
-  return value.trim().replace(/\s+/g, ' ');
+  return value
+    .replace(/<[^>]*>/g, '') // strip HTML tags
+    .trim()
+    .replace(/\s+/g, ' ');
 }

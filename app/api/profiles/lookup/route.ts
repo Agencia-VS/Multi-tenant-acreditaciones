@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfileByUserId, getProfileByEmail, getOrCreateProfile } from '@/lib/services';
 import { getCurrentUser } from '@/lib/services';
+import { profileCreateSchema, profileUpdateSchema, safeParse } from '@/lib/schemas';
 
 /**
  * GET — Retorna el perfil del usuario autenticado.
@@ -70,33 +71,36 @@ export async function GET() {
 }
 
 /**
- * POST — Crea o vincula un perfil al usuario.
+ * POST — Crea o vincula un perfil al usuario autenticado.
  * Usado durante el registro para crear el perfil con RUT.
+ * Seguridad: user_id se toma de la sesión, no del body.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { rut, nombre, apellido, email, user_id } = body;
-
-    if (!rut || !nombre || !apellido) {
-      return NextResponse.json(
-        { error: 'rut, nombre y apellido son requeridos' },
-        { status: 400 }
-      );
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
+
+    const body = await request.json();
+    const parsed = safeParse(profileCreateSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const { rut, nombre, apellido, email } = parsed.data;
 
     const profile = await getOrCreateProfile(
       {
         rut,
         nombre,
         apellido,
-        email: email || '',
+        email: email || user.email || '',
         cargo: '',
         organizacion: '',
         tipo_medio: '',
         datos_extra: {},
       },
-      user_id
+      user.id  // user_id de la sesión, no del body
     );
 
     return NextResponse.json({ success: true, profile });
@@ -125,15 +129,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const allowedFields = ['nombre', 'apellido', 'email', 'telefono', 'medio', 'tipo_medio', 'cargo', 'nacionalidad'];
-    const updates: Record<string, unknown> = {};
-    for (const key of allowedFields) {
-      if (key in body) updates[key] = body[key];
+    const parsed = safeParse(profileUpdateSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No hay campos para actualizar' }, { status: 400 });
-    }
+    const updates = parsed.data;
 
     const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
     const supabase = createSupabaseAdminClient();

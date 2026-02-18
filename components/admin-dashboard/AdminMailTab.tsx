@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from './AdminContext';
 import AdminMailZones from './AdminMailZones';
+import { sanitizeHtml } from '@/lib/sanitize';
 import type { EmailTemplate, EmailTemplateType } from '@/types';
 
 type MailSubTab = 'templates' | 'zonas';
@@ -233,7 +234,7 @@ export default function AdminMailTab() {
 
             {showPreview ? (
               <div className="border border-edge rounded-xl p-4 bg-white min-h-[400px] overflow-auto">
-                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} />
               </div>
             ) : (
               <textarea
@@ -271,7 +272,7 @@ export default function AdminMailTab() {
             {showInfoPreview ? (
               <div className="border border-edge rounded-xl p-4 bg-white min-h-[100px]" style={{ borderLeft: '4px solid #6b7280', backgroundColor: '#f9fafb' }}>
                 {infoGeneral ? (
-                  <div dangerouslySetInnerHTML={{ __html: infoGeneral }} />
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(infoGeneral) }} />
                 ) : (
                   <p className="text-sm text-muted italic">Sin info general configurada</p>
                 )}

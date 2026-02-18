@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
-import { BackButton } from '@/components/shared/ui';
+import { BackButton, useToast } from '@/components/shared/ui';
 
 interface AdminLoginFormProps {
   tenantSlug: string;
@@ -33,6 +33,7 @@ export default function AdminLoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { showError } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,10 +49,11 @@ export default function AdminLoginForm({
       });
 
       if (authError) {
-        setError(authError.message === 'Invalid login credentials'
+        const msg = authError.message === 'Invalid login credentials'
           ? 'Credenciales inválidas. Verifica tu email y contraseña.'
-          : authError.message
-        );
+          : authError.message;
+        setError(msg);
+        showError(msg);
         setLoading(false);
         return;
       }
@@ -61,6 +63,7 @@ export default function AdminLoginForm({
       }
     } catch {
       setError('Error al iniciar sesión. Intenta de nuevo.');
+      showError('Error al iniciar sesión');
     } finally {
       setLoading(false);
     }

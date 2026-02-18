@@ -8,7 +8,7 @@ export { resolveZone, getZoneRules, upsertZoneRule, deleteZoneRule } from './zon
 export { getTenantBySlug, getTenantById, listTenants, createTenant, updateTenant, createTenantAdmin, listTenantAdmins, listActiveTenants } from './tenants';
 export { getActiveEvent, getEventById, getEventFull, listEventsByTenant, listAllEvents, createEvent, updateEvent, deactivateEvent, deleteEvent } from './events';
 export { listEventDays, getCurrentEventDay, createEventDay, createEventDaysBulk, updateEventDay, deleteEventDay, syncEventDays, getRegistrationDays, getEventDayCheckinStats } from './eventDays';
-export { getTeamMembers, addTeamMember, removeTeamMember, updateTeamMember } from './teams';
+export { getTeamMembers, addTeamMember, removeTeamMember, updateTeamMember, getTeamMembersForEvent } from './teams';
 export { sendApprovalEmail, sendRejectionEmail, sendBulkApprovalEmails } from './email';
 export { logAuditAction, getAuditLogs } from './audit';
 export { getCurrentUser, isSuperAdmin, isTenantAdmin, getUserTenantRole, hasAccessToTenant } from './auth';

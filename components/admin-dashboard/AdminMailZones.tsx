@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from './AdminContext';
+import { sanitizeHtml } from '@/lib/sanitize';
 import type { EmailZoneContent, EmailTemplateType, TenantConfig } from '@/types';
 
 /**
@@ -392,7 +393,7 @@ function FieldEditor({ label, icon, color, bgColor, helpText, value, onChange, p
           style={{ borderLeft: `4px solid ${color}`, backgroundColor: bgColor }}
         >
           {value ? (
-            <div dangerouslySetInnerHTML={{ __html: value }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />
           ) : (
             <p className="text-sm text-muted italic">Sin contenido configurado</p>
           )}
