@@ -29,6 +29,13 @@ export default function EventQuotasTab({
 }: EventQuotasTabProps) {
   return (
     <div className="space-y-4">
+      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <i className="fas fa-lightbulb mr-1.5 text-amber-500" />
+        <strong>Cupos por categoría.</strong> Limita cuántos acreditados puede enviar cada organización según su “Tipo de Medio” (o la categoría que hayas configurado en Formulario).
+        <strong>Por org.</strong> = máximo por empresa. <strong>Global</strong> = máximo total para esa categoría.
+        Si no agregas reglas, no hay límite.
+      </div>
+
       <div className="flex justify-between items-center">
         <div>
           <p className="text-sm text-body">

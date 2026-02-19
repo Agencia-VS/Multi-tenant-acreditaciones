@@ -217,6 +217,9 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
 
   const form = useRegistrationForm(props);
 
+  // Derive dynamic label for tipo_medio from form fields config
+  const tipoMedioLabel = form.formFields.find(f => f.key === 'tipo_medio')?.label;
+
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-fade-in">
       {/* Messages */}
@@ -243,7 +246,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
       {/* ═══════ STEP INDICATOR ═══════ */}
       {form.disclaimerAccepted && form.step !== 'success' && (
         <>
-          <StepIndicator currentStep={form.step} />
+          <StepIndicator currentStep={form.step} tipoMedioLabel={tipoMedioLabel} />
           {/* Multi-day event info banner */}
           {eventType === 'multidia' && eventDays && eventDays.length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -295,6 +298,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
           handleMedioSubmit={form.handleMedioSubmit}
           goBack={() => form.goBack('responsable')}
           tenantColors={tenantColors}
+          fieldLabel={tipoMedioLabel}
         />
       )}
 
@@ -353,6 +357,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
         submitting={form.submitting}
         tenantColors={tenantColors}
         onConfirm={form.handleConfirmedSubmit}
+        tipoMedioLabel={tipoMedioLabel}
       />
 
       {/* ═══════ SUBMIT PROGRESS OVERLAY (portal) ═══════ */}

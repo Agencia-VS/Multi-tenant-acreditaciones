@@ -9,7 +9,7 @@ interface Tenant {
   id: string;
   nombre: string;
   slug: string;
-  shield_url: string | null;
+  logo_url: string | null;
   color_primario: string | null;
 }
 
@@ -24,7 +24,7 @@ export default function LandingPage() {
       const supabase = getSupabaseBrowserClient();
       const { data } = await supabase
         .from('tenants')
-        .select('id, nombre, slug, shield_url, color_primario')
+        .select('id, nombre, slug, logo_url, color_primario')
         .eq('activo', true)
         .limit(6);
 
@@ -220,9 +220,9 @@ export default function LandingPage() {
                   {/* Hover glow */}
                   <div className="absolute inset-0 rounded-2xl bg-brand/[0.02] opacity-0 group-hover:opacity-100 transition-snappy pointer-events-none" />
 
-                  {tenant.shield_url ? (
+                  {tenant.logo_url ? (
                     <img
-                      src={tenant.shield_url}
+                      src={tenant.logo_url}
                       alt={tenant.nombre}
                       className="w-20 h-20 object-contain mx-auto mb-4 group-hover:scale-105 transition-fluid"
                     />

@@ -41,10 +41,26 @@ export async function updateSession(request: NextRequest) {
   );
 
   // IMPORTANTE: No usar getSession() aquí
-  // getUser() valida el token contra Supabase Auth
+  // getUser() valida el token contra Supabase Auth.
+  // Si el refresh token expiró, getUser() devuelve error y user null —
+  // no bloqueamos; los guards de cada layout redirigen al login.
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  // Si el token es inválido, limpiamos las cookies de auth para que
+  // el siguiente request no siga intentando refrescar un token muerto.
+  if (error) {
+    // Borrar cookies de Supabase para evitar loops de "Refresh Token Not Found"
+    const cookieNames = request.cookies
+      .getAll()
+      .map((c) => c.name)
+      .filter((n) => n.startsWith('sb-'));
+    for (const name of cookieNames) {
+      supabaseResponse.cookies.delete(name);
+    }
+  }
 
   return { supabaseResponse, user, supabase };
 }

@@ -15,6 +15,8 @@ interface ConfirmModalProps {
   submitting: boolean;
   tenantColors: { primario: string; secundario: string };
   onConfirm: () => void;
+  /** Dynamic label for the tipo_medio field (default: "Tipo de Medio") */
+  tipoMedioLabel?: string;
 }
 
 export default function ConfirmModal({
@@ -27,6 +29,7 @@ export default function ConfirmModal({
   submitting,
   tenantColors,
   onConfirm,
+  tipoMedioLabel,
 }: ConfirmModalProps) {
   const [showDetailList, setShowDetailList] = useState(false);
   const totalPersonas = acreditados.length + bulkRows.length;
@@ -69,7 +72,7 @@ export default function ConfirmModal({
           {/* Tipo medio + count */}
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-surface rounded-xl p-3 border border-edge">
-              <p className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1">Tipo de Medio</p>
+              <p className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1">{tipoMedioLabel || 'Tipo de Medio'}</p>
               <div className="flex items-center gap-2">
                 <i className={`fas ${TIPO_MEDIO_ICONS[tipoMedio] || 'fa-ellipsis-h'} text-brand text-sm`} />
                 <span className="text-sm font-semibold text-heading truncate">{tipoMedio}</span>

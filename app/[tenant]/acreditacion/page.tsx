@@ -116,16 +116,13 @@ export default async function AcreditacionPage({
         />
         <BackButton href={`/${slug}`} />
         <div className="relative flex flex-col items-center justify-center gap-3 pt-8 sm:pt-0">
-          {tenant.logo_url && (
-            <img src={tenant.logo_url} alt={tenant.nombre} className="h-10 sm:h-12 object-contain opacity-90" />
+          {tenant.shield_url && (
+            <img src={tenant.shield_url} alt={tenant.nombre} className="h-10 sm:h-12 object-contain opacity-90" />
           )}
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
               Acreditación
             </h1>
-            <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: `${tenant.color_light}90` }}>
-              {tenant.nombre}
-            </p>
           </div>
         </div>
       </div>

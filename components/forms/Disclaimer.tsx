@@ -67,7 +67,11 @@ export default function Disclaimer({
   contactEmail,
 }: DisclaimerProps) {
   const [canAccept, setCanAccept] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Esperar al montaje en el cliente para evitar "document is not defined" en SSR
+  useEffect(() => { setMounted(true); }, []);
 
   // Reset al abrir
   useEffect(() => {
@@ -93,7 +97,7 @@ export default function Disclaimer({
     }
   };
 
-  if (!visible) return null;
+  if (!visible || !mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4">

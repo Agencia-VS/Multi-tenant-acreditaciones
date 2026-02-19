@@ -162,6 +162,7 @@ describe('POST /api/registrations', () => {
       expect.objectContaining({ rut: '12345678-9' }),
       'prof-1', // submitterProfileId
       'user-1', // authUserId
+      undefined, // eventHint (event was null)
     );
   });
 });

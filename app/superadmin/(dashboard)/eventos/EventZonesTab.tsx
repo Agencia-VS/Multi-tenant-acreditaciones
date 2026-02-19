@@ -37,6 +37,12 @@ export default function EventZonesTab({
 }: EventZonesTabProps) {
   return (
     <div className="space-y-6">
+      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <i className="fas fa-lightbulb mr-1.5 text-amber-500" />
+        <strong>Zonas de acceso.</strong> Primero crea las zonas disponibles (ej: “Cancha”, “Tribuna Prensa”).
+        Luego puedes crear reglas automáticas: “si es Fotógrafo → Cancha”. El admin del tenant también puede asignar zonas manualmente.
+      </div>
+
       {/* ── 1. Zonas disponibles del evento ── */}
       <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
         <h4 className="text-sm font-semibold text-purple-900 mb-1">

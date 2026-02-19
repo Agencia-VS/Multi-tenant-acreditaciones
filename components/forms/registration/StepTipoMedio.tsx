@@ -17,6 +17,8 @@ interface StepTipoMedioProps {
   handleMedioSubmit: () => void;
   goBack: () => void;
   tenantColors: { primario: string; secundario: string };
+  /** Dynamic label for this step (default: "Tipo de medio") */
+  fieldLabel?: string;
 }
 
 export default function StepTipoMedio({
@@ -28,6 +30,7 @@ export default function StepTipoMedio({
   handleMedioSubmit,
   goBack,
   tenantColors,
+  fieldLabel,
 }: StepTipoMedioProps) {
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
@@ -43,7 +46,7 @@ export default function StepTipoMedio({
               2
             </span>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-heading">Tipo de medio</h2>
+              <h2 className="text-base sm:text-lg font-bold text-heading">{fieldLabel || 'Tipo de medio'}</h2>
               <p className="text-xs sm:text-sm text-muted">Selecciona la categoría que mejor describe a <strong className="text-heading">{responsable.organizacion}</strong></p>
             </div>
           </div>

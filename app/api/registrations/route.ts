@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
       event_id,
       formData,
       submitterProfileId,
-      authUserId
+      authUserId,
+      event ? { tenant_id: (event as Record<string, unknown>).tenant_id as string, form_fields: event.form_fields } : undefined
     );
 
     // Auditoría

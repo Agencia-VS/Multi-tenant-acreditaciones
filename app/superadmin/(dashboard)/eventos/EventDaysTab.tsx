@@ -66,6 +66,11 @@ export default function EventDaysTab({
 
   return (
     <div className="space-y-6">
+      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <i className="fas fa-lightbulb mr-1.5 text-amber-500" />
+        <strong>Jornadas del evento.</strong> Define el rango de fechas y las jornadas individuales.
+        Puedes autogenerar los días desde el rango, o agregarlos manualmente. Cada jornada tiene su propia fecha y etiqueta visible.
+      </div>
       {/* Rango de fechas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

@@ -24,12 +24,14 @@ import { resolveZone } from './zones';
  * @param formData - Datos del formulario
  * @param submittedByProfileId - profile_id de quien envía (manager o self)
  * @param authUserId - user_id de auth del usuario autenticado (para vincular perfil)
+ * @param eventHint - Evento pre-cargado (evita query redundante si el caller ya lo tiene)
  */
 export async function createRegistration(
   eventId: string,
   formData: RegistrationFormData,
   submittedByProfileId?: string,
-  authUserId?: string
+  authUserId?: string,
+  eventHint?: { tenant_id?: string; form_fields?: unknown[] }
 ): Promise<{ registration: Registration; profile_id: string }> {
   const supabase = createSupabaseAdminClient();
 
@@ -80,14 +82,20 @@ export async function createRegistration(
   // 4. Guardar datos reutilizables en el perfil (tenant-namespaced + legacy flat)
   if (formData.datos_extra && Object.keys(formData.datos_extra).length > 0) {
     try {
-      // Determinar el tenant_id del evento para guardar namespaced
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('tenant_id, form_fields')
-        .eq('id', eventId)
-        .single();
+      // Usar datos del evento pre-cargados si están disponibles, sino fetch
+      let tenantId = eventHint?.tenant_id;
+      let formFields = eventHint?.form_fields;
+      if (!tenantId) {
+        const { data: fetched } = await supabase
+          .from('events')
+          .select('tenant_id, form_fields')
+          .eq('id', eventId)
+          .single();
+        tenantId = fetched?.tenant_id;
+        formFields = (fetched?.form_fields || []) as unknown[];
+      }
 
-      if (eventData?.tenant_id) {
+      if (tenantId) {
         // Filtrar metadatos internos (responsable_*) — solo datos de formulario
         const cleanData: Record<string, unknown> = {};
         for (const [key, val] of Object.entries(formData.datos_extra)) {
@@ -96,8 +104,8 @@ export async function createRegistration(
           }
         }
 
-        const formKeys = ((eventData.form_fields || []) as unknown as Array<{ key: string }>).map(f => f.key);
-        await saveTenantProfileData(profile.id, eventData.tenant_id, cleanData, formKeys);
+        const formKeys = ((formFields || []) as unknown as Array<{ key: string }>).map(f => f.key);
+        await saveTenantProfileData(profile.id, tenantId, cleanData, formKeys);
       } else {
         // Fallback: guardar en flat (legacy)
         await updateProfileDatosBase(profile.id, formData.datos_extra);
@@ -216,14 +224,8 @@ export async function updateRegistrationStatus(
     }
   }
 
-  // Devolver registro actualizado
-  const { data: updated } = await supabase
-    .from('registrations')
-    .select('*')
-    .eq('id', registrationId)
-    .single();
-
-  return (updated || data) as Registration;
+  // data ya contiene el registro actualizado (del .select() del UPDATE)
+  return data as Registration;
 }
 
 /**
@@ -251,30 +253,71 @@ export async function bulkUpdateStatus(
     return { success: 0, errors: [`Batch update failed: ${error.message}`] };
   }
 
-  // Si se aprueba, generar QR tokens para eventos que lo tengan habilitado
+  // Si se aprueba, generar QR tokens para eventos con QR habilitado (batch)
   if (status === 'aprobado') {
-    for (const id of registrationIds) {
-      try {
-        const { data: reg } = await supabase
-          .from('registrations')
-          .select('event_id')
-          .eq('id', id)
-          .single();
-        if (reg) {
-          const { data: event } = await supabase
-            .from('events')
-            .select('qr_enabled')
-            .eq('id', reg.event_id)
-            .single();
-          if (event?.qr_enabled) {
-            await supabase.rpc('generate_qr_token', { p_registration_id: id });
+    try {
+      // 1 query: obtener event_ids de todos los registros aprobados
+      const { data: regs } = await supabase
+        .from('registrations')
+        .select('id, event_id')
+        .in('id', registrationIds);
+
+      if (regs && regs.length > 0) {
+        // 1 query: verificar qr_enabled de los eventos únicos
+        const uniqueEventIds = [...new Set(regs.map(r => r.event_id))];
+        const { data: events } = await supabase
+          .from('events')
+          .select('id, qr_enabled')
+          .in('id', uniqueEventIds);
+
+        const qrEnabledSet = new Set(
+          (events || []).filter(e => e.qr_enabled).map(e => e.id)
+        );
+
+        // Solo generar QR para registros de eventos con QR habilitado
+        const qrRegIds = regs
+          .filter(r => qrEnabledSet.has(r.event_id))
+          .map(r => r.id);
+
+        if (qrRegIds.length > 0) {
+          // Parallel RPC calls en chunks de 20
+          const QR_CHUNK = 20;
+          for (let i = 0; i < qrRegIds.length; i += QR_CHUNK) {
+            const chunkIds = qrRegIds.slice(i, i + QR_CHUNK);
+            await Promise.allSettled(
+              chunkIds.map(id =>
+                supabase.rpc('generate_qr_token', { p_registration_id: id })
+              )
+            );
           }
         }
-      } catch { /* no bloquear */ }
-    }
+      }
+    } catch { /* no bloquear */ }
   }
 
   return { success: count || registrationIds.length, errors: [] };
+}
+
+/**
+ * Eliminar registros en lote.
+ * Una sola query DELETE ... WHERE id IN (...) en vez de N requests.
+ */
+export async function bulkDelete(
+  registrationIds: string[]
+): Promise<{ success: number; errors: string[] }> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from('registrations')
+    .delete()
+    .in('id', registrationIds)
+    .select('id');
+
+  if (error) {
+    return { success: 0, errors: [error.message] };
+  }
+
+  return { success: data?.length ?? 0, errors: [] };
 }
 
 /**

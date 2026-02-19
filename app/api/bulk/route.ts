@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { bulkUpdateStatus, getRegistrationFull } from '@/lib/services';
+import { bulkUpdateStatus, bulkDelete } from '@/lib/services';
 import { sendBulkApprovalEmails } from '@/lib/services/email';
 import { getCurrentUser } from '@/lib/services/auth';
 import { logAuditAction } from '@/lib/services/audit';
@@ -19,17 +19,28 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { registration_ids, status, send_emails } = body as {
+    const { registration_ids, status, send_emails, action } = body as {
       registration_ids: string[];
-      status: RegistrationStatus;
+      status?: RegistrationStatus;
       send_emails?: boolean;
+      action?: string;
     };
 
     if (!registration_ids || registration_ids.length === 0) {
       return NextResponse.json({ error: 'registration_ids es requerido' }, { status: 400 });
     }
 
-    if (!['aprobado', 'rechazado'].includes(status)) {
+    // ─── Bulk Delete ─────────────────────────────────
+    if (action === 'delete') {
+      const result = await bulkDelete(registration_ids);
+      await logAuditAction(user.id, 'registration.bulk_deleted', 'registration', registration_ids[0], {
+        count: registration_ids.length,
+        deleted: result.success,
+      });
+      return NextResponse.json(result);
+    }
+
+    if (!status || !['aprobado', 'rechazado'].includes(status)) {
       return NextResponse.json({ error: 'status debe ser aprobado o rechazado' }, { status: 400 });
     }
 
@@ -46,14 +57,16 @@ export async function POST(request: NextRequest) {
 
     // Enviar emails si se solicita
     if (send_emails && status === 'aprobado') {
-      const fullRegs: RegistrationFull[] = [];
-      for (const id of registration_ids) {
-        const reg = await getRegistrationFull(id);
-        if (reg) fullRegs.push(reg);
-      }
+      // Batch fetch: 1 query en vez de N
+      const supabase = createSupabaseAdminClient();
+      const { data: fullRegsData } = await supabase
+        .from('v_registration_full')
+        .select('*')
+        .in('id', registration_ids);
+
+      const fullRegs = (fullRegsData || []) as RegistrationFull[];
 
       if (fullRegs.length > 0) {
-        const supabase = createSupabaseAdminClient();
         const { data: tenant } = await supabase
           .from('tenants')
           .select('*')

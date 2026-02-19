@@ -53,6 +53,12 @@ export interface RegistrationFormProps {
 }
 
 export const STEP_LABELS = ['Responsable', 'Tipo de medio', 'Acreditados'];
+
+/** Build step labels with a dynamic label for the tipo_medio step */
+export function getStepLabels(tipoMedioLabel?: string): string[] {
+  return ['Responsable', tipoMedioLabel || 'Tipo de medio', 'Acreditados'];
+}
+
 export const STEP_KEYS: Step[] = ['responsable', 'medio', 'acreditados'];
 
 export const TIPO_MEDIO_ICONS: Record<string, string> = {

@@ -543,8 +543,13 @@ export default function EventosPage() {
               {/* General Tab */}
               {activeTab === 'general' && (
                 <div className="space-y-4">
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                    <i className="fas fa-lightbulb mr-1.5 text-amber-500" />
+                    <strong>Información general del evento.</strong> Configura nombre, fecha, lugar y tipo. Los campos obligatorios están marcados con *.
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-label mb-1">Tenant</label>
+                    <label className="block text-sm font-medium text-label mb-1">Tenant *</label>
                     <select
                       required
                       value={eventForm.tenant_id}
@@ -554,6 +559,7 @@ export default function EventosPage() {
                       <option value="">Seleccionar...</option>
                       {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                     </select>
+                    <p className="text-xs text-muted mt-1">Organización dueña del evento. Cada tenant tiene su propio panel de administración.</p>
                   </div>
 
                   {/* Clone from previous event */}
@@ -586,6 +592,7 @@ export default function EventosPage() {
                   {/* Tipo de evento */}
                   <div>
                     <label className="block text-sm font-medium text-label mb-1">Tipo de Evento</label>
+                    <p className="text-xs text-muted mb-2">Define el flujo del evento. Puedes cambiarlo después.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                       {([
                         { value: 'simple', label: 'Simple', icon: 'fa-calendar-check', desc: 'Un solo check-in' },
@@ -613,6 +620,7 @@ export default function EventosPage() {
                   {/* Visibilidad del evento */}
                   <div>
                     <label className="block text-sm font-medium text-label mb-1">Visibilidad</label>
+                    <p className="text-xs text-muted mb-2">Público: aparece en la landing. Por invitación: solo accesible con link directo.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       {([
                         { value: 'public', label: 'Público', icon: 'fa-globe', desc: 'Visible en landing del tenant' },
@@ -638,7 +646,7 @@ export default function EventosPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-label mb-1">Nombre del Evento</label>
+                      <label className="block text-sm font-medium text-label mb-1">Nombre del Evento *</label>
                       <input
                         type="text"
                         required
@@ -647,6 +655,7 @@ export default function EventosPage() {
                         placeholder="ej: UC vs Colo-Colo"
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Nombre visible para los acreditados en el formulario de registro.</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Venue</label>
@@ -657,6 +666,7 @@ export default function EventosPage() {
                         placeholder="ej: Estadio San Carlos de Apoquindo"
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Lugar donde se realiza el evento. Se muestra en la credencial y landing.</p>
                     </div>
                   </div>
 
@@ -668,6 +678,7 @@ export default function EventosPage() {
                       rows={2}
                       className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                     />
+                    <p className="text-xs text-muted mt-1">Información adicional que se muestra en la landing del evento. Opcional.</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -679,6 +690,7 @@ export default function EventosPage() {
                         onChange={(e) => setEventForm(prev => ({ ...prev, fecha: e.target.value }))}
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Día del evento (o primer día si es multidía).</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Hora</label>
@@ -688,6 +700,7 @@ export default function EventosPage() {
                         onChange={(e) => setEventForm(prev => ({ ...prev, hora: e.target.value }))}
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Hora de inicio. Se usa en la credencial.</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Fecha Límite Acreditación</label>
@@ -697,6 +710,7 @@ export default function EventosPage() {
                         onChange={(e) => setEventForm(prev => ({ ...prev, fecha_limite_acreditacion: e.target.value }))}
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Después de esta fecha, el formulario se cierra automáticamente.</p>
                     </div>
                   </div>
 
@@ -710,6 +724,7 @@ export default function EventosPage() {
                         placeholder="ej: Primera División"
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Solo para eventos deportivos. Se muestra en el banner VS.</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Rival</label>
@@ -720,6 +735,7 @@ export default function EventosPage() {
                         placeholder="ej: Colo-Colo"
                         className="w-full px-3 py-2 rounded-lg border border-field-border text-heading"
                       />
+                      <p className="text-xs text-muted mt-1">Equipo rival. Solo aplica para eventos de tipo Deportivo.</p>
                     </div>
                     <ImageUploadField
                       label="Logo Rival"
@@ -738,10 +754,13 @@ export default function EventosPage() {
                       onChange={(e) => setEventForm(prev => ({ ...prev, qr_enabled: e.target.checked }))}
                       className="w-5 h-5 rounded text-brand"
                     />
-                    <span className="font-medium text-label">
-                      <i className="fas fa-qrcode mr-2" />
-                      Habilitar QR para control de acceso
-                    </span>
+                    <div>
+                      <span className="font-medium text-label">
+                        <i className="fas fa-qrcode mr-2" />
+                        Habilitar QR para control de acceso
+                      </span>
+                      <p className="text-xs text-muted mt-0.5">Genera un código QR único por acreditado aprobado para escanear en la entrada.</p>
+                    </div>
                   </label>
                 </div>
               )}

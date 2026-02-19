@@ -73,6 +73,11 @@ export default function EventBulkTemplateTab({
 
   return (
     <div className="space-y-4">
+      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <i className="fas fa-lightbulb mr-1.5 text-amber-500" />
+        <strong>Template de carga masiva.</strong> Configura las columnas del Excel que el responsable descargará para subir acreditados en lote.
+        Cada columna se mapea a un campo del formulario. La columna <strong>header</strong> es el nombre visible en el Excel.
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm text-body">

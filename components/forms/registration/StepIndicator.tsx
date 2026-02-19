@@ -1,13 +1,17 @@
 'use client';
 
-import { STEP_LABELS, STEP_KEYS, type Step } from './types';
+import { STEP_KEYS, getStepLabels } from './types';
+import type { Step } from './types';
 
 interface StepIndicatorProps {
   currentStep: Step;
+  /** Dynamic label for the tipo_medio step (default: "Tipo de medio") */
+  tipoMedioLabel?: string;
 }
 
-export default function StepIndicator({ currentStep }: StepIndicatorProps) {
+export default function StepIndicator({ currentStep, tipoMedioLabel }: StepIndicatorProps) {
   const currentStepIndex = STEP_KEYS.indexOf(currentStep);
+  const labels = getStepLabels(tipoMedioLabel);
 
   return (
     <nav className="mb-6 sm:mb-8 px-2" aria-label="Progreso">
@@ -18,7 +22,7 @@ export default function StepIndicator({ currentStep }: StepIndicatorProps) {
           style={{ width: `${((currentStepIndex) / (STEP_KEYS.length - 1)) * 100}%` }}
         />
         {/* Step dots on the bar */}
-        {STEP_LABELS.map((_, i) => {
+        {labels.map((_, i) => {
           const isComplete = currentStepIndex > i;
           const isCurrent = currentStepIndex === i;
           return (
@@ -44,7 +48,7 @@ export default function StepIndicator({ currentStep }: StepIndicatorProps) {
 
       {/* Labels */}
       <div className="flex justify-between">
-        {STEP_LABELS.map((label, i) => {
+        {labels.map((label, i) => {
           const isCurrent = currentStepIndex === i;
           const isComplete = currentStepIndex > i;
           return (

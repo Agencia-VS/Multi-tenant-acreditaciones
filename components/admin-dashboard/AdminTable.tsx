@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAdmin } from './AdminContext';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import AdminRow from './AdminRow';
 import AdminExportActions from './AdminExportActions';
 import type { RegistrationFull } from '@/types';
@@ -26,6 +25,8 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   const [bulkRejectMotivo, setBulkRejectMotivo] = useState('');
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
+  const [page, setPage] = useState(1);
+
   const ids = Array.from(selectedIds);
   const hasSel = ids.length > 0;
   const allSelected = hasSel && selectedIds.size === registrations.length;
@@ -41,15 +42,19 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
     setBulkRejectMotivo('');
   };
 
+  // Reset page when filters change
+  const filterKey = `${filters.search}|${filters.status}|${filters.tipo_medio}|${filters.event_day_id}|${filters.event_id}`;
+  useEffect(() => { setPage(1); }, [filterKey]);
+
   if (loading) return <LoadingSpinner size="lg" />;
 
   const hasActiveFilters = !!(filters.status || filters.tipo_medio || filters.search || filters.event_day_id);
 
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-edge overflow-hidden">
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge">
 
-      {/* ═══════ STICKY: Filters ═══════ */}
-      <div className="sticky top-0 z-20 bg-surface border-b border-edge flex-shrink-0">
+      {/* ═══════ Filters ═══════ */}
+      <div className="bg-surface border-b border-edge rounded-t-2xl">
 
         {/* ── Row 1: Filters ────────────────────────── */}
         <div className="px-4 py-3">
@@ -272,22 +277,24 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
         )}
       </div>
 
-      {/* ═══════ SCROLLABLE: Virtualized table ═══════ */}
+      {/* ═══════ Table ═══════ */}
       {registrations.length === 0 ? (
         <EmptyState message="No hay registros para este evento" icon="fa-inbox" />
       ) : (
-        <VirtualizedTable
+        <PaginatedTable
           registrations={registrations}
           allSelected={allSelected}
           toggleSelectAll={toggleSelectAll}
           onViewDetail={onViewDetail}
           onReject={onReject}
+          page={page}
+          setPage={setPage}
         />
       )}
 
       {/* Footer */}
       {registrations.length > 0 && (
-        <div className="px-4 py-2.5 bg-canvas/50 border-t border-edge text-xs text-muted flex justify-between flex-shrink-0">
+        <div className="px-4 py-2.5 bg-canvas/50 border-t border-edge text-xs text-muted flex justify-between items-center rounded-b-2xl">
           <span>Mostrando {registrations.length} registros</span>
           {hasSel && <span className="text-brand">{selectedIds.size} seleccionados</span>}
         </div>
@@ -296,105 +303,158 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   );
 }
 
-/* ─────────────────── VirtualizedTable ─────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   PaginatedTable — 100 rows per page, sticky thead,
+   simple scroll for the current page slice.
+   ═══════════════════════════════════════════════════════════ */
 
-const ROW_HEIGHT = 56; // Estimated px per row
-const VIRTUALIZE_THRESHOLD = 50; // Only virtualize when rows > threshold
+const PAGE_SIZE = 100;
 
-function VirtualizedTable({
-  registrations,
-  allSelected,
-  toggleSelectAll,
-  onViewDetail,
-  onReject,
-}: {
+interface PaginatedTableProps {
   registrations: RegistrationFull[];
   allSelected: boolean;
   toggleSelectAll: () => void;
   onViewDetail: (reg: RegistrationFull) => void;
   onReject: (reg: RegistrationFull) => void;
-}) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = registrations.length > VIRTUALIZE_THRESHOLD;
+  page: number;
+  setPage: (p: number) => void;
+}
 
-  const virtualizer = useVirtualizer({
-    count: registrations.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
-    enabled: shouldVirtualize,
-  });
+function PaginatedTable({
+  registrations,
+  allSelected,
+  toggleSelectAll,
+  onViewDetail,
+  onReject,
+  page,
+  setPage,
+}: PaginatedTableProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const totalPages = Math.ceil(registrations.length / PAGE_SIZE);
+  const needsPagination = registrations.length > PAGE_SIZE;
 
-  const thead = (
-    <thead className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm">
-      <tr>
-        <th className="p-3 pl-4 text-left w-10">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleSelectAll}
-            className="rounded border-field-border text-brand"
-            aria-label="Seleccionar todos los registros"
-          />
-        </th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
-        <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
-      </tr>
-    </thead>
-  );
+  const pageRows = useMemo(() => {
+    if (!needsPagination) return registrations;
+    const start = (page - 1) * PAGE_SIZE;
+    return registrations.slice(start, start + PAGE_SIZE);
+  }, [registrations, page, needsPagination]);
 
-  // For small datasets, render normally (no virtualization overhead)
-  if (!shouldVirtualize) {
-    return (
-      <div className="overflow-auto max-h-[70vh]">
+  // Scroll to top of table when page changes
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [page]);
+
+  const goToPage = (p: number) => {
+    if (p >= 1 && p <= totalPages) setPage(p);
+  };
+
+  return (
+    <>
+      <div ref={scrollRef} className="overflow-y-auto max-h-[70vh]">
         <table className="w-full text-base">
-          {thead}
+          <thead className="sticky top-0 z-10 bg-canvas [&_th]:border-b [&_th]:border-edge">
+            <tr>
+              <th className="p-3 pl-4 text-left w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="rounded border-field-border text-brand"
+                  aria-label="Seleccionar todos los registros"
+                />
+              </th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
+              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
+            </tr>
+          </thead>
           <tbody className="divide-y divide-edge">
-            {registrations.map(reg => (
+            {pageRows.map(reg => (
               <AdminRow key={reg.id} reg={reg} onViewDetail={onViewDetail} onReject={onReject} />
             ))}
           </tbody>
         </table>
       </div>
-    );
-  }
 
-  // Virtualized: only render visible rows + overscan
-  const items = virtualizer.getVirtualItems();
+      {/* Pagination controls */}
+      {needsPagination && (
+        <div className="px-4 py-2 border-t border-edge bg-surface flex items-center justify-between gap-4">
+          <span className="text-xs text-muted">
+            Página {page} de {totalPages}
+            <span className="ml-2 text-edge">|</span>
+            <span className="ml-2">
+              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, registrations.length)} de {registrations.length}
+            </span>
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => goToPage(1)}
+              disabled={page === 1}
+              className="px-2 py-1 text-xs rounded-lg border border-edge text-body hover:bg-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition"
+              aria-label="Primera página"
+            >
+              <i className="fas fa-angle-double-left" />
+            </button>
+            <button
+              onClick={() => goToPage(page - 1)}
+              disabled={page === 1}
+              className="px-2 py-1 text-xs rounded-lg border border-edge text-body hover:bg-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition"
+              aria-label="Página anterior"
+            >
+              <i className="fas fa-angle-left" />
+            </button>
 
-  return (
-    <div ref={parentRef} className="overflow-auto max-h-[70vh]">
-      <table className="w-full text-base">
-        {thead}
-        <tbody>
-          {/* Top spacer */}
-          {items.length > 0 && (
-            <tr><td colSpan={10} style={{ height: items[0].start, padding: 0 }} /></tr>
-          )}
-          {items.map(virtualRow => {
-            const reg = registrations[virtualRow.index];
-            return (
-              <AdminRow
-                key={reg.id}
-                reg={reg}
-                onViewDetail={onViewDetail}
-                onReject={onReject}
-              />
-            );
-          })}
-          {/* Bottom spacer */}
-          {items.length > 0 && (
-            <tr><td colSpan={10} style={{ height: virtualizer.getTotalSize() - (items[items.length - 1].end), padding: 0 }} /></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+            {/* Page numbers */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+              .reduce<(number | 'dots')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1]) > 1) acc.push('dots');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((item, idx) =>
+                item === 'dots' ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-muted">…</span>
+                ) : (
+                  <button
+                    key={item}
+                    onClick={() => goToPage(item)}
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition ${
+                      item === page
+                        ? 'bg-brand text-white border-brand font-medium'
+                        : 'border-edge text-body hover:bg-accent-light'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
+
+            <button
+              onClick={() => goToPage(page + 1)}
+              disabled={page === totalPages}
+              className="px-2 py-1 text-xs rounded-lg border border-edge text-body hover:bg-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition"
+              aria-label="Página siguiente"
+            >
+              <i className="fas fa-angle-right" />
+            </button>
+            <button
+              onClick={() => goToPage(totalPages)}
+              disabled={page === totalPages}
+              className="px-2 py-1 text-xs rounded-lg border border-edge text-body hover:bg-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition"
+              aria-label="Última página"
+            >
+              <i className="fas fa-angle-double-right" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

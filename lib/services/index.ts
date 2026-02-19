@@ -2,7 +2,7 @@
  * Barrel export de servicios
  */
 export { lookupProfileByRut, getOrCreateProfile, getProfileByUserId, getProfileByEmail, linkProfileToUser, updateProfileDatosBase, saveTenantProfileData, getTenantProfileData, buildMergedAutofillData, computeTenantProfileStatus } from './profiles';
-export { createRegistration, createBulkRegistrations, listRegistrations, updateRegistrationStatus, bulkUpdateStatus, getRegistrationFull, getRegistrationsByProfile, getRegistrationStats } from './registrations';
+export { createRegistration, createBulkRegistrations, listRegistrations, updateRegistrationStatus, bulkUpdateStatus, bulkDelete, getRegistrationFull, getRegistrationsByProfile, getRegistrationStats } from './registrations';
 export { checkQuota, getQuotaRulesWithUsage, upsertQuotaRule, deleteQuotaRule } from './quotas';
 export { resolveZone, getZoneRules, upsertZoneRule, deleteZoneRule } from './zones';
 export { getTenantBySlug, getTenantById, listTenants, createTenant, updateTenant, createTenantAdmin, listTenantAdmins, listActiveTenants, deleteTenant } from './tenants';

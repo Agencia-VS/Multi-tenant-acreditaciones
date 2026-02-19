@@ -1,4 +1,5 @@
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
 // Configura aquí tu dominio principal
 const MAIN_DOMAIN = 'accredia.cl';
@@ -14,12 +15,10 @@ function isStaticOrApiPath(pathname: string): boolean {
 }
 
 /**
- * Proxy function for multi-tenant routing.
- * Replaces the deprecated middleware.ts convention in Next.js 16+.
- * 
- * @see https://nextjs.org/docs/messages/middleware-to-proxy
+ * Resuelve el tenant a partir de subdominio o query param.
+ * Retorna la ruta reescrita o undefined si no hay rewrite.
  */
-export function proxy(req: NextRequest): string | undefined {
+function resolveTenantRewrite(req: NextRequest): string | undefined {
   const { hostname, pathname, searchParams } = req.nextUrl;
 
   // Excepciones: rutas estáticas, api, archivos
@@ -61,6 +60,38 @@ export function proxy(req: NextRequest): string | undefined {
 
   // Rewrite al tenant correspondiente
   return `/${subdomain}${pathname}`;
+}
+
+/**
+ * Proxy — Next.js 16 (reemplaza middleware.ts)
+ *
+ * 1. Refresca la sesión de Supabase (evita "Refresh Token Not Found")
+ * 2. Resuelve tenant por subdominio/query → rewrite de URL
+ */
+export async function proxy(req: NextRequest) {
+  // 1. Refresh de sesión Supabase (actualiza cookies)
+  const { supabaseResponse } = await updateSession(req);
+
+  // 2. Resolver rewrite de tenant
+  const rewrite = resolveTenantRewrite(req);
+
+  if (rewrite) {
+    // Aplicar rewrite preservando las cookies del refresh
+    const url = req.nextUrl.clone();
+    url.pathname = rewrite;
+    const rewriteResponse = NextResponse.rewrite(url);
+
+    // Copiar cookies de sesión al response reescrito
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      rewriteResponse.cookies.set(cookie.name, cookie.value, {
+        ...cookie,
+      });
+    });
+
+    return rewriteResponse;
+  }
+
+  return supabaseResponse;
 }
 
 export const config = {

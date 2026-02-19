@@ -257,13 +257,17 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         const data = await res.json();
         showSuccess(`${data.success || 0} registros ${payload.action === 'approve' ? 'aprobados' : 'rechazados'}`);
       } else if (payload.action === 'delete') {
-        // Delete one by one via API
-        let deleted = 0;
-        for (const id of payload.registration_ids) {
-          const res = await fetch(`/api/registrations/${id}`, { method: 'DELETE' });
-          if (res.ok) deleted++;
-        }
-        showSuccess(`${deleted} registros eliminados`);
+        // Bulk delete: 1 request en vez de N
+        const res = await fetch('/api/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            registration_ids: payload.registration_ids,
+            action: 'delete',
+          }),
+        });
+        const data = await res.json();
+        showSuccess(`${data.success || 0} registros eliminados`);
       } else if (payload.action === 'email') {
         // Resend approval emails
         const res = await fetch('/api/bulk', {
