@@ -120,8 +120,8 @@ export default function EventZonesTab({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="rounded-lg border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="bg-canvas text-left">
                   <th className="px-3 py-2 font-medium text-label w-28">Campo</th>

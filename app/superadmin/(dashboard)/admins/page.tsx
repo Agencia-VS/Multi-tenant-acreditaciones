@@ -107,7 +107,7 @@ export default function AdminsPage() {
                   {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-label mb-1">Nombre</label>
                   <input
@@ -163,7 +163,8 @@ export default function AdminsPage() {
         <EmptyState message="No hay administradores asignados" icon="fa-user-shield" />
       ) : (
         <div className="bg-surface rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="bg-canvas border-b text-left text-body">
                 <th className="p-4 font-medium">Nombre</th>
@@ -189,6 +190,7 @@ export default function AdminsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

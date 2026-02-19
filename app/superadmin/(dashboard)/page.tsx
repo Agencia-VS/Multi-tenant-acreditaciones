@@ -70,7 +70,7 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-heading">Dashboard</h1>
           <p className="text-body mt-1">Vista general de la plataforma</p>

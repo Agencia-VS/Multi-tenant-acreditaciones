@@ -113,7 +113,7 @@ export default function SuperAdminLayoutClient({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 p-4 pt-16 md:p-8 md:pt-8">{children}</main>
+      <main className="flex-1 min-w-0 md:ml-64 p-4 pt-16 md:p-8 md:pt-8 overflow-x-hidden">{children}</main>
     </div>
   );
 }

@@ -107,18 +107,18 @@ export default function StepTipoMedio({
         <button
           type="button"
           onClick={goBack}
-          className="flex-1 py-3 sm:py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-surface transition-snappy text-sm sm:text-base"
+          className="flex-1 py-3 sm:py-3.5 rounded-xl border border-edge text-body font-semibold hover:bg-subtle active:scale-[0.98] transition-snappy text-sm sm:text-base"
         >
-          <i className="fas fa-arrow-left mr-1.5 sm:mr-2" /> Volver
+          <i className="fas fa-arrow-left mr-1.5 text-xs" /> Volver
         </button>
         <button
           type="button"
           onClick={handleMedioSubmit}
           disabled={!tipoMedio || (quotaResult !== null && !quotaResult.available)}
-          className="flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-snappy hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base"
+          className="flex-1 py-3 sm:py-3.5 rounded-xl text-white font-bold transition-snappy hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base"
           style={{ backgroundColor: tenantColors.primario }}
         >
-          Siguiente <i className="fas fa-arrow-right ml-1.5 sm:ml-2" />
+          Siguiente <i className="fas fa-arrow-right ml-1.5 text-xs" />
         </button>
       </div>
     </div>

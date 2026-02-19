@@ -126,22 +126,90 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
          ═══════════════════════════════════════════════════════════════ */}
       <div className="absolute inset-0">
         {tenant.background_url ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${tenant.background_url})` }}
-          />
+          <>
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${tenant.background_url})` }}
+            />
+            {/* Overlay: forest anchors, bright peeks */}
+            <div className="absolute inset-0" style={{ background: p.heroGradient }} />
+          </>
         ) : (
-          <div
-            className="absolute inset-0"
-            style={{ background: `linear-gradient(135deg, ${p.forest}, ${tenant.color_primario})` }}
-          />
+          /* ── Wise-style editorial background ──
+             Base: solid forest (the anchor — dominates)
+             Layer 1: Two restrained orbs (bright + primario) — positioned
+                      editorially, not randomly. Extreme blur, low opacity.
+             Layer 2: Diagonal accent lines — geometric scaffold
+             Layer 3: Grain texture — tactile, material depth
+             Principle: colour is strategic, not decorative. */
+          <>
+            {/* Base: solid forest */}
+            <div className="absolute inset-0" style={{ background: p.forest }} />
+
+            {/* Orb 1 — bright accent, top-right quadrant (the "pop") */}
+            <div
+              className="absolute orb-drift-1 pointer-events-none"
+              style={{
+                top: '-8%',
+                right: '-5%',
+                width: '55%',
+                height: '55%',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${p.bright}14 0%, transparent 70%)`,
+                filter: 'blur(80px)',
+              }}
+            />
+
+            {/* Orb 2 — primario, center-left (anchors the brand hue) */}
+            <div
+              className="absolute orb-drift-2 pointer-events-none"
+              style={{
+                bottom: '5%',
+                left: '-10%',
+                width: '50%',
+                height: '60%',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${tenant.color_primario}18 0%, transparent 65%)`,
+                filter: 'blur(100px)',
+              }}
+            />
+
+            {/* Orb 3 — secondary, subtle mid-right warmth */}
+            <div
+              className="absolute orb-drift-3 pointer-events-none"
+              style={{
+                top: '40%',
+                right: '10%',
+                width: '30%',
+                height: '35%',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${tenant.color_secundario}0C 0%, transparent 60%)`,
+                filter: 'blur(90px)',
+              }}
+            />
+
+            {/* Diagonal accent lines — geometric scaffold */}
+            <div
+              className="diagonal-accent"
+              style={{ '--accent-line-color': `${p.bright}0A` } as React.CSSProperties}
+            />
+
+            {/* Grain texture — tactile depth */}
+            <div className="absolute inset-0 grain-overlay" />
+
+            {/* Bottom vignette — grounds the composition */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `radial-gradient(ellipse 100% 60% at 50% 100%, ${p.forest}C0 0%, transparent 70%)`,
+              }}
+            />
+          </>
         )}
-        {/* Overlay: forest anchors, bright peeks */}
-        <div className="absolute inset-0" style={{ background: p.heroGradient }} />
-        {/* Subtle ambient glow */}
+        {/* Subtle ambient glow (shared for both modes) */}
         <div
           className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full blur-[160px] pointer-events-none"
-          style={{ background: `${p.bright}08` }}
+          style={{ background: `${p.bright}06` }}
         />
       </div>
 

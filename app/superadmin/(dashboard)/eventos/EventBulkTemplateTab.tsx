@@ -120,8 +120,8 @@ export default function EventBulkTemplateTab({
 
       {columns.length > 0 && (
         <div className="space-y-2">
-          {/* Header labels */}
-          <div className="grid grid-cols-12 gap-2 px-4 text-xs font-semibold text-body uppercase">
+          {/* Header labels — hidden on mobile */}
+          <div className="hidden sm:grid grid-cols-12 gap-2 px-4 text-xs font-semibold text-body uppercase">
             <span className="col-span-1">#</span>
             <span className="col-span-2">Key</span>
             <span className="col-span-3">Header Excel</span>
@@ -133,7 +133,8 @@ export default function EventBulkTemplateTab({
 
           {columns.map((col, i) => (
             <div key={i} className="bg-canvas rounded-lg p-3 border">
-              <div className="grid grid-cols-12 gap-2 items-center">
+              {/* Desktop: grid-cols-12 */}
+              <div className="hidden sm:grid grid-cols-12 gap-2 items-center">
                 <span className="col-span-1 text-xs text-body font-mono">{i + 1}</span>
                 <div className="col-span-2">
                   {availableFields.length > 0 ? (
@@ -221,6 +222,66 @@ export default function EventBulkTemplateTab({
                   >
                     <i className="fas fa-trash text-xs" />
                   </button>
+                </div>
+              </div>
+              {/* Mobile: stacked layout */}
+              <div className="sm:hidden space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-body font-mono">#{i + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-xs text-body">
+                      <input
+                        type="checkbox"
+                        checked={col.required}
+                        onChange={(e) => updateColumn(i, { required: e.target.checked })}
+                        className="rounded"
+                      />
+                      Req.
+                    </label>
+                    <button type="button" onClick={() => moveColumn(i, -1)} disabled={i === 0} className="p-1 text-body disabled:opacity-30"><i className="fas fa-arrow-up text-xs" /></button>
+                    <button type="button" onClick={() => moveColumn(i, 1)} disabled={i === columns.length - 1} className="p-1 text-body disabled:opacity-30"><i className="fas fa-arrow-down text-xs" /></button>
+                    <button type="button" onClick={() => removeColumn(i)} className="p-1 text-red-400"><i className="fas fa-trash text-xs" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted uppercase">Key</label>
+                    {availableFields.length > 0 ? (
+                      <select
+                        value={col.key}
+                        onChange={(e) => {
+                          const field = formFields.find(f => f.key === e.target.value);
+                          updateColumn(i, {
+                            key: e.target.value,
+                            header: field?.label || e.target.value,
+                            example: DEFAULT_EXAMPLES[e.target.value] || '',
+                          });
+                        }}
+                        className="w-full px-2 py-1.5 rounded border text-xs font-mono text-label"
+                      >
+                        <option value={col.key}>{col.key || '—'}</option>
+                        {availableFields.map(f => (
+                          <option key={f.key} value={f.key}>{f.key}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input type="text" value={col.key} onChange={(e) => updateColumn(i, { key: e.target.value })} placeholder="key" className="w-full px-2 py-1.5 rounded border text-xs font-mono text-label" />
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted uppercase">Header</label>
+                    <input type="text" value={col.header} onChange={(e) => updateColumn(i, { header: e.target.value })} placeholder="Columna" className="w-full px-2 py-1.5 rounded border text-sm text-label" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted uppercase">Ejemplo</label>
+                    <input type="text" value={col.example || ''} onChange={(e) => updateColumn(i, { example: e.target.value })} placeholder="Ej." className="w-full px-2 py-1.5 rounded border text-xs text-body" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted uppercase">Ancho</label>
+                    <input type="number" value={col.width || 20} onChange={(e) => updateColumn(i, { width: parseInt(e.target.value) || 20 })} min={8} max={50} className="w-full px-2 py-1.5 rounded border text-xs text-body" />
+                  </div>
                 </div>
               </div>
             </div>

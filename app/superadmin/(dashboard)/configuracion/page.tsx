@@ -107,7 +107,7 @@ export default function ConfiguracionPage() {
             <i className="fas fa-info-circle mr-2 text-muted" />
             Información del Sistema
           </h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div className="bg-canvas p-4 rounded-lg">
               <p className="text-body">Plataforma</p>
               <p className="font-bold text-heading">Accredia v2.0</p>

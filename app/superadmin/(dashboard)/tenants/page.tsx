@@ -137,7 +137,7 @@ export default function TenantsPage() {
         title={editing ? 'Editar Tenant' : 'Nuevo Tenant'}
       >
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-label mb-1">Nombre</label>
                   <input
@@ -168,9 +168,10 @@ export default function TenantsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <ImageUploadField
                   label="Logo"
+                  hint="Para fondos claros (admin, emails). PNG transparente, 512×512px sin padding."
                   value={form.logo_url}
                   onChange={(url) => setForm(prev => ({ ...prev, logo_url: url }))}
                   folder="tenants"
@@ -179,6 +180,7 @@ export default function TenantsPage() {
                 />
                 <ImageUploadField
                   label="Escudo"
+                  hint="Para fondos oscuros (landing, hero). PNG transparente, 512×512px sin padding. Versión blanca o a color claro."
                   value={form.shield_url}
                   onChange={(url) => setForm(prev => ({ ...prev, shield_url: url }))}
                   folder="tenants"
@@ -189,18 +191,25 @@ export default function TenantsPage() {
 
               <ImageUploadField
                 label="Background"
+                hint="Imagen de fondo del landing. JPG/PNG, mínimo 1920×1080px. Si no se sube, se genera un fondo automático con los colores del tenant."
                 value={form.background_url}
                 onChange={(url) => setForm(prev => ({ ...prev, background_url: url }))}
                 folder="tenants"
                 previewSize="lg"
               />
 
-              <div className="grid grid-cols-4 gap-4">
-                {(['color_primario', 'color_secundario', 'color_light', 'color_dark'] as const).map((key) => (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {([
+                  { key: 'color_primario' as const, label: 'Primario', hint: 'Color institucional (L: 25-45%)' },
+                  { key: 'color_secundario' as const, label: 'Secundario', hint: 'Versión brillante (L: 40-60%)' },
+                  { key: 'color_light' as const, label: 'Light', hint: 'Pastel / tint (L: 70-90%)' },
+                  { key: 'color_dark' as const, label: 'Dark', hint: 'El más oscuro (L: 5-15%)' },
+                ]).map(({ key, label, hint }) => (
                   <div key={key}>
-                    <label className="block text-sm font-medium text-label mb-1 capitalize">
-                      {key.replace('color_', '')}
+                    <label className="block text-sm font-medium text-label mb-0.5">
+                      {label}
                     </label>
+                    <p className="text-[10px] text-muted mb-1 leading-tight">{hint}</p>
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
@@ -259,53 +268,6 @@ export default function TenantsPage() {
                     />
                   </button>
                 </label>
-              </div>
-
-              {/* ═══ Zonas del Tenant (fallback) ═══ */}
-              <div className="mt-4 p-4 bg-canvas rounded-xl">
-                <h4 className="text-sm font-semibold text-label mb-1">
-                  <i className="fas fa-map-signs mr-2 text-muted" />
-                  Zonas por defecto del Tenant
-                </h4>
-                <p className="text-xs text-muted mb-3">
-                  Zonas de fallback a nivel tenant. Las zonas específicas de cada evento se configuran en <strong>Eventos → Zonas</strong>.
-                </p>
-                <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-lg border border-field-border bg-surface mb-2">
-                  {((form.config?.zonas as string[]) || []).map((zona, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-xs font-medium">
-                      {zona}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const zonas = ((form.config?.zonas as string[]) || []).filter((_, idx) => idx !== i);
-                          setForm(prev => ({ ...prev, config: { ...prev.config, zonas } }));
-                        }}
-                        className="text-purple-400 hover:text-red-500 transition"
-                      >
-                        <i className="fas fa-times text-[10px]" />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    placeholder="Agregar zona y Enter..."
-                    className="flex-1 min-w-[120px] outline-none text-sm bg-transparent text-heading"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ',') {
-                        e.preventDefault();
-                        const input = e.currentTarget;
-                        const val = input.value.trim();
-                        if (!val) return;
-                        const newZones = val.split(',').map(s => s.trim()).filter(Boolean);
-                        const current = (form.config?.zonas as string[]) || [];
-                        const unique = newZones.filter(z => !current.includes(z));
-                        if (unique.length > 0) {
-                          setForm(prev => ({ ...prev, config: { ...prev.config, zonas: [...current, ...unique] } }));
-                        }
-                        input.value = '';
-                      }
-                    }}
-                  />
-                </div>
               </div>
 
               {/* ═══ PuntoTicket Config ═══ */}
@@ -438,7 +400,7 @@ export default function TenantsPage() {
         <div className="grid gap-4">
           {tenants.map((tenant) => (
             <div key={tenant.id} className="bg-surface rounded-xl border p-6 hover:shadow-md transition">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div
                     className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold"
@@ -456,7 +418,7 @@ export default function TenantsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                   <div className="text-right text-sm text-body">
                     <p>{tenant.total_events || 0} eventos</p>
                     <p>{tenant.total_registrations || 0} acreditaciones</p>

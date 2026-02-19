@@ -104,13 +104,14 @@ export default function Disclaimer({
       >
         {/* ── Header (fixed height) ── */}
         <div
-          className="flex-shrink-0 px-5 py-3 sm:px-6 sm:py-4"
-          style={{
-            background: `linear-gradient(to right, ${tenantColors.primario}, ${tenantColors.primario}cc)`,
-          }}
+          className="flex-shrink-0 px-5 py-3.5 sm:px-6 sm:py-4 flex items-center gap-3"
+          style={{ backgroundColor: tenantColors.primario }}
         >
-          <h2 className="text-white font-bold" style={{ fontSize: '1.1rem' }}>
-            Términos y Condiciones de Acreditación
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/15 shrink-0">
+            <i className="fas fa-file-contract text-white text-sm" />
+          </div>
+          <h2 className="text-white font-bold tracking-tight" style={{ fontSize: '1.05rem' }}>
+            Términos y Condiciones
           </h2>
         </div>
 
@@ -127,7 +128,7 @@ export default function Disclaimer({
           }}
         >
           <p className="text-gray-500 mb-3" style={{ fontSize: '0.85rem' }}>
-            Revise completamente los términos y condiciones antes de continuar.
+            Revise los términos antes de continuar.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
@@ -232,33 +233,37 @@ export default function Disclaimer({
 
         {/* ── Footer buttons (fixed height, always at card bottom) ── */}
         <div
-          className="flex-shrink-0 flex gap-2 border-t border-gray-200 bg-gray-50"
+          className="flex-shrink-0 flex gap-2 border-t border-edge bg-canvas"
           style={{ padding: '0.75rem 1rem' }}
         >
           <button
             onClick={onBack}
-            className="rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-100 active:scale-95 transition"
-            style={{ padding: '0.625rem 1rem', fontSize: '0.85rem' }}
+            className="rounded-xl border border-edge text-body font-semibold hover:bg-subtle active:scale-[0.98] transition-snappy"
+            style={{ padding: '0.625rem 1.25rem', fontSize: '0.85rem' }}
           >
-            ← Volver
+            <i className="fas fa-arrow-left mr-1.5 text-xs" /> Volver
           </button>
           <button
             onClick={onAccept}
             disabled={!canAccept}
-            className={`flex-1 rounded-xl font-semibold transition-all ${
+            className={`flex-1 rounded-xl font-semibold transition-all active:scale-[0.98] ${
               canAccept
-                ? 'text-white shadow-lg hover:shadow-xl active:scale-95'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'text-white shadow-lg hover:shadow-xl'
+                : 'bg-subtle text-muted cursor-not-allowed'
             }`}
             style={{
               padding: '0.625rem 1rem',
               fontSize: '0.85rem',
               ...(canAccept
-                ? { background: `linear-gradient(to right, ${tenantColors.primario}, ${tenantColors.primario}cc)` }
+                ? { backgroundColor: tenantColors.primario }
                 : {}),
             }}
           >
-            {canAccept ? 'Entiendo y acepto los términos' : 'Desliza y lee para continuar'}
+            {canAccept ? (
+              <>Acepto los términos <i className="fas fa-arrow-right ml-1.5 text-xs" /></>
+            ) : (
+              <>Lee para continuar <i className="fas fa-chevron-down ml-1 text-xs animate-bounce" /></>
+            )}
           </button>
         </div>
       </div>

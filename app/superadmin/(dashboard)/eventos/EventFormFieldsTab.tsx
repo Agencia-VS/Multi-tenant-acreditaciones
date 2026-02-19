@@ -32,7 +32,8 @@ export default function EventFormFieldsTab({
       <div className="space-y-2">
         {formFields.map((field, i) => (
           <div key={i} className="bg-canvas rounded-lg p-4 border">
-            <div className="grid grid-cols-12 gap-3 items-center">
+            {/* Desktop: grid-cols-12. Mobile: stacked */}
+            <div className="hidden sm:grid grid-cols-12 gap-3 items-center">
               <input
                 type="text"
                 value={field.key}
@@ -77,6 +78,62 @@ export default function EventFormFieldsTab({
               >
                 <i className="fas fa-trash" />
               </button>
+            </div>
+            {/* Mobile: stacked layout */}
+            <div className="sm:hidden space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono text-muted">#{i + 1}</span>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1 text-xs text-body">
+                    <input
+                      type="checkbox"
+                      checked={field.required}
+                      onChange={(e) => updateField(i, { required: e.target.checked })}
+                      className="rounded"
+                    />
+                    Req.
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeField(i)}
+                    className="text-red-400 hover:text-red-600 transition text-sm"
+                  >
+                    <i className="fas fa-trash" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={field.key}
+                  onChange={(e) => updateField(i, { key: e.target.value })}
+                  placeholder="key"
+                  className="px-2 py-1.5 rounded border text-xs font-mono text-label"
+                />
+                <input
+                  type="text"
+                  value={field.label}
+                  onChange={(e) => updateField(i, { label: e.target.value })}
+                  placeholder="Label"
+                  className="px-2 py-1.5 rounded border text-sm text-label"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={field.type}
+                  onChange={(e) => updateField(i, { type: e.target.value as FormFieldDefinition['type'] })}
+                  className="px-2 py-1.5 rounded border text-sm text-label"
+                >
+                  {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input
+                  type="text"
+                  value={field.profile_field || ''}
+                  onChange={(e) => updateField(i, { profile_field: e.target.value || undefined })}
+                  placeholder="profile_field"
+                  className="px-2 py-1.5 rounded border text-xs font-mono text-body"
+                />
+              </div>
             </div>
             {field.type === 'select' && (
               <SelectOptionsEditor

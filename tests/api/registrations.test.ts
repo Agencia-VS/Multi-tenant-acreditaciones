@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 
 // ── Mocks ──
 const mockGetCurrentUser = vi.fn();
+const mockIsSuperAdmin = vi.fn();
 const mockGetProfileByUserId = vi.fn();
 const mockCreateRegistration = vi.fn();
 const mockGetEventById = vi.fn();
@@ -23,6 +24,7 @@ vi.mock('@/lib/services', () => ({
 
 vi.mock('@/lib/services/auth', () => ({
   getCurrentUser: () => mockGetCurrentUser(),
+  isSuperAdmin: (...args: unknown[]) => mockIsSuperAdmin(...args),
 }));
 
 vi.mock('@/lib/services/profiles', () => ({
@@ -55,6 +57,7 @@ describe('POST /api/registrations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(null);
+    mockIsSuperAdmin.mockResolvedValue(false);
     mockGetEventById.mockResolvedValue(null);
     mockLogAuditAction.mockResolvedValue(undefined);
   });
@@ -131,8 +134,9 @@ describe('POST /api/registrations', () => {
     expect(res.status).toBe(409);
   });
 
-  it('resolves authenticated user profile for submitted_by', async () => {
+  it('resolves authenticated non-admin user profile for submitted_by', async () => {
     mockGetCurrentUser.mockResolvedValue({ id: 'user-1', email: 'u@t.com' });
+    mockIsSuperAdmin.mockResolvedValue(false);
     mockGetProfileByUserId.mockResolvedValue({ id: 'prof-1' });
     mockGetEventById.mockResolvedValue(null);
     mockCreateRegistration.mockResolvedValue({

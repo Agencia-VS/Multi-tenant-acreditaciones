@@ -256,7 +256,6 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      onClick={onClose}
     >
       {/* Panel — stopPropagation so clicking inside doesn't trigger backdrop close */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
@@ -275,7 +274,7 @@ export function Modal({
             <i className="fas fa-times text-xl" />
           </button>
         </div>
-        <div className="p-4 sm:p-5 md:p-6 overflow-y-auto overscroll-contain flex-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>{children}</div>
+        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 p-4 sm:p-5" style={{ WebkitOverflowScrolling: 'touch' }}>{children}</div>
       </div>
     </div>,
     document.body

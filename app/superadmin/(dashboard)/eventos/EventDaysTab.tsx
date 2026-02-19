@@ -67,7 +67,7 @@ export default function EventDaysTab({
   return (
     <div className="space-y-6">
       {/* Rango de fechas */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-label mb-1">Fecha Inicio</label>
           <input
@@ -102,7 +102,7 @@ export default function EventDaysTab({
       {/* Lista de días */}
       <div className="space-y-3">
         {days.map((day, idx) => (
-          <div key={idx} className="flex items-center gap-3 p-3 bg-surface-alt rounded-lg border">
+          <div key={idx} className="flex flex-wrap items-center gap-3 p-3 bg-surface-alt rounded-lg border">
             <span className="text-xs font-bold text-muted w-6 text-center">{idx + 1}</span>
             <input
               type="date"

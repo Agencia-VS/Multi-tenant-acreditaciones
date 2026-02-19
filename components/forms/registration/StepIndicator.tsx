@@ -10,31 +10,59 @@ export default function StepIndicator({ currentStep }: StepIndicatorProps) {
   const currentStepIndex = STEP_KEYS.indexOf(currentStep);
 
   return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8 px-2">
-      {STEP_LABELS.map((label, i) => {
-        const isComplete = currentStepIndex > i;
-        const isCurrent = currentStepIndex === i;
-        return (
-          <div key={label} className="flex items-center gap-1.5 sm:gap-2">
-            {i > 0 && (
-              <div className={`w-5 sm:w-8 h-0.5 rounded-full transition-snappy ${isComplete ? 'bg-brand' : 'bg-edge'}`} />
-            )}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+    <nav className="mb-6 sm:mb-8 px-2" aria-label="Progreso">
+      {/* Progress bar (continuous) */}
+      <div className="relative h-1 rounded-full bg-edge/40 mb-3">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-brand transition-all duration-500 ease-out"
+          style={{ width: `${((currentStepIndex) / (STEP_KEYS.length - 1)) * 100}%` }}
+        />
+        {/* Step dots on the bar */}
+        {STEP_LABELS.map((_, i) => {
+          const isComplete = currentStepIndex > i;
+          const isCurrent = currentStepIndex === i;
+          return (
+            <div
+              key={i}
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+              style={{ left: `${(i / (STEP_KEYS.length - 1)) * 100}%` }}
+            >
               <div
                 className={`
-                  w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-snappy
-                  ${isComplete ? 'bg-success text-white' : isCurrent ? 'bg-brand text-white' : 'bg-surface border border-edge text-muted'}
+                  w-3 h-3 rounded-full border-2 transition-snappy
+                  ${isComplete
+                    ? 'bg-brand border-brand'
+                    : isCurrent
+                      ? 'bg-white border-brand shadow-sm'
+                      : 'bg-canvas border-edge'}
                 `}
-              >
-                {isComplete ? <i className="fas fa-check text-xs" /> : i + 1}
-              </div>
-              <span className={`text-sm font-medium hidden sm:inline ${isCurrent ? 'text-heading' : 'text-muted'}`}>
-                {label}
-              </span>
+              />
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      {/* Labels */}
+      <div className="flex justify-between">
+        {STEP_LABELS.map((label, i) => {
+          const isCurrent = currentStepIndex === i;
+          const isComplete = currentStepIndex > i;
+          return (
+            <span
+              key={label}
+              className={`text-xs font-medium transition-snappy ${
+                isCurrent ? 'text-heading' : isComplete ? 'text-brand' : 'text-muted'
+              }`}
+              style={{
+                width: `${100 / STEP_KEYS.length}%`,
+                textAlign: i === 0 ? 'left' : i === STEP_KEYS.length - 1 ? 'right' : 'center',
+              }}
+            >
+              {label}
+            </span>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

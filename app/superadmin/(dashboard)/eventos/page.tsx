@@ -502,7 +502,7 @@ export default function EventosPage() {
   };
 
   return (
-    <div>
+    <div className="min-w-0 overflow-hidden">
       <PageHeader
         title="Eventos"
         subtitle="Gestión de eventos y formularios de acreditación"
@@ -517,7 +517,7 @@ export default function EventosPage() {
       >
 
             {/* Tabs */}
-            <div className="px-8 pt-4 flex gap-1 border-b overflow-x-auto">
+            <div className="pt-3 flex gap-1 border-b overflow-x-auto">
               {(['general', 'form', 'bulk', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : []), ...(editing && eventForm.visibility === 'invite_only' ? ['invitaciones' as const] : [])] as const).map((tab) => (
                 <button
                   key={tab}
@@ -539,7 +539,7 @@ export default function EventosPage() {
               ))}
             </div>
 
-            <form onSubmit={handleSave} className="p-8">
+            <form onSubmit={handleSave} className="pt-4">
               {/* General Tab */}
               {activeTab === 'general' && (
                 <div className="space-y-4">
@@ -586,7 +586,7 @@ export default function EventosPage() {
                   {/* Tipo de evento */}
                   <div>
                     <label className="block text-sm font-medium text-label mb-1">Tipo de Evento</label>
-                    <div className="flex gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                       {([
                         { value: 'simple', label: 'Simple', icon: 'fa-calendar-check', desc: 'Un solo check-in' },
                         { value: 'deportivo', label: 'Deportivo', icon: 'fa-futbol', desc: 'Con rival (VS)' },
@@ -596,7 +596,7 @@ export default function EventosPage() {
                           key={value}
                           type="button"
                           onClick={() => setEventForm(prev => ({ ...prev, event_type: value }))}
-                          className={`flex-1 p-3 rounded-lg border-2 text-left transition ${
+                          className={`p-3 rounded-lg border-2 text-left transition ${
                             eventForm.event_type === value
                               ? 'border-brand bg-info-light'
                               : 'border-field-border hover:border-brand/40'
@@ -613,7 +613,7 @@ export default function EventosPage() {
                   {/* Visibilidad del evento */}
                   <div>
                     <label className="block text-sm font-medium text-label mb-1">Visibilidad</label>
-                    <div className="flex gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       {([
                         { value: 'public', label: 'Público', icon: 'fa-globe', desc: 'Visible en landing del tenant' },
                         { value: 'invite_only', label: 'Por Invitación', icon: 'fa-envelope', desc: 'Requiere link de invitación' },
@@ -622,7 +622,7 @@ export default function EventosPage() {
                           key={value}
                           type="button"
                           onClick={() => setEventForm(prev => ({ ...prev, visibility: value }))}
-                          className={`flex-1 p-3 rounded-lg border-2 text-left transition ${
+                          className={`p-3 rounded-lg border-2 text-left transition ${
                             eventForm.visibility === value
                               ? 'border-brand bg-info-light'
                               : 'border-field-border hover:border-brand/40'
@@ -636,7 +636,7 @@ export default function EventosPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Nombre del Evento</label>
                       <input
@@ -670,7 +670,7 @@ export default function EventosPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Fecha</label>
                       <input
@@ -700,7 +700,7 @@ export default function EventosPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-label mb-1">Liga/Competición</label>
                       <input
@@ -826,9 +826,9 @@ export default function EventosPage() {
       ) : (
         <>
           {/* ── Filter Bar ───────────────────────────────────────────────── */}
-          <div className="bg-surface rounded-xl border p-4 mb-6 flex flex-wrap items-center gap-4">
+          <div className="bg-surface rounded-xl border p-3 sm:p-4 mb-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4 overflow-hidden">
             {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm" />
               <input
                 type="text"
@@ -843,7 +843,7 @@ export default function EventosPage() {
             <select
               value={filterTenantId}
               onChange={(e) => setFilterTenantId(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+              className="w-full sm:w-auto px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
             >
               <option value="all">Todos los tenants</option>
               {tenants.map(t => (
@@ -852,7 +852,7 @@ export default function EventosPage() {
             </select>
 
             {/* Active/Inactive filter */}
-            <div className="flex rounded-lg border border-field-border overflow-hidden text-sm">
+            <div className="flex rounded-lg border border-field-border overflow-hidden text-sm w-full sm:w-auto">
               {([
                 { value: 'all', label: 'Todos', count: events.length },
                 { value: 'active', label: 'Activos', count: totalActive },
@@ -861,7 +861,7 @@ export default function EventosPage() {
                 <button
                   key={value}
                   onClick={() => setFilterActive(value)}
-                  className={`px-3 py-2 transition font-medium ${
+                  className={`flex-1 sm:flex-none px-3 py-2 transition font-medium text-center ${
                     filterActive === value
                       ? 'bg-brand text-white'
                       : 'text-body hover:bg-muted/10'
@@ -903,23 +903,25 @@ export default function EventosPage() {
                     </span>
                   </div>
 
-                  <div className="grid gap-3 pl-4 border-l-2" style={{ borderColor: `${group.color}30` }}>
+                  <div className="grid gap-3 pl-4 border-l-2 min-w-0" style={{ borderColor: `${group.color}30` }}>
                     {group.events.map((event) => (
-                      <div key={event.id} className="bg-surface rounded-xl border p-5 hover:shadow-md transition">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-success' : 'bg-edge'}`} />
-                            <div>
-                              <h3 className="font-bold text-heading text-lg">{event.nombre}</h3>
-                              <div className="flex items-center gap-4 text-sm text-body mt-1">
+                      <div key={event.id} className="bg-surface rounded-xl border p-4 sm:p-5 hover:shadow-md transition overflow-hidden">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                          {/* Event info */}
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className={`w-3 h-3 rounded-full shrink-0 ${event.is_active ? 'bg-success' : 'bg-edge'}`} />
+                            <div className="min-w-0">
+                              <h3 className="font-bold text-heading text-base sm:text-lg truncate">{event.nombre}</h3>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-body mt-1">
                                 {event.fecha && <span><i className="fas fa-calendar mr-1" />{new Date(event.fecha).toLocaleDateString('es-CL')}</span>}
-                                {event.venue && <span><i className="fas fa-map-marker-alt mr-1" />{event.venue}</span>}
+                                {event.venue && <span className="truncate max-w-[180px]"><i className="fas fa-map-marker-alt mr-1" />{event.venue}</span>}
                                 {event.opponent_name && <span><i className="fas fa-futbol mr-1" />vs {event.opponent_name}</span>}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex gap-2 text-xs">
+                          {/* Badges + actions */}
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 pl-6 sm:pl-0">
+                            <div className="flex flex-wrap gap-1.5 text-xs">
                               {event.event_type === 'deportivo' && (
                                 <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
                                   <i className="fas fa-futbol mr-1" />Deportivo
@@ -986,10 +988,11 @@ export default function EventosPage() {
                               <i className="fas fa-link text-blue-500 text-xs" />
                               <span className="text-xs font-semibold text-blue-700">Link de invitación</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <code className="flex-1 text-xs bg-white px-3 py-2 rounded-lg border border-blue-200 text-heading truncate block">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <code className="flex-1 text-xs bg-white px-3 py-2 rounded-lg border border-blue-200 text-heading block min-w-0 break-all overflow-hidden text-ellipsis">
                                 {typeof window !== 'undefined' ? `${window.location.origin}/${event.tenant_slug}/acreditacion?invite=${event.invite_token}` : `/${event.tenant_slug}/acreditacion?invite=${event.invite_token}`}
                               </code>
+                              <div className="flex gap-2 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1008,6 +1011,7 @@ export default function EventosPage() {
                               >
                                 <i className="fab fa-whatsapp" /> WhatsApp
                               </a>
+                              </div>
                             </div>
                           </div>
                         )}

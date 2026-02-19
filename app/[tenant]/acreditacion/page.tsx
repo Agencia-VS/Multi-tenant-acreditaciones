@@ -11,6 +11,7 @@ import { getTenantBySlug } from '@/lib/services/tenants';
 import { getActiveEvent } from '@/lib/services/events';
 import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
+import { isSuperAdmin, isTenantAdmin } from '@/lib/services/auth';
 import { listEventDays } from '@/lib/services/eventDays';
 import { notFound } from 'next/navigation';
 import { RegistrationWizard as DynamicRegistrationForm } from '@/components/forms/registration';
@@ -30,9 +31,20 @@ export default async function AcreditacionPage({
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
 
-  // ─── Auth opcional: si hay sesión, pre-llena datos ───
+  // ─── Auth opcional: si hay sesión de ACREDITADO, pre-llena datos ───
+  // Superadmins y tenant admins NO deben pre-llenar — la acreditación es solo para acreditados.
   const user = await getCurrentUser();
-  const userProfile = user ? await getProfileByUserId(user.id) : null;
+  let userProfile = null;
+  if (user) {
+    const [isSuper, isAdmin] = await Promise.all([
+      isSuperAdmin(user.id),
+      isTenantAdmin(user.id, tenant.id),
+    ]);
+    // Solo pre-llenar si NO es admin ni superadmin (es un acreditado real)
+    if (!isSuper && !isAdmin) {
+      userProfile = await getProfileByUserId(user.id);
+    }
+  }
 
   const event = await getActiveEvent(tenant.id);
 
@@ -90,19 +102,31 @@ export default async function AcreditacionPage({
 
   return (
     <main className="min-h-screen bg-canvas">
-      {/* Header con branding del tenant */}
+      {/* Header — Wise: forest anchors, bright is strategic */}
       <div
-        className="py-4 sm:py-6 px-4 sm:px-6 text-center relative"
-        style={{ backgroundColor: tenant.color_primario }}
+        className="relative py-5 sm:py-8 px-4 sm:px-6 text-center overflow-hidden"
+        style={{ backgroundColor: tenant.color_dark }}
       >
+        {/* Subtle brand glow */}
+        <div
+          className="absolute top-0 right-0 w-2/3 h-full pointer-events-none"
+          style={{
+            background: `radial-gradient(ellipse at 80% 50%, ${tenant.color_primario}18 0%, transparent 70%)`,
+          }}
+        />
         <BackButton href={`/${slug}`} />
-        <div className="flex flex-col items-center justify-center gap-2 sm:gap-4 pt-8 sm:pt-0">
+        <div className="relative flex flex-col items-center justify-center gap-3 pt-8 sm:pt-0">
           {tenant.logo_url && (
-            <img src={tenant.logo_url} alt={tenant.nombre} className="h-10 sm:h-12 object-contain" />
+            <img src={tenant.logo_url} alt={tenant.nombre} className="h-10 sm:h-12 object-contain opacity-90" />
           )}
-          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: tenant.color_secundario }}>
-            Acreditación
-          </h1>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              Acreditación
+            </h1>
+            <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: `${tenant.color_light}90` }}>
+              {tenant.nombre}
+            </p>
+          </div>
         </div>
       </div>
 

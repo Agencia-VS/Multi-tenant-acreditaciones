@@ -25,6 +25,8 @@ interface ImageUploadFieldProps {
   folder?: string;
   /** Placeholder para input manual */
   placeholder?: string;
+  /** Texto de ayuda debajo del label */
+  hint?: string;
   /** Mostrar preview redondo (para logos) */
   rounded?: boolean;
   /** Tamaño del preview: 'sm' | 'md' | 'lg' */
@@ -45,6 +47,7 @@ export default function ImageUploadField({
   onChange,
   folder = 'general',
   placeholder = 'https://...',
+  hint,
   rounded = false,
   previewSize = 'md',
   className = '',
@@ -111,7 +114,10 @@ export default function ImageUploadField({
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-1">
-        <label className="block text-sm font-medium text-label">{label}</label>
+        <div>
+          <label className="block text-sm font-medium text-label">{label}</label>
+          {hint && <p className="text-[10px] text-muted mt-0.5 leading-tight">{hint}</p>}
+        </div>
         <button
           type="button"
           onClick={() => setShowUrlInput(!showUrlInput)}

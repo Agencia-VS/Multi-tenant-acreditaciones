@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createRegistration, listRegistrations, getEventById } from '@/lib/services';
-import { getCurrentUser } from '@/lib/services/auth';
+import { getCurrentUser, isSuperAdmin } from '@/lib/services/auth';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { logAuditAction } from '@/lib/services/audit';
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Identidad Unificada: resolver usuario autenticado ───
+    // Solo vincular perfil si el usuario es un acreditado real (no superadmin ni tenant_admin).
     let authUserId: string | undefined;
     let submitterProfileId: string | undefined = submittedByFromBody || undefined;
 
@@ -42,10 +43,14 @@ export async function POST(request: NextRequest) {
       const user = await getCurrentUser();
       if (user) {
         authUserId = user.id;
-        // Si no se envió submitted_by, usar el perfil del usuario autenticado
+        // Solo buscar perfil acreditado si NO es superadmin
+        // (superadmins/admins pueden crear registros sin vincularse como acreditado)
         if (!submitterProfileId) {
-          const profile = await getProfileByUserId(user.id);
-          if (profile) submitterProfileId = profile.id;
+          const isAdmin = await isSuperAdmin(user.id);
+          if (!isAdmin) {
+            const profile = await getProfileByUserId(user.id);
+            if (profile) submitterProfileId = profile.id;
+          }
         }
       }
     } catch {
