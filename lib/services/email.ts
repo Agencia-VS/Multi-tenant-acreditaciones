@@ -14,9 +14,14 @@ import type { RegistrationFull, Tenant, EmailTemplateType } from '@/types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Dirección de envío segura
-function getFromEmail(): string {
-  return process.env.RESEND_FROM_EMAIL || 'Accredia <onboarding@resend.dev>';
+// Dirección de envío segura — usa slug del tenant en la dirección
+function getFromEmail(tenantSlug?: string): string {
+  const raw = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  // Si el valor es un dominio (sin @), convertir a noreply@dominio
+  const domain = raw.includes('@') ? raw.split('@')[1] : raw;
+  const local = tenantSlug ? `noreply.${tenantSlug}` : 'noreply';
+  const name = tenantSlug || 'Accredia';
+  return `${name} <${local}@${domain}>`;
 }
 
 /* ─── Template Engine ─────────────────────────────────────────────── */
@@ -160,13 +165,18 @@ function buildVars(
   infoGeneral: string | null,
   motivo?: string
 ): TemplateVars {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const qrUrl = `${baseUrl}/qr/${registration.qr_token}`;
   const qrSection = registration.event_qr_enabled && registration.qr_token
     ? `
       <div style="text-align: center; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px;">
         <p style="font-size: 14px; color: #666;">Tu código QR de acceso:</p>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(registration.qr_token)}" 
-             alt="QR de acceso" style="width: 200px; height: 200px;" />
+        <a href="${qrUrl}" target="_blank" rel="noopener">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" 
+               alt="QR de acceso" style="width: 200px; height: 200px;" />
+        </a>
         <p style="font-size: 12px; color: #999; margin-top: 10px;">Presenta este QR en la entrada del evento</p>
+        <p style="font-size: 11px; color: #bbb; margin-top: 4px;">o abre <a href="${qrUrl}" style="color: #2563eb;">este enlace</a> desde tu celular</p>
       </div>
     `
     : '';
@@ -337,7 +347,7 @@ export async function sendApprovalEmail(
       : fallbackApprovalHtml(registration, tenant, vars);
 
     const { error } = await resend.emails.send({
-      from: getFromEmail(),
+      from: getFromEmail(tenant.slug),
       to: registration.profile_email || '',
       subject,
       html,
@@ -379,7 +389,7 @@ export async function sendRejectionEmail(
       : fallbackRejectionHtml(tenant, vars);
 
     const { error } = await resend.emails.send({
-      from: getFromEmail(),
+      from: getFromEmail(tenant.slug),
       to: registration.profile_email || '',
       subject,
       html,
@@ -463,7 +473,7 @@ export async function sendWelcomeEmail(params: {
 
   try {
     await resend.emails.send({
-      from: getFromEmail(),
+      from: getFromEmail(params.tenantSlug),
       to,
       subject: `Bienvenido/a a ${tenantName} — Credenciales de acceso`,
       html,
@@ -555,7 +565,7 @@ export async function sendInvitationEmail({
     </div>`;
 
     await resend.emails.send({
-      from: getFromEmail(),
+      from: getFromEmail(tenantSlug),
       to,
       subject: `Invitación: ${eventName} — ${tenantName}`,
       html,

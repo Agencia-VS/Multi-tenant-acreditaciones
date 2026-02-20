@@ -5,6 +5,7 @@
  * Integra con el motor de cupos y el sistema de QR.
  */
 
+import crypto from 'crypto';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import type { 
   Registration, RegistrationFull, RegistrationFormData, 
@@ -12,6 +13,29 @@ import type {
 } from '@/types';
 import { getOrCreateProfile, updateProfileDatosBase, saveTenantProfileData } from './profiles';
 import { resolveZone } from './zones';
+
+/**
+ * Genera un token QR seguro para una inscripción y lo guarda en la DB.
+ * Reemplaza la función SQL generate_qr_token que dependía de pgcrypto.
+ */
+export async function generateQrTokenForRegistration(registrationId: string): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  const token = crypto
+    .createHash('sha256')
+    .update(registrationId + Date.now().toString() + crypto.randomUUID())
+    .digest('hex');
+
+  const { error } = await supabase
+    .from('registrations')
+    .update({ qr_token: token, qr_generated_at: new Date().toISOString() })
+    .eq('id', registrationId);
+
+  if (error) {
+    console.error(`[QR] Error guardando token para registration ${registrationId}:`, error.message);
+    return null;
+  }
+  return token;
+}
 
 /**
  * Crear una nueva inscripción.
@@ -220,7 +244,7 @@ export async function updateRegistrationStatus(
       .single();
 
     if (event?.qr_enabled) {
-      await supabase.rpc('generate_qr_token', { p_registration_id: registrationId });
+      await generateQrTokenForRegistration(registrationId);
     }
   }
 
@@ -280,14 +304,12 @@ export async function bulkUpdateStatus(
           .map(r => r.id);
 
         if (qrRegIds.length > 0) {
-          // Parallel RPC calls en chunks de 20
+          // Generar tokens en chunks de 20
           const QR_CHUNK = 20;
           for (let i = 0; i < qrRegIds.length; i += QR_CHUNK) {
             const chunkIds = qrRegIds.slice(i, i + QR_CHUNK);
             await Promise.allSettled(
-              chunkIds.map(id =>
-                supabase.rpc('generate_qr_token', { p_registration_id: id })
-              )
+              chunkIds.map(id => generateQrTokenForRegistration(id))
             );
           }
         }
@@ -334,6 +356,22 @@ export async function getRegistrationFull(registrationId: string): Promise<Regis
 
   if (error || !data) return null;
   return data as RegistrationFull;
+}
+
+/**
+ * Obtener el tenant_id de un registro (via su evento).
+ * Útil para verificar ownership antes de operaciones de escritura.
+ */
+export async function getRegistrationTenantId(registrationId: string): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from('registrations')
+    .select('event_id, events!inner(tenant_id)')
+    .eq('id', registrationId)
+    .single();
+  if (!data) return null;
+  const ev = data.events as unknown as { tenant_id: string };
+  return ev?.tenant_id ?? null;
 }
 
 /**

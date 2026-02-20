@@ -142,8 +142,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'tenant_id es requerido' }, { status: 400 });
     }
 
-    if (!data || typeof data !== 'object') {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
       return NextResponse.json({ error: 'data debe ser un objeto' }, { status: 400 });
+    }
+
+    // Limitar tamaño del payload para prevenir abuso
+    if (JSON.stringify(data).length > 10000) {
+      return NextResponse.json({ error: 'data excede el límite de 10KB' }, { status: 400 });
     }
 
     await saveTenantProfileData(

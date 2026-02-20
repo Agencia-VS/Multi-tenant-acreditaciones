@@ -99,7 +99,14 @@ export const eventCreateSchema = z.object({
   form_config_id: uuidSchema.optional().nullable(),
 }).passthrough(); // Allow extra fields for flexibility
 
-export const eventUpdateSchema = eventCreateSchema.partial().omit({ tenant_id: true });
+export const eventUpdateSchema = eventCreateSchema
+  .partial()
+  .omit({ tenant_id: true })
+  .extend({
+    // Override: no usar default(false) en updates para no sobrescribir valores existentes
+    qr_enabled: z.boolean().optional(),
+    is_active: z.boolean().optional(),
+  });
 
 /* ─── Tenants ────────────────────────────────────────────────────── */
 
@@ -140,6 +147,7 @@ export const registrationPatchSchema = z.object({
 
 /* ─── Profiles ───────────────────────────────────────────────────── */
 
+/** Schema completo para crear perfil (usado en acreditación pública y bulk import) */
 export const profileCreateSchema = z.object({
   rut: rutSchema,
   nombre: safeString.pipe(z.string().min(1, 'Nombre es requerido')),
@@ -147,7 +155,13 @@ export const profileCreateSchema = z.object({
   email: emailSchema.optional().default(''),
 });
 
+/** Schema lite para signup — solo email, el resto se completa después */
+export const profileSignupSchema = z.object({
+  email: emailSchema,
+});
+
 export const profileUpdateSchema = z.object({
+  rut: rutSchema.optional(),
   nombre: safeString.optional(),
   apellido: safeString.optional(),
   email: emailSchema.optional(),
@@ -160,6 +174,84 @@ export const profileUpdateSchema = z.object({
   data => Object.keys(data).length > 0,
   { message: 'No hay campos para actualizar' }
 );
+
+/* ─── Bulk Operations ────────────────────────────────────────────── */
+
+export const bulkActionSchema = z.object({
+  registration_ids: z.array(uuidSchema).min(1, 'registration_ids es requerido'),
+  status: z.enum(['aprobado', 'rechazado']).optional(),
+  send_emails: z.boolean().optional(),
+  action: z.enum(['approve', 'reject', 'delete']).optional(),
+});
+
+/* ─── Team Members ───────────────────────────────────────────────── */
+
+export const teamMemberCreateSchema = z.object({
+  rut: rutSchema,
+  nombre: safeString.pipe(z.string().min(1, 'Nombre es requerido')),
+  apellido: safeString.pipe(z.string().min(1, 'Apellido es requerido')),
+  email: emailSchema.optional().default(''),
+  telefono: safeString.optional(),
+  cargo: safeString.optional(),
+  medio: safeString.optional(),
+  tipo_medio: safeString.optional(),
+  alias: safeString.optional(),
+});
+
+/* ─── Tenant Profile Data ────────────────────────────────────────── */
+
+export const tenantProfileDataSchema = z.object({
+  tenant_id: uuidSchema,
+  data: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .refine(obj => JSON.stringify(obj).length < 10000, 'Datos demasiado grandes (máx 10KB)'),
+});
+
+/* ─── Event Days ─────────────────────────────────────────────────── */
+
+export const eventDaySchema = z.object({
+  fecha: z.string().min(1, 'Fecha es requerida'),
+  label: safeString.pipe(z.string().min(1, 'Label es requerido')),
+  orden: z.number().int().min(0).optional().default(1),
+  is_active: z.boolean().optional().default(true),
+});
+
+export const eventDaysSyncSchema = z.object({
+  days: z.array(eventDaySchema),
+});
+
+/* ─── Quota Rules ────────────────────────────────────────────────── */
+
+export const quotaRuleSchema = z.object({
+  tipo_medio: safeString.pipe(z.string().min(1, 'tipo_medio es requerido')),
+  max_per_organization: z.number().int().min(0).default(0),
+  max_global: z.number().int().min(0).default(0),
+});
+
+/* ─── Zone Rules ─────────────────────────────────────────────────── */
+
+export const zoneRuleSchema = z.object({
+  cargo: safeString.pipe(z.string().min(1, 'cargo es requerido')),
+  zona: safeString.pipe(z.string().min(1, 'zona es requerida')),
+  match_field: z.enum(['cargo', 'tipo_medio']).optional().default('cargo'),
+});
+
+/* ─── Invitations ────────────────────────────────────────────────── */
+
+export const invitationSchema = z.object({
+  invitees: z.array(z.object({
+    email: emailSchema,
+    nombre: safeString.optional(),
+  })).min(1, 'Al menos una invitación es requerida'),
+});
+
+/* ─── Admin Creation ─────────────────────────────────────────────── */
+
+export const adminCreateSchema = z.object({
+  email: emailSchema,
+  nombre: safeString.pipe(z.string().min(1, 'Nombre es requerido')),
+  password: z.string().min(8, 'Contraseña debe tener al menos 8 caracteres').max(128),
+  rol: z.enum(['admin', 'editor', 'viewer']).optional().default('admin'),
+});
 
 /* ─── Helper: parse seguro que retorna NextResponse compatible ──── */
 

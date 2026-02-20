@@ -48,6 +48,20 @@ export async function getEventById(eventId: string): Promise<Event | null> {
 }
 
 /**
+ * Obtener el tenant_id de un evento.
+ * Útil para verificar ownership antes de operaciones de escritura.
+ */
+export async function getEventTenantId(eventId: string): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from('events')
+    .select('tenant_id')
+    .eq('id', eventId)
+    .single();
+  return data?.tenant_id ?? null;
+}
+
+/**
  * Obtener evento con datos de tenant
  */
 export async function getEventFull(eventId: string): Promise<EventFull | null> {

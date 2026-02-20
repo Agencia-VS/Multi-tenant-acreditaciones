@@ -155,24 +155,36 @@ function CallbackHandler() {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (error) {
-          router.push('/auth/acreditado?error=auth');
-          subscription.unsubscribe();
-          return;
+          console.warn('[auth/callback] Code exchange failed:', error.message);
+          // Fallback: check if there's already an active session
+          // (e.g., server-side route already exchanged the code, or session exists from another tab)
+          const { data: { user: existingUser } } = await supabase.auth.getUser();
+          if (!existingUser) {
+            router.push('/auth/acreditado?error=auth');
+            subscription.unsubscribe();
+            return;
+          }
+          // Session exists — continue normally
         }
 
-        // Create/link profile from metadata (saved during signUp)
+        // Create/link profile from metadata if needed
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.rut) {
-          await fetch('/api/profiles/lookup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              rut: user.user_metadata.rut,
-              nombre: user.user_metadata.nombre || '',
-              apellido: user.user_metadata.apellido || '',
-              email: user.email || '',
-            }),
-          });
+        if (user) {
+          // Check if profile exists, create if not
+          const checkRes = await fetch('/api/profiles/lookup');
+          const checkData = await checkRes.json();
+          if (!checkData.found) {
+            const meta = user.user_metadata || {};
+            await fetch('/api/profiles/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                nombre: meta.nombre || meta.full_name?.split(' ')[0] || '',
+                apellido: meta.apellido || meta.full_name?.split(' ').slice(1).join(' ') || '',
+                email: user.email || '',
+              }),
+            });
+          }
         }
 
         // Check if must change password

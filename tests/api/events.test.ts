@@ -12,6 +12,7 @@ const mockDeleteEvent = vi.fn();
 const mockListEventsByTenant = vi.fn();
 const mockListAllEvents = vi.fn();
 const mockGetActiveEvent = vi.fn();
+const mockGetEventTenantId = vi.fn();
 const mockLogAuditAction = vi.fn();
 const mockRequireAuth = vi.fn();
 
@@ -23,6 +24,7 @@ vi.mock('@/lib/services', () => ({
   listEventsByTenant: (...args: unknown[]) => mockListEventsByTenant(...args),
   listAllEvents: (...args: unknown[]) => mockListAllEvents(...args),
   getActiveEvent: (...args: unknown[]) => mockGetActiveEvent(...args),
+  getEventTenantId: (...args: unknown[]) => mockGetEventTenantId(...args),
   logAuditAction: (...args: unknown[]) => mockLogAuditAction(...args),
 }));
 
@@ -120,7 +122,10 @@ describe('POST /api/events', () => {
 });
 
 describe('PATCH /api/events', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetEventTenantId.mockResolvedValue('tenant-1');
+  });
 
   it('returns 401 when not authenticated', async () => {
     authFail();
@@ -159,7 +164,10 @@ describe('PATCH /api/events', () => {
 });
 
 describe('DELETE /api/events', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetEventTenantId.mockResolvedValue('tenant-1');
+  });
 
   it('returns 401 when not authenticated', async () => {
     authFail();

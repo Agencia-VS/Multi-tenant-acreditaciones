@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { updateRegistrationStatus, getRegistrationFull } from '@/lib/services';
+import { updateRegistrationStatus, getRegistrationFull, getRegistrationTenantId } from '@/lib/services';
 import { sendApprovalEmail, sendRejectionEmail } from '@/lib/services/email';
 import { logAuditAction } from '@/lib/services/audit';
 import { requireAuth } from '@/lib/services/requireAuth';
@@ -26,8 +26,12 @@ export async function PATCH(
     }
     const { status, motivo_rechazo, send_email, datos_extra } = parsed.data;
 
-    // Auth: requiere admin de tenant o superadmin
-    const { user } = await requireAuth(request);
+    // Auth: verificar que el usuario sea admin del tenant del registro
+    const tenantId = await getRegistrationTenantId(id);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });
+    }
+    const { user } = await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     // Case 1: Update datos_extra fields (e.g., zona assignment by admin)
     if (datos_extra && !status) {
@@ -114,10 +118,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: requiere usuario autenticado (admin o superadmin)
-    await requireAuth(request);
-
+    // Auth: requiere admin del tenant del registro
     const { id } = await params;
+    const tenantId = await getRegistrationTenantId(id);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
+
     const registration = await getRegistrationFull(id);
     
     if (!registration) {
@@ -140,8 +148,12 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    // Auth: requiere admin de tenant o superadmin
-    const { user } = await requireAuth(request);
+    // Auth: verificar que el usuario sea admin del tenant del registro
+    const tenantId = await getRegistrationTenantId(id);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });
+    }
+    const { user } = await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const supabase = (await import('@/lib/supabase/server')).createSupabaseAdminClient();
     const { error } = await supabase.from('registrations').delete().eq('id', id);

@@ -7,7 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getZoneRules, upsertZoneRule, deleteZoneRule, resolveZone } from '@/lib/services/zones';
+import { getEventTenantId } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
+import { zoneRuleSchema, safeParse } from '@/lib/schemas';
 import type { ZoneMatchField } from '@/types';
 
 export async function GET(
@@ -43,17 +45,20 @@ export async function POST(
 ) {
   try {
     // Auth: requiere admin_tenant o superadmin
-    await requireAuth(request, { role: 'admin_tenant' });
-
     const { id: eventId } = await params;
-    const body = await request.json();
-    const { cargo, zona, match_field } = body;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
-    if (!cargo || !zona) {
-      return NextResponse.json({ error: 'cargo y zona son requeridos' }, { status: 400 });
+    const body = await request.json();
+    const parsed = safeParse(zoneRuleSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const rule = await upsertZoneRule(eventId, cargo, zona, (match_field as ZoneMatchField) || 'cargo');
+    const rule = await upsertZoneRule(eventId, parsed.data.cargo, parsed.data.zona, parsed.data.match_field as ZoneMatchField);
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
     if (error instanceof NextResponse) return error;
@@ -64,10 +69,18 @@ export async function POST(
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // Auth: requiere admin_tenant o superadmin
-    await requireAuth(request, { role: 'admin_tenant' });
+    // Auth: requiere admin_tenant del evento
+    const { id: eventId } = await params;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const { searchParams } = new URL(request.url);
     const ruleId = searchParams.get('rule_id');

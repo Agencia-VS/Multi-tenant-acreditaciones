@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTeamMembers, getTeamMembersForEvent, addTeamMember, removeTeamMember } from '@/lib/services';
 import { getProfileByUserId, getCurrentUser } from '@/lib/services';
+import { teamMemberCreateSchema, safeParse } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,7 +53,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const member = await addTeamMember(profile.id, body, body.alias);
+    const parsed = safeParse(teamMemberCreateSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const member = await addTeamMember(profile.id, parsed.data, parsed.data.alias);
 
     return NextResponse.json(member, { status: 201 });
   } catch (error) {

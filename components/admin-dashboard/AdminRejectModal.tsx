@@ -11,27 +11,43 @@ interface AdminRejectModalProps {
   onClose: () => void;
 }
 
+const REJECTION_TEMPLATES = [
+  'Documentación incompleta',
+  'No cumple requisitos del evento',
+  'Cupo máximo alcanzado para su medio',
+  'Datos incorrectos o no verificables',
+  'Fuera de plazo de acreditación',
+  'Cupo agotado para su categoría',
+] as const;
+
 export default function AdminRejectModal({ reg, open, onClose }: AdminRejectModalProps) {
   const { handleStatusChange, processing } = useAdmin();
-  const [motivo, setMotivo] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [additionalDetails, setAdditionalDetails] = useState('');
   const isProcessing = reg ? processing === reg.id : false;
 
+  const motivo = selectedTemplate
+    ? additionalDetails.trim()
+      ? `${selectedTemplate} — ${additionalDetails.trim()}`
+      : selectedTemplate
+    : additionalDetails.trim();
+
   const handleSubmit = () => {
-    if (!reg || !motivo.trim()) return;
+    if (!reg || !motivo) return;
     handleStatusChange(reg.id, 'rechazado', motivo);
-    setMotivo('');
+    setSelectedTemplate(null);
+    setAdditionalDetails('');
     onClose();
   };
 
-  const quickReasons = [
-    'Documentación incompleta',
-    'No cumple requisitos del evento',
-    'Cupo máximo alcanzado para su medio',
-    'Datos incorrectos o no verificables',
-  ];
+  const handleClose = () => {
+    setSelectedTemplate(null);
+    setAdditionalDetails('');
+    onClose();
+  };
 
   return (
-    <Modal open={open} onClose={onClose} title="Rechazar Acreditación" maxWidth="max-w-md">
+    <Modal open={open} onClose={handleClose} title="Rechazar Acreditación" maxWidth="max-w-md">
       {reg && (
         <div className="space-y-4">
           {/* Person info */}
@@ -49,13 +65,13 @@ export default function AdminRejectModal({ reg, open, onClose }: AdminRejectModa
           <div>
             <p className="text-xs text-gray-500 mb-2">Motivos rápidos:</p>
             <div className="flex flex-wrap gap-2">
-              {quickReasons.map(reason => (
+              {REJECTION_TEMPLATES.map(reason => (
                 <button
                   key={reason}
-                  onClick={() => setMotivo(reason)}
+                  onClick={() => setSelectedTemplate(prev => prev === reason ? null : reason)}
                   className={`px-3 py-1.5 text-xs rounded-lg border transition ${
-                    motivo === reason
-                      ? 'bg-red-50 border-red-300 text-red-700'
+                    selectedTemplate === reason
+                      ? 'bg-red-50 border-red-300 text-red-700 ring-1 ring-red-200'
                       : 'bg-white border-gray-200 text-gray-600 hover:border-red-200 hover:text-red-600'
                   }`}
                 >
@@ -65,23 +81,30 @@ export default function AdminRejectModal({ reg, open, onClose }: AdminRejectModa
             </div>
           </div>
 
-          {/* Custom reason */}
+          {/* Additional details */}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Motivo del rechazo *</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              {selectedTemplate ? 'Detalles adicionales (opcional)' : 'Motivo del rechazo *'}
+            </label>
             <textarea
-              value={motivo}
-              onChange={e => setMotivo(e.target.value)}
-              placeholder="Escriba el motivo del rechazo..."
+              value={additionalDetails}
+              onChange={e => setAdditionalDetails(e.target.value)}
+              placeholder={selectedTemplate ? 'Agregar detalles específicos...' : 'Escriba el motivo del rechazo...'}
               rows={3}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
             />
+            {motivo && (
+              <p className="mt-1.5 text-xs text-gray-400 italic truncate">
+                Se enviará: &ldquo;{motivo}&rdquo;
+              </p>
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex gap-3">
             <button
               onClick={handleSubmit}
-              disabled={!motivo.trim() || isProcessing}
+              disabled={!motivo || isProcessing}
               className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
             >
               {isProcessing ? (
@@ -92,7 +115,7 @@ export default function AdminRejectModal({ reg, open, onClose }: AdminRejectModa
               Rechazar
             </button>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition"
             >
               Cancelar

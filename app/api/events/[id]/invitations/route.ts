@@ -15,6 +15,7 @@ import {
 } from '@/lib/services/invitations';
 import { getEventById } from '@/lib/services/events';
 import { sendInvitationEmail } from '@/lib/services/email';
+import { invitationSchema, safeParse } from '@/lib/schemas';
 
 export async function GET(
   request: NextRequest,
@@ -44,17 +45,12 @@ export async function POST(
     await requireAuth(request, { role: 'superadmin' });
 
     const body = await request.json();
-    const { invitees, sendEmail = true } = body as {
-      invitees: { email: string; nombre?: string }[];
-      sendEmail?: boolean;
-    };
-
-    if (!Array.isArray(invitees) || invitees.length === 0) {
-      return NextResponse.json(
-        { error: 'Se requiere un array de invitados con al menos un email' },
-        { status: 400 }
-      );
+    const parsed = safeParse(invitationSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { invitees } = parsed.data;
+    const sendEmail = body.sendEmail !== false;
 
     // Validar que el evento existe
     const event = await getEventById(eventId);

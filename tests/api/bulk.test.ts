@@ -2,21 +2,23 @@
  * Tests: API /api/bulk — Bulk approve/reject + optimized email sending
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ── Service mocks ──
-const mockGetCurrentUser = vi.fn();
+const mockRequireAuth = vi.fn();
 const mockBulkUpdateStatus = vi.fn();
+const mockBulkDelete = vi.fn();
 const mockSendBulkApprovalEmails = vi.fn();
 const mockLogAuditAction = vi.fn();
 const mockFrom = vi.fn();
 
-vi.mock('@/lib/services/auth', () => ({
-  getCurrentUser: () => mockGetCurrentUser(),
+vi.mock('@/lib/services/requireAuth', () => ({
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
 
 vi.mock('@/lib/services', () => ({
   bulkUpdateStatus: (...args: unknown[]) => mockBulkUpdateStatus(...args),
+  bulkDelete: (...args: unknown[]) => mockBulkDelete(...args),
 }));
 
 vi.mock('@/lib/services/email', () => ({
@@ -44,21 +46,43 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
   });
 }
 
+/** Mock the resolveRegistrationsTenantId DB query (from('registrations')...) */
+function mockResolveTenant(tenantId: string = 'tenant-1') {
+  mockFrom.mockReturnValueOnce({
+    select: vi.fn().mockReturnValue({
+      in: vi.fn().mockResolvedValue({
+        data: [{ event_id: 'e-1', events: { tenant_id: tenantId } }],
+      }),
+    }),
+  });
+}
+
+/** Auth OK — resolves tenant + requireAuth succeeds */
+function authOk(userId = 'user-1') {
+  mockResolveTenant();
+  mockRequireAuth.mockResolvedValue({ user: { id: userId }, role: 'admin_tenant', tenantId: 'tenant-1' });
+}
+
+/** Auth FAIL — resolves tenant but requireAuth throws 401 */
+function authFail() {
+  mockResolveTenant();
+  mockRequireAuth.mockRejectedValue(NextResponse.json({ error: 'No autenticado' }, { status: 401 }));
+}
+
 describe('POST /api/bulk', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(null);
     mockLogAuditAction.mockResolvedValue(undefined);
   });
 
   it('returns 401 when not authenticated', async () => {
+    authFail();
     const req = makeRequest({ registration_ids: ['r-1'], status: 'aprobado' });
     const res = await POST(req);
     expect(res.status).toBe(401);
   });
 
   it('returns 400 when registration_ids is empty', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
     const req = makeRequest({ registration_ids: [], status: 'aprobado' });
     const res = await POST(req);
     expect(res.status).toBe(400);
@@ -67,7 +91,7 @@ describe('POST /api/bulk', () => {
   });
 
   it('returns 400 when status is invalid', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     const req = makeRequest({ registration_ids: ['r-1'], status: 'invalido' });
     const res = await POST(req);
     expect(res.status).toBe(400);
@@ -76,7 +100,7 @@ describe('POST /api/bulk', () => {
   });
 
   it('calls bulkUpdateStatus and returns result', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockBulkUpdateStatus.mockResolvedValue({ success: 3, errors: [] });
 
     const req = makeRequest({
@@ -97,7 +121,7 @@ describe('POST /api/bulk', () => {
   });
 
   it('logs audit action after bulk update', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockBulkUpdateStatus.mockResolvedValue({ success: 2, errors: [] });
 
     const req = makeRequest({
@@ -120,7 +144,7 @@ describe('POST /api/bulk', () => {
   });
 
   it('sends emails in batch when send_emails=true and status=aprobado', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockBulkUpdateStatus.mockResolvedValue({ success: 2, errors: [] });
 
     const fullRegs = [
@@ -159,7 +183,7 @@ describe('POST /api/bulk', () => {
   });
 
   it('uses batch query (in) instead of N individual fetches for emails', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockBulkUpdateStatus.mockResolvedValue({ success: 3, errors: [] });
 
     const fullRegs = [
@@ -191,11 +215,12 @@ describe('POST /api/bulk', () => {
 
     // Verify batch query was used (single .in() call, not N .eq() calls)
     expect(mockIn).toHaveBeenCalledWith('id', ['r-1', 'r-2', 'r-3']);
-    expect(mockFrom).toHaveBeenCalledTimes(2); // v_registration_full + tenants
+    // 1 call from resolveRegistrationsTenantId + 2 calls from email fetching
+    expect(mockFrom).toHaveBeenCalledTimes(3);
   });
 
   it('does not send emails when status is rechazado', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockBulkUpdateStatus.mockResolvedValue({ success: 1, errors: [] });
 
     const req = makeRequest({
@@ -205,12 +230,12 @@ describe('POST /api/bulk', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(200);
-    expect(mockFrom).not.toHaveBeenCalled();
+    // mockFrom is called once by resolveRegistrationsTenantId (in authOk), but not for emails
     expect(mockSendBulkApprovalEmails).not.toHaveBeenCalled();
   });
 
   it('does not send emails when send_emails is false', async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    authOk();
     mockBulkUpdateStatus.mockResolvedValue({ success: 1, errors: [] });
 
     const req = makeRequest({

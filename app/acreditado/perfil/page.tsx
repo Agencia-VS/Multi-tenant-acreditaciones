@@ -7,10 +7,10 @@
  */
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { LoadingSpinner, ButtonSpinner, useToast } from '@/components/shared/ui';
-import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { formatRut, cleanRut, validateEmail, validatePhone, sanitize } from '@/lib/validation';
-import { isProfileComplete, getMissingProfileFields, REQUIRED_PROFILE_FIELDS } from '@/lib/profile';
+import { isProfileComplete, getMissingProfileFields, REQUIRED_PROFILE_FIELDS, isReadyToAccredit, getMissingAccreditationFields, ACCREDITATION_REQUIRED_FIELDS } from '@/lib/profile';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface Profile {
@@ -50,7 +50,8 @@ export default function PerfilPage() {
 
   /** Campos requeridos que aún faltan */
   const missingRequired = profile ? getMissingProfileFields(profile) : [];
-  const requiredKeys = new Set<string>(REQUIRED_PROFILE_FIELDS.map(f => f.key));
+  const missingAccreditation = profile ? getMissingAccreditationFields(profile) : [];
+  const requiredKeys = new Set<string>(ACCREDITATION_REQUIRED_FIELDS.map(f => f.key));
 
   useEffect(() => {
     loadProfile();
@@ -124,6 +125,7 @@ export default function PerfilPage() {
           tipo_medio: profile.tipo_medio,
           cargo: profile.cargo,
           nacionalidad: profile.nacionalidad ? sanitize(profile.nacionalidad) : null,
+          ...(profile.rut ? { rut: sanitize(profile.rut) } : {}),
         }),
       });
 
@@ -166,8 +168,7 @@ export default function PerfilPage() {
         <i className="fas fa-user-circle text-5xl text-edge mb-4" />
         <p className="text-muted text-lg mb-2">Aún no tienes un perfil</p>
         <p className="text-muted text-sm mb-6">
-          Tu perfil se creará automáticamente al realizar tu primera acreditación,
-          o puedes completar una solicitud desde el dashboard.
+          Completa tu registro para crear tu perfil y poder acreditarte a eventos.
         </p>
         <a
           href="/acreditado"
@@ -183,8 +184,8 @@ export default function PerfilPage() {
   const errorInputClass = 'w-full px-3 py-2 rounded-lg border border-danger text-heading ring-1 ring-danger';
   const missingInputClass = 'w-full px-3 py-2 rounded-lg border border-warning text-heading ring-1 ring-warning bg-warning-light/20';
 
-  /** True si el campo es requerido y está vacío */
-  const isMissing = (key: string) => requiredKeys.has(key) && missingRequired.some(f => f.key === key);
+  /** True si el campo es requerido para acreditación y está vacío */
+  const isMissing = (key: string) => requiredKeys.has(key) && missingAccreditation.some(f => f.key === key);
 
   /** Label con badge de requerido si el campo falta */
   const RequiredLabel = ({ field, children }: { field: string; children: React.ReactNode }) => (
@@ -218,6 +219,19 @@ export default function PerfilPage() {
         </div>
       )}
 
+      {/* Banner: perfil incompleto para acreditación */}
+      {!fromEquipo && missingAccreditation.length > 0 && (
+        <div className="bg-info-light border border-info rounded-lg p-4 mb-6 flex items-start gap-3">
+          <i className="fas fa-info-circle text-info mt-0.5" />
+          <div>
+            <p className="font-semibold text-heading text-sm">Completa tu perfil para poder acreditarte</p>
+            <p className="text-body text-xs mt-1">
+              Campos faltantes: {missingAccreditation.map(f => f.label).join(', ')}
+            </p>
+          </div>
+        </div>
+      )}
+
       {message && (
         <div className={`p-3 rounded-lg text-sm mb-6 ${
           message.includes('Error') || message.includes('Corrige') ? 'bg-danger-light text-danger-dark' : 'bg-success-light text-success-dark'
@@ -227,18 +241,23 @@ export default function PerfilPage() {
       )}
 
       <form onSubmit={handleSave} className="bg-white rounded-xl border p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
-        {/* Avatar + RUT */}
+        {/* Avatar */}
         <div className="flex items-center gap-4 sm:gap-6 pb-4 sm:pb-6 border-b">
           {profile.foto_url ? (
-            <img src={profile.foto_url} alt="" className="w-20 h-20 rounded-full object-cover" />
+            <Image src={profile.foto_url} alt="" width={80} height={80} className="w-20 h-20 rounded-full object-cover" />
           ) : (
             <div className="w-20 h-20 rounded-full bg-accent-light flex items-center justify-center text-brand text-2xl font-bold">
-              {profile.nombre.charAt(0)}{profile.apellido.charAt(0)}
+              {(profile.nombre || '?').charAt(0)}{(profile.apellido || '?').charAt(0)}
             </div>
           )}
           <div>
-            <p className="text-lg font-bold text-heading">{profile.nombre} {profile.apellido}</p>
-            <p className="text-body font-mono text-sm">RUT: {formatRut(cleanRut(profile.rut))}</p>
+            <p className="text-lg font-bold text-heading">
+              {profile.nombre || profile.apellido
+                ? `${profile.nombre || ''} ${profile.apellido || ''}`.trim()
+                : <span className="text-muted italic">Sin nombre</span>}
+            </p>
+            {profile.rut && <p className="text-body font-mono text-sm">RUT: {formatRut(cleanRut(profile.rut))}</p>}
+            {profile.email && <p className="text-body text-sm">{profile.email}</p>}
           </div>
         </div>
 
@@ -251,7 +270,7 @@ export default function PerfilPage() {
               <input
                 type="text"
                 required
-                value={profile.nombre}
+                value={profile.nombre || ''}
                 onChange={(e) => setProfile(prev => prev ? { ...prev, nombre: e.target.value } : null)}
                 className={isMissing('nombre') ? missingInputClass : inputClass}
               />
@@ -261,11 +280,27 @@ export default function PerfilPage() {
               <input
                 type="text"
                 required
-                value={profile.apellido}
+                value={profile.apellido || ''}
                 onChange={(e) => setProfile(prev => prev ? { ...prev, apellido: e.target.value } : null)}
                 className={isMissing('apellido') ? missingInputClass : inputClass}
               />
             </div>
+          </div>
+
+          <div className="mt-4">
+            <RequiredLabel field="rut">RUT</RequiredLabel>
+            <input
+              type="text"
+              value={profile.rut ? formatRut(cleanRut(profile.rut)) : ''}
+              onChange={(e) => {
+                const raw = cleanRut(e.target.value);
+                setProfile(prev => prev ? { ...prev, rut: raw } : null);
+              }}
+              placeholder="12.345.678-9"
+              className={isMissing('rut') ? missingInputClass : inputClass}
+              maxLength={12}
+            />
+            <p className="text-xs text-muted mt-1">Requerido para acreditarse a eventos</p>
           </div>
         </div>
 
@@ -323,35 +358,6 @@ export default function PerfilPage() {
               placeholder="ej: Canal 13, Radio ADN, ESPN Chile"
               className={isMissing('medio') ? missingInputClass : `${inputClass} border-accent-light`}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <RequiredLabel field="tipo_medio">Tipo de Medio</RequiredLabel>
-              <select
-                value={profile.tipo_medio || ''}
-                onChange={(e) => setProfile(prev => prev ? { ...prev, tipo_medio: e.target.value || null } : null)}
-                className={isMissing('tipo_medio') ? missingInputClass : inputClass}
-              >
-                <option value="">Selecciona...</option>
-                {TIPOS_MEDIO.map((tm) => (
-                  <option key={tm} value={tm}>{tm}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-label mb-1">Cargo</label>
-              <select
-                value={profile.cargo || ''}
-                onChange={(e) => setProfile(prev => prev ? { ...prev, cargo: e.target.value || null } : null)}
-                className={inputClass}
-              >
-                <option value="">Selecciona...</option>
-                {CARGOS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
 

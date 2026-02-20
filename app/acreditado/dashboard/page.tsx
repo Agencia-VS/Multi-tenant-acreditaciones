@@ -14,6 +14,7 @@
  */
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { LoadingSpinner } from '@/components/shared/ui';
 import type { TenantProfileStatus } from '@/types';
 import { STATUS_MAP, type RegistrationStatus } from '@/types';
@@ -27,6 +28,7 @@ interface Registration {
   tipo_medio: string | null;
   cargo: string | null;
   qr_token: string | null;
+  motivo_rechazo: string | null;
   created_at: string;
   profile_id: string;
   submitted_by: string | null;
@@ -46,6 +48,7 @@ const mapReg = (r: any, isSelf: boolean): Registration => ({
   tipo_medio: r.tipo_medio ?? null,
   cargo: r.cargo ?? null,
   qr_token: r.qr_token ?? null,
+  motivo_rechazo: r.motivo_rechazo ?? null,
   created_at: r.created_at,
   profile_id: r.profile_id,
   submitted_by: r.submitted_by ?? null,
@@ -281,7 +284,7 @@ function TenantCard({
       <div className="flex items-center gap-4 p-5">
         {/* Shield/avatar */}
         {tenant.tenantShield ? (
-          <img src={tenant.tenantShield} alt="" className="w-12 h-12 object-contain shrink-0" />
+          <Image src={tenant.tenantShield} alt="" width={48} height={48} className="w-12 h-12 object-contain shrink-0" />
         ) : (
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0"
@@ -329,16 +332,24 @@ function TenantCard({
 
           {/* Último registro */}
           {latestRegistration && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                statusConfig[latestRegistration.status]?.bg || 'bg-subtle'
-              } ${statusConfig[latestRegistration.status]?.text || 'text-body'}`}>
-                <i className={`${statusConfig[latestRegistration.status]?.icon} mr-1`} />
-                {statusConfig[latestRegistration.status]?.label || latestRegistration.status}
-              </span>
-              <span className="text-xs text-muted">
-                {new Date(latestRegistration.created_at).toLocaleDateString('es-CL')}
-              </span>
+            <div className="mt-1">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  statusConfig[latestRegistration.status]?.bg || 'bg-subtle'
+                } ${statusConfig[latestRegistration.status]?.text || 'text-body'}`}>
+                  <i className={`${statusConfig[latestRegistration.status]?.icon} mr-1`} />
+                  {statusConfig[latestRegistration.status]?.label || latestRegistration.status}
+                </span>
+                <span className="text-xs text-muted">
+                  {new Date(latestRegistration.created_at).toLocaleDateString('es-CL')}
+                </span>
+              </div>
+              {latestRegistration.status === 'rechazado' && latestRegistration.motivo_rechazo && (
+                <p className="text-xs text-danger mt-1">
+                  <i className="fas fa-info-circle mr-1" />
+                  {latestRegistration.motivo_rechazo}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -527,15 +538,33 @@ function RegistrationHistoryView({
                     </span>
 
                     {reg.status === 'aprobado' && reg.qr_token && (
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-subtle rounded-lg flex items-center justify-center">
-                          <i className="fas fa-qrcode text-2xl text-body" />
-                        </div>
-                        <p className="text-xs text-muted mt-1">QR</p>
-                      </div>
+                      <a
+                        href={`/qr/${reg.qr_token}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-center group shrink-0"
+                        title="Ver credencial digital"
+                      >
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`${window.location.origin}/qr/${reg.qr_token}`)}`}
+                          alt="QR de acceso"
+                          className="w-16 h-16 rounded-lg border border-edge group-hover:shadow-md transition"
+                        />
+                        <p className="text-xs text-muted mt-1 group-hover:text-brand transition">Mi QR</p>
+                      </a>
                     )}
                   </div>
                 </div>
+
+                {/* Motivo de rechazo visible al acreditado */}
+                {reg.status === 'rechazado' && reg.motivo_rechazo && (
+                  <div className="mt-3 p-3 bg-danger-light rounded-lg border border-danger/10">
+                    <p className="text-sm text-danger-dark">
+                      <i className="fas fa-info-circle mr-1.5" />
+                      <span className="font-medium">Motivo:</span> {reg.motivo_rechazo}
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })}

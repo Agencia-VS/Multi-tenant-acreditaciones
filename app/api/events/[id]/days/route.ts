@@ -7,8 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listEventDays, syncEventDays, createEventDay, deleteEventDay } from '@/lib/services';
+import { listEventDays, syncEventDays, createEventDay, deleteEventDay, getEventTenantId } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
+import { eventDaySchema, eventDaysSyncSchema, safeParse } from '@/lib/schemas';
 
 export async function GET(
   request: NextRequest,
@@ -31,19 +32,23 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(request, { role: 'admin_tenant' });
-
     const { id: eventId } = await params;
-    const body = await request.json();
-    const { days } = body;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
-    if (!Array.isArray(days)) {
-      return NextResponse.json({ error: 'days debe ser un array' }, { status: 400 });
+    const body = await request.json();
+    const parsed = safeParse(eventDaysSyncSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const result = await syncEventDays(eventId, days);
+    const result = await syncEventDays(eventId, parsed.data.days);
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -56,19 +61,23 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(request, { role: 'admin_tenant' });
-
     const { id: eventId } = await params;
-    const body = await request.json();
-    const { fecha, label, orden } = body;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
-    if (!fecha || !label) {
-      return NextResponse.json({ error: 'fecha y label son requeridos' }, { status: 400 });
+    const body = await request.json();
+    const parsed = safeParse(eventDaySchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const day = await createEventDay(eventId, { fecha, label, orden });
+    const day = await createEventDay(eventId, parsed.data);
     return NextResponse.json(day, { status: 201 });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
@@ -81,7 +90,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(request, { role: 'admin_tenant' });
+    const { id: eventId } = await params;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const { searchParams } = new URL(request.url);
     const dayId = searchParams.get('day_id');
@@ -94,6 +108,7 @@ export async function DELETE(
     await deleteEventDay(dayId);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

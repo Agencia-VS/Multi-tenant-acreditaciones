@@ -5,7 +5,7 @@
  * Se autentica con email+password, linkea a un perfil por RUT.
  * Smooth animated tab transition between Login ↔ Register.
  */
-import { useState, useRef, Suspense } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -27,8 +27,9 @@ function AcreditadoAuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
+  const urlError = searchParams.get('error');
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [form, setForm] = useState({ email: '', password: '', rut: '', nombre: '', apellido: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -37,6 +38,22 @@ function AcreditadoAuthContent() {
   const { showSuccess, showError } = useToast();
 
   const supabase = getSupabaseBrowserClient();
+
+  // Auto-redirect si ya hay sesión activa
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        window.location.href = returnTo || '/acreditado';
+      } else if (urlError) {
+        // Solo mostrar error de URL si el usuario no tiene sesión
+        setError('La sesión expiró o hubo un error de autenticación. Intenta de nuevo.');
+        // Limpiar el param del URL sin recargar la página
+        window.history.replaceState({}, '', '/auth/acreditado');
+      }
+    };
+    checkSession();
+  }, []);
 
   const switchMode = (newMode: 'login' | 'register') => {
     if (newMode === mode) return;
@@ -62,34 +79,40 @@ function AcreditadoAuthContent() {
     });
 
     if (authError) {
-      setError('Credenciales inválidas. Verifica tu email y contraseña.');
-      showError('Credenciales inválidas');
+      // Mostrar error real de Supabase (puede ser "Email not confirmed", etc.)
+      const msg = authError.message.includes('Email not confirmed')
+        ? 'Tu email no ha sido confirmado. Revisa tu bandeja de entrada.'
+        : authError.message.includes('Invalid login')
+          ? 'Credenciales inválidas. Verifica tu email y contraseña.'
+          : authError.message;
+      setError(msg);
+      showError(msg);
       setLoading(false);
       return;
     }
 
-    // Si el usuario tiene RUT en metadata, asegurar que exista su perfil
-    const meta = authData.user?.user_metadata;
-    if (meta?.rut) {
-      try {
-        const checkRes = await fetch('/api/profiles/lookup');
-        const checkData = await checkRes.json();
-        if (!checkData.found) {
-          await fetch('/api/profiles/lookup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              rut: meta.rut,
-              nombre: meta.nombre || '',
-              apellido: meta.apellido || '',
-              email: authData.user?.email || '',
-            }),
-          });
-        }
-      } catch { /* ignore — perfil se creará luego */ }
-    }
+    // Asegurar que exista perfil vinculado al usuario
+    try {
+      const checkRes = await fetch('/api/profiles/lookup');
+      const checkData = await checkRes.json();
+      if (!checkData.found) {
+        // Crear perfil mínimo sin RUT (se completa después en /acreditado/perfil)
+        const meta = authData.user?.user_metadata;
+        await fetch('/api/profiles/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: meta?.nombre || meta?.full_name?.split(' ')[0] || '',
+            apellido: meta?.apellido || meta?.full_name?.split(' ').slice(1).join(' ') || '',
+            email: authData.user?.email || '',
+          }),
+        });
+      }
+    } catch { /* ignore — perfil se creará luego */ }
 
-    router.push(returnTo || '/acreditado');
+    setLoading(false);
+    // Hard redirect para que el Server Component del layout vea las cookies de sesión
+    window.location.href = returnTo || '/acreditado';
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -100,9 +123,6 @@ function AcreditadoAuthContent() {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: {
-        data: { rut: form.rut, nombre: form.nombre, apellido: form.apellido },
-      },
     });
 
     if (authError) {
@@ -113,21 +133,18 @@ function AcreditadoAuthContent() {
     }
 
     if (authData.session) {
-      // Auto-confirm habilitado: crear perfil inmediatamente (ya hay cookie)
+      // Auto-confirm habilitado: crear perfil mínimo inmediatamente
       await fetch('/api/profiles/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rut: form.rut,
-          nombre: form.nombre,
-          apellido: form.apellido,
           email: form.email,
         }),
       });
-      router.push(returnTo || '/acreditado');
+      // Hard redirect para que el Server Component del layout vea las cookies
+      window.location.href = returnTo || '/acreditado';
     } else {
-      // Email confirmation requerido: los datos están en user_metadata
-      // El perfil se creará en el callback cuando confirme el email
+      // Email confirmation requerido
       setSuccess('Cuenta creada. Revisa tu email para confirmarla.');
       showSuccess('Cuenta creada. Revisa tu email para confirmarla.');
     }
@@ -154,6 +171,24 @@ function AcreditadoAuthContent() {
       showSuccess('Email de recuperación enviado');
     }
     setLoading(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        // Usar el API route (server-side) para el code exchange — más confiable que el page callback
+        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(returnTo || '/acreditado')}`,
+      },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+      showError(oauthError.message);
+      setLoading(false);
+    }
+    // Si no hay error, el usuario es redirigido a Google
   };
 
   const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
@@ -238,7 +273,31 @@ function AcreditadoAuthContent() {
               }}
             >
               {mode === 'login' ? (
-                <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-5">
+                  {/* Google OAuth */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={loading}
+                    className="w-full py-3.5 bg-white border border-field-border text-heading rounded-xl font-semibold hover:bg-subtle disabled:opacity-50 transition-snappy flex items-center justify-center gap-3 shadow-sm"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Continuar con Google
+                  </button>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-field-border" />
+                    <span className="text-xs text-muted font-medium">o con email</span>
+                    <div className="flex-1 h-px bg-field-border" />
+                  </div>
+
+                  <form onSubmit={handleLogin} className="space-y-5">
                   <div>
                     <label className="field-label">Email</label>
                     <input
@@ -295,87 +354,78 @@ function AcreditadoAuthContent() {
                     </button>
                   </p>
                 </form>
+                </div>
               ) : (
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="field-label">Nombre</label>
-                      <input
-                        type="text"
-                        required
-                        value={form.nombre}
-                        onChange={(e) => setForm(prev => ({ ...prev, nombre: e.target.value }))}
-                        placeholder="Juan"
-                        className={inputClass}
-                        autoFocus
-                      />
-                    </div>
-                    <div>
-                      <label className="field-label">Apellido</label>
-                      <input
-                        type="text"
-                        required
-                        value={form.apellido}
-                        onChange={(e) => setForm(prev => ({ ...prev, apellido: e.target.value }))}
-                        placeholder="Pérez"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="field-label">RUT</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="12.345.678-9"
-                      value={form.rut}
-                      onChange={(e) => setForm(prev => ({ ...prev, rut: e.target.value }))}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="field-label">Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={form.email}
-                      onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="tu@email.com"
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="field-label">Contraseña</label>
-                    <input
-                      type="password"
-                      required
-                      minLength={6}
-                      value={form.password}
-                      onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                      placeholder="Mínimo 6 caracteres"
-                      className={inputClass}
-                    />
-                  </div>
+                <div className="space-y-5">
+                  {/* Google OAuth */}
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleGoogleSignIn}
                     disabled={loading}
-                    className="w-full py-3.5 bg-brand text-on-brand rounded-xl font-semibold hover:bg-brand-hover disabled:opacity-50 transition-snappy flex items-center justify-center gap-2 shadow-lg shadow-brand/15"
+                    className="w-full py-3.5 bg-white border border-field-border text-heading rounded-xl font-semibold hover:bg-subtle disabled:opacity-50 transition-snappy flex items-center justify-center gap-3 shadow-sm"
                   >
-                    {loading ? (
-                      <>
-                        <ButtonSpinner />
-                        Creando cuenta...
-                      </>
-                    ) : 'Crear cuenta'}
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Continuar con Google
                   </button>
 
-                  <p className="text-center text-xs text-muted pt-1">
-                    ¿Ya tienes cuenta?{' '}
-                    <button type="button" onClick={() => switchMode('login')} className="text-brand font-semibold hover:underline">
-                      Inicia sesión
+                  {/* Divider */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-field-border" />
+                    <span className="text-xs text-muted font-medium">o con email</span>
+                    <div className="flex-1 h-px bg-field-border" />
+                  </div>
+
+                  {/* Email + Password form */}
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div>
+                      <label className="field-label">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={form.email}
+                        onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="tu@email.com"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">Contraseña</label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={form.password}
+                        onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="Mínimo 6 caracteres"
+                        className={inputClass}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3.5 bg-brand text-on-brand rounded-xl font-semibold hover:bg-brand-hover disabled:opacity-50 transition-snappy flex items-center justify-center gap-2 shadow-lg shadow-brand/15"
+                    >
+                      {loading ? (
+                        <>
+                          <ButtonSpinner />
+                          Creando cuenta...
+                        </>
+                      ) : 'Crear cuenta'}
                     </button>
-                  </p>
-                </form>
+
+                    <p className="text-center text-xs text-muted pt-1">
+                      ¿Ya tienes cuenta?{' '}
+                      <button type="button" onClick={() => switchMode('login')} className="text-brand font-semibold hover:underline">
+                        Inicia sesión
+                      </button>
+                    </p>
+                  </form>
+                </div>
               )}
             </div>
           </div>

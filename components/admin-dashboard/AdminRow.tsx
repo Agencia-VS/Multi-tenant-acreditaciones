@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useMemo } from 'react';
+import Image from 'next/image';
 import { useAdmin } from './AdminContext';
 import { StatusBadge, ButtonSpinner } from '@/components/shared/ui';
 import type { RegistrationFull } from '@/types';
@@ -57,7 +58,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
       <td className="p-3">
         <div className="flex items-center gap-3">
           {reg.profile_foto ? (
-            <img src={reg.profile_foto} alt="" className="w-8 h-8 rounded-full object-cover" />
+            <Image src={reg.profile_foto} alt="" width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
           ) : (
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-xs font-bold">
               {reg.profile_nombre?.[0]}{reg.profile_apellido?.[0]}
@@ -147,8 +148,8 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
               <button
                 onClick={() => handleStatusChange(reg.id, 'aprobado')}
                 disabled={isProcessing}
-                className="p-1.5 text-muted hover:text-success hover:bg-success-light rounded-lg transition disabled:opacity-50"
-                title="Aprobar"
+                className="p-1.5 text-success bg-success-light hover:bg-green-100 rounded-lg transition disabled:opacity-50"
+                title="Aprobar (sin enviar email)"
               >
                 {isProcessing ? (
                   <ButtonSpinner />
@@ -159,20 +160,20 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
               <button
                 onClick={() => onReject(reg)}
                 disabled={isProcessing}
-                className="p-1.5 text-muted hover:text-danger hover:bg-danger-light rounded-lg transition disabled:opacity-50"
-                title="Rechazar"
+                className="p-1.5 text-danger bg-danger-light hover:bg-red-100 rounded-lg transition disabled:opacity-50"
+                title="Rechazar (sin enviar email)"
               >
                 <i className="fas fa-times text-sm" />
               </button>
             </>
           )}
 
-          {/* Send email for approved/rejected */}
+          {/* Send email — available for approved/rejected with email */}
           {(reg.status === 'aprobado' || reg.status === 'rechazado') && reg.profile_email && (
             <button
               onClick={() => sendEmail(reg.id)}
               disabled={isProcessing}
-              className="p-1.5 text-muted hover:text-[#9333ea] hover:bg-[#faf5ff] rounded-lg transition disabled:opacity-50"
+              className="p-1.5 text-[#9333ea] bg-[#faf5ff] hover:bg-purple-100 rounded-lg transition disabled:opacity-50"
               title={`Enviar email de ${reg.status === 'aprobado' ? 'aprobación' : 'rechazo'}`}
             >
               {isProcessing ? (

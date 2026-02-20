@@ -5,6 +5,7 @@
  * CRUD completo: crear, editar, activar/desactivar tenants
  */
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useToast, PageHeader, Modal, LoadingSpinner, FormActions, ButtonSpinner } from '@/components/shared/ui';
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import type { TenantConfig } from '@/types';
@@ -231,7 +232,7 @@ export default function TenantsPage() {
               {/* Preview */}
               <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: form.color_primario }}>
                 <div className="flex items-center gap-3">
-                  {form.shield_url && <img src={form.shield_url} alt="" className="w-10 h-10 object-contain" />}
+                  {form.shield_url && <Image src={form.shield_url} alt="" width={40} height={40} className="w-10 h-10 object-contain" />}
                   <span className="font-bold" style={{ color: form.color_secundario }}>
                     {form.nombre || 'Preview'}
                   </span>
@@ -326,7 +327,7 @@ export default function TenantsPage() {
                 style={{ backgroundColor: deleting.color_primario }}
               >
                 {deleting.shield_url ? (
-                  <img src={deleting.shield_url} alt="" className="w-7 h-7 object-contain" />
+                  <Image src={deleting.shield_url} alt="" width={28} height={28} className="w-7 h-7 object-contain" />
                 ) : deleting.nombre.charAt(0)}
               </div>
               <div>
@@ -407,7 +408,7 @@ export default function TenantsPage() {
                     style={{ backgroundColor: tenant.color_primario }}
                   >
                     {tenant.shield_url ? (
-                      <img src={tenant.shield_url} alt="" className="w-10 h-10 object-contain" />
+                      <Image src={tenant.shield_url} alt="" width={40} height={40} className="w-10 h-10 object-contain" />
                     ) : (
                       tenant.nombre.charAt(0)
                     )}

@@ -532,6 +532,7 @@ export interface AdminContextType {
   
   // Actions
   fetchData: () => Promise<void>;
+  refreshEvents: () => Promise<void>;
   selectEvent: (eventId: string) => void;
   handleStatusChange: (regId: string, status: RegistrationStatus, motivo?: string) => Promise<void>;
   handleBulkAction: (payload: BulkActionPayload) => Promise<void>;

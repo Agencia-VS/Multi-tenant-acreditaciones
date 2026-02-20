@@ -4,7 +4,7 @@
 
 import { randomBytes } from 'crypto';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import type { Tenant, TenantFormData, TenantWithStats, TenantAdmin } from '@/types';
+import type { Tenant, TenantFormData, TenantWithStats, TenantAdmin, SuperAdmin } from '@/types';
 import { cache } from 'react';
 
 /**
@@ -181,6 +181,144 @@ export async function listTenantAdmins(tenantId: string): Promise<TenantAdmin[]>
 
   if (error) throw new Error(`Error listando admins: ${error.message}`);
   return (data || []) as TenantAdmin[];
+}
+
+/**
+ * Actualizar admin de un tenant (rol, nombre)
+ */
+export async function updateTenantAdmin(
+  adminId: string,
+  updates: { rol?: string; nombre?: string }
+): Promise<TenantAdmin> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from('tenant_admins')
+    .update(updates)
+    .eq('id', adminId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Error actualizando admin: ${error.message}`);
+  return data as TenantAdmin;
+}
+
+/**
+ * Eliminar admin de un tenant y opcionalmente su usuario de Auth
+ */
+export async function deleteTenantAdmin(
+  adminId: string,
+  deleteAuthUser = false
+): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+
+  // Obtener user_id antes de eliminar
+  const { data: admin } = await supabase
+    .from('tenant_admins')
+    .select('user_id')
+    .eq('id', adminId)
+    .single();
+
+  if (!admin) throw new Error('Admin no encontrado');
+
+  // Verificar si el user_id tiene más relaciones (otro tenant o superadmin)
+  const [{ count: otherTenants }, { count: isSA }] = await Promise.all([
+    supabase.from('tenant_admins').select('*', { count: 'exact', head: true })
+      .eq('user_id', admin.user_id).neq('id', adminId),
+    supabase.from('superadmins').select('*', { count: 'exact', head: true })
+      .eq('user_id', admin.user_id),
+  ]);
+
+  // Eliminar registro de tenant_admins
+  const { error } = await supabase
+    .from('tenant_admins')
+    .delete()
+    .eq('id', adminId);
+
+  if (error) throw new Error(`Error eliminando admin: ${error.message}`);
+
+  // Solo eliminar usuario de Auth si no tiene otros roles y se pidió
+  if (deleteAuthUser && (otherTenants || 0) === 0 && (isSA || 0) === 0) {
+    try {
+      await supabase.auth.admin.deleteUser(admin.user_id);
+    } catch {
+      // No bloquear si falla
+    }
+  }
+}
+
+/**
+ * Listar todos los superadmins
+ */
+export async function listSuperAdmins(): Promise<SuperAdmin[]> {
+  const supabase = createSupabaseAdminClient();
+  
+  const { data, error } = await supabase
+    .from('superadmins')
+    .select('*')
+    .order('created_at');
+
+  if (error) throw new Error(`Error listando superadmins: ${error.message}`);
+  return (data || []) as SuperAdmin[];
+}
+
+/**
+ * Actualizar superadmin (nombre)
+ */
+export async function updateSuperAdmin(
+  superadminId: string,
+  updates: { nombre?: string }
+): Promise<SuperAdmin> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from('superadmins')
+    .update(updates)
+    .eq('id', superadminId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Error actualizando superadmin: ${error.message}`);
+  return data as SuperAdmin;
+}
+
+/**
+ * Eliminar superadmin (registro + usuario Auth)
+ */
+export async function deleteSuperAdmin(superadminId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+
+  // Obtener user_id antes de eliminar
+  const { data: sa } = await supabase
+    .from('superadmins')
+    .select('user_id')
+    .eq('id', superadminId)
+    .single();
+
+  if (!sa) throw new Error('SuperAdmin no encontrado');
+
+  // Verificar si también es tenant admin
+  const { count: tenantAdminCount } = await supabase
+    .from('tenant_admins')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', sa.user_id);
+
+  // Eliminar de tabla superadmins
+  const { error } = await supabase
+    .from('superadmins')
+    .delete()
+    .eq('id', superadminId);
+
+  if (error) throw new Error(`Error eliminando superadmin: ${error.message}`);
+
+  // Solo eliminar auth user si no tiene otros roles
+  if ((tenantAdminCount || 0) === 0) {
+    try {
+      await supabase.auth.admin.deleteUser(sa.user_id);
+    } catch {
+      // No bloquear
+    }
+  }
 }
 
 /**

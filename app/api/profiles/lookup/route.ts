@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfileByUserId, getProfileByEmail, getOrCreateProfile } from '@/lib/services';
 import { getCurrentUser } from '@/lib/services';
-import { profileCreateSchema, profileUpdateSchema, safeParse } from '@/lib/schemas';
+import { profileCreateSchema, profileSignupSchema, profileUpdateSchema, safeParse } from '@/lib/schemas';
 
 /**
  * GET — Retorna el perfil del usuario autenticado.
@@ -83,27 +83,63 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = safeParse(profileCreateSchema, body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    
+    // Try full schema first (with RUT), fallback to signup schema (email only)
+    const fullParsed = safeParse(profileCreateSchema, body);
+    if (fullParsed.success) {
+      // Full profile creation (with RUT) — used by accreditation form & bulk
+      const { rut, nombre, apellido, email } = fullParsed.data;
+      const profile = await getOrCreateProfile(
+        {
+          rut,
+          nombre,
+          apellido,
+          email: email || user.email || '',
+          cargo: '',
+          organizacion: '',
+          tipo_medio: '',
+          datos_extra: {},
+        },
+        user.id
+      );
+      return NextResponse.json({ success: true, profile });
     }
-    const { rut, nombre, apellido, email } = parsed.data;
 
-    const profile = await getOrCreateProfile(
-      {
-        rut,
-        nombre,
-        apellido,
-        email: email || user.email || '',
-        cargo: '',
-        organizacion: '',
-        tipo_medio: '',
-        datos_extra: {},
-      },
-      user.id  // user_id de la sesión, no del body
-    );
+    // Lite signup — create minimal profile (no RUT required)
+    const liteParsed = safeParse(profileSignupSchema, body);
+    if (liteParsed.success || Object.keys(body).length === 0) {
+      // Check if profile already exists
+      let profile = await getProfileByUserId(user.id);
+      if (!profile && user.email) {
+        profile = await getProfileByEmail(user.email);
+      }
+      if (profile) {
+        return NextResponse.json({ success: true, profile });
+      }
 
-    return NextResponse.json({ success: true, profile });
+      // Create minimal profile — nombre/apellido/rut nullable after P0 migration
+      const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
+      const supabase = createSupabaseAdminClient();
+      const insertData: Record<string, unknown> = {
+        user_id: user.id,
+        nombre: body.nombre || null,
+        apellido: body.apellido || null,
+        email: body.email || user.email || null,
+        rut: null,
+      };
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert(insertData as never)
+        .select()
+        .single();
+
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, profile: newProfile });
+    }
+
+    return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },

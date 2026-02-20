@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getQuotaRulesWithUsage, upsertQuotaRule, deleteQuotaRule, checkQuota } from '@/lib/services';
+import { getQuotaRulesWithUsage, upsertQuotaRule, deleteQuotaRule, checkQuota, getEventTenantId } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
+import { quotaRuleSchema, safeParse } from '@/lib/schemas';
 
 export async function GET(
   request: NextRequest,
@@ -43,21 +44,24 @@ export async function POST(
 ) {
   try {
     // Auth: requiere admin_tenant o superadmin
-    await requireAuth(request, { role: 'admin_tenant' });
-
     const { id: eventId } = await params;
-    const body = await request.json();
-    const { tipo_medio, max_per_organization, max_global } = body;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
-    if (!tipo_medio) {
-      return NextResponse.json({ error: 'tipo_medio es requerido' }, { status: 400 });
+    const body = await request.json();
+    const parsed = safeParse(quotaRuleSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
     const rule = await upsertQuotaRule(
       eventId,
-      tipo_medio,
-      max_per_organization || 0,
-      max_global || 0
+      parsed.data.tipo_medio,
+      parsed.data.max_per_organization,
+      parsed.data.max_global
     );
 
     return NextResponse.json(rule, { status: 201 });
@@ -70,14 +74,21 @@ export async function POST(
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // Auth: requiere admin_tenant o superadmin
-    await requireAuth(request, { role: 'admin_tenant' });
+    // Auth: requiere admin_tenant del evento
+    const { id: eventId } = await params;
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const { searchParams } = new URL(request.url);
     const ruleId = searchParams.get('rule_id');
-    
     if (!ruleId) {
       return NextResponse.json({ error: 'rule_id es requerido' }, { status: 400 });
     }

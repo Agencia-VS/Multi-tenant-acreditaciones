@@ -2,28 +2,42 @@
  * Tests: API /api/events/[id]/days — Event days route
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ── Mocks ──
 const mockListEventDays = vi.fn();
 const mockSyncEventDays = vi.fn();
 const mockCreateEventDay = vi.fn();
 const mockDeleteEventDay = vi.fn();
+const mockGetEventTenantId = vi.fn();
+const mockRequireAuth = vi.fn();
 
 vi.mock('@/lib/services', () => ({
   listEventDays: (...args: unknown[]) => mockListEventDays(...args),
   syncEventDays: (...args: unknown[]) => mockSyncEventDays(...args),
   createEventDay: (...args: unknown[]) => mockCreateEventDay(...args),
   deleteEventDay: (...args: unknown[]) => mockDeleteEventDay(...args),
+  getEventTenantId: (...args: unknown[]) => mockGetEventTenantId(...args),
 }));
 
 vi.mock('@/lib/services/requireAuth', () => ({
-  requireAuth: vi.fn().mockResolvedValue({ id: 'admin-1' }),
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
+
+vi.mock('@/lib/schemas', async () => {
+  const actual = await vi.importActual('@/lib/schemas');
+  return actual;
+});
 
 import { GET, PUT, POST, DELETE } from '@/app/api/events/[id]/days/route';
 
 const makeParams = (id: string) => ({ params: Promise.resolve({ id }) });
+
+/** Auth helper — tenant resolved + requireAuth OK */
+function authOk(userId = 'admin-1') {
+  mockGetEventTenantId.mockResolvedValue('tenant-1');
+  mockRequireAuth.mockResolvedValue({ user: { id: userId }, role: 'admin_tenant', tenantId: 'tenant-1' });
+}
 
 describe('GET /api/events/[id]/days', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -57,7 +71,10 @@ describe('GET /api/events/[id]/days', () => {
 });
 
 describe('PUT /api/events/[id]/days', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authOk();
+  });
 
   it('syncs days when valid array is passed', async () => {
     const synced = [{ id: 'd1', fecha: '2026-03-01', label: 'Jornada 1' }];
@@ -72,7 +89,7 @@ describe('PUT /api/events/[id]/days', () => {
 
     expect(res.status).toBe(200);
     expect(body).toHaveLength(1);
-    expect(mockSyncEventDays).toHaveBeenCalledWith('e1', [{ fecha: '2026-03-01', label: 'Jornada 1' }]);
+    expect(mockSyncEventDays).toHaveBeenCalledWith('e1', [{ fecha: '2026-03-01', label: 'Jornada 1', orden: 1, is_active: true }]);
   });
 
   it('returns 400 when days is not an array', async () => {
@@ -83,13 +100,14 @@ describe('PUT /api/events/[id]/days', () => {
     const res = await PUT(req, makeParams('e1'));
 
     expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain('array');
   });
 });
 
 describe('POST /api/events/[id]/days', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authOk();
+  });
 
   it('creates a day and returns 201', async () => {
     const day = { id: 'd1', event_id: 'e1', fecha: '2026-03-01', label: 'Día 1', orden: 1 };
@@ -104,7 +122,7 @@ describe('POST /api/events/[id]/days', () => {
 
     expect(res.status).toBe(201);
     expect(body.label).toBe('Día 1');
-    expect(mockCreateEventDay).toHaveBeenCalledWith('e1', { fecha: '2026-03-01', label: 'Día 1', orden: 1 });
+    expect(mockCreateEventDay).toHaveBeenCalledWith('e1', { fecha: '2026-03-01', label: 'Día 1', orden: 1, is_active: true });
   });
 
   it('returns 400 when fecha or label is missing', async () => {
@@ -115,13 +133,14 @@ describe('POST /api/events/[id]/days', () => {
     const res = await POST(req, makeParams('e1'));
 
     expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain('requeridos');
   });
 });
 
 describe('DELETE /api/events/[id]/days', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authOk();
+  });
 
   it('deletes a day when day_id is provided', async () => {
     mockDeleteEventDay.mockResolvedValue(undefined);

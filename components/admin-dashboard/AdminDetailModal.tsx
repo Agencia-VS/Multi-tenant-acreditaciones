@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Modal, StatusBadge } from '@/components/shared/ui';
 import { useAdmin } from './AdminContext';
 import type { RegistrationFull } from '@/types';
@@ -65,7 +66,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
       {/* Person header */}
       <div className="flex items-start gap-4 mb-6 pb-6 border-b border-edge">
         {reg.profile_foto ? (
-          <img src={reg.profile_foto} alt="" className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
+          <Image src={reg.profile_foto} alt="" width={64} height={64} className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
         ) : (
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-xl font-bold shadow-sm">
             {reg.profile_nombre?.[0]}{reg.profile_apellido?.[0]}

@@ -16,6 +16,7 @@ import { listEventDays } from '@/lib/services/eventDays';
 import { notFound } from 'next/navigation';
 import { RegistrationWizard as DynamicRegistrationForm } from '@/components/forms/registration';
 import Link from 'next/link';
+import Image from 'next/image';
 import { isAccreditationClosed } from '@/lib/dates';
 import { BackButton } from '@/components/shared/ui';
 
@@ -117,7 +118,7 @@ export default async function AcreditacionPage({
         <BackButton href={`/${slug}`} />
         <div className="relative flex flex-col items-center justify-center gap-3 pt-8 sm:pt-0">
           {tenant.shield_url && (
-            <img src={tenant.shield_url} alt={tenant.nombre} className="h-10 sm:h-12 object-contain opacity-90" />
+            <Image src={tenant.shield_url} alt={tenant.nombre} width={48} height={48} className="h-10 sm:h-12 w-auto object-contain opacity-90" />
           )}
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">

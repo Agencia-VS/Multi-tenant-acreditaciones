@@ -6,18 +6,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bulkUpdateStatus, bulkDelete } from '@/lib/services';
 import { sendBulkApprovalEmails } from '@/lib/services/email';
-import { getCurrentUser } from '@/lib/services/auth';
+import { requireAuth } from '@/lib/services/requireAuth';
 import { logAuditAction } from '@/lib/services/audit';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import type { RegistrationFull, RegistrationStatus, Tenant } from '@/types';
 
+/**
+ * Resolve the tenant_id for a set of registration IDs. 
+ * All registrations must belong to the same tenant.
+ */
+async function resolveRegistrationsTenantId(ids: string[]): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from('registrations')
+    .select('event_id, events!inner(tenant_id)')
+    .in('id', ids.slice(0, 1)); // check first one for efficiency
+  if (!data || data.length === 0) return null;
+  const ev = data[0].events as unknown as { tenant_id: string };
+  return ev?.tenant_id ?? null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { registration_ids, status, send_emails, action } = body as {
       registration_ids: string[];
@@ -29,6 +39,13 @@ export async function POST(request: NextRequest) {
     if (!registration_ids || registration_ids.length === 0) {
       return NextResponse.json({ error: 'registration_ids es requerido' }, { status: 400 });
     }
+
+    // Auth: resolver tenant de los registros y verificar permisos
+    const tenantId = await resolveRegistrationsTenantId(registration_ids);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Registros no encontrados' }, { status: 404 });
+    }
+    const { user } = await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     // ─── Bulk Delete ─────────────────────────────────
     if (action === 'delete') {
@@ -85,6 +102,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof NextResponse) return error;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }

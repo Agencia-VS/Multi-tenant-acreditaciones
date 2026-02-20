@@ -11,7 +11,7 @@ import TenantConfigInfo from './TenantConfigInfo';
 import type { Event, EventConfig } from '@/types';
 
 export default function AdminConfigTab() {
-  const { tenant, events, fetchData, showSuccess, showError } = useAdmin();
+  const { tenant, events, fetchData, refreshEvents, showSuccess, showError } = useAdmin();
   const eventForm = useEventForm();
   const { form, formFields, quotaRules, zoneRules, zonas, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
 
@@ -53,6 +53,7 @@ export default function AdminConfigTab() {
         showSuccess('Evento creado correctamente');
         setShowCreateModal(false);
         resetForm();
+        await refreshEvents();
         fetchData();
       } else {
         const d = await res.json();
@@ -78,7 +79,7 @@ export default function AdminConfigTab() {
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
-      if (res.ok) { showSuccess('Evento actualizado'); setEditEvent(null); resetForm(); fetchData(); }
+      if (res.ok) { showSuccess('Evento actualizado'); setEditEvent(null); resetForm(); await refreshEvents(); fetchData(); }
       else { const d = await res.json(); showError(d.error || 'Error actualizando evento'); }
     } catch { showError('Error de conexión'); }
     finally { setSaving(false); }

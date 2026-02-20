@@ -116,6 +116,23 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     })();
   }, [selectedEvent?.id, isMultidia]);
 
+  // ─── Refresh events list + selectedEvent ──────────────────────
+  const refreshEvents = useCallback(async () => {
+    try {
+      const evRes = await fetch(`/api/events?tenant_id=${tenantId}`);
+      if (evRes.ok) {
+        const evts = await evRes.json();
+        const list: Event[] = Array.isArray(evts) ? evts : [];
+        setEvents(list);
+        // Update selectedEvent with fresh data if it still exists
+        if (selectedEvent?.id) {
+          const fresh = list.find(e => e.id === selectedEvent.id);
+          if (fresh) setSelectedEvent(fresh as unknown as EventFull);
+        }
+      }
+    } catch { /* ignore */ }
+  }, [tenantId, selectedEvent?.id]);
+
   // ─── Fetch registrations whenever event/filters change ──────────
   const fetchData = useCallback(async () => {
     const eventId = filters.event_id || selectedEvent?.id;
@@ -189,7 +206,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       const res = await fetch(`/api/registrations/${regId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, motivo_rechazo: motivo, send_email: true }),
+        body: JSON.stringify({ status, motivo_rechazo: motivo, send_email: false }),
       });
       if (res.ok) {
         showSuccess(`Registro ${status === 'aprobado' ? 'aprobado' : status === 'rechazado' ? 'rechazado' : 'actualizado'} correctamente`);
@@ -251,7 +268,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
             registration_ids: payload.registration_ids,
             status: payload.action === 'approve' ? 'aprobado' : 'rechazado',
             motivo_rechazo: payload.motivo_rechazo,
-            send_emails: true,
+            send_emails: false,
           }),
         });
         const data = await res.json();
@@ -357,7 +374,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     eventDays, isMultidia,
     activeTab, setActiveTab, filters, setFilters,
     selectedIds, setSelectedIds, loading, processing,
-    fetchData, selectEvent, handleStatusChange, handleBulkAction, handleDelete,
+    fetchData, refreshEvents, selectEvent, handleStatusChange, handleBulkAction, handleDelete,
     updateRegistrationZona, sendEmail,
     toggleSelect, toggleSelectAll,
     showSuccess, showError,

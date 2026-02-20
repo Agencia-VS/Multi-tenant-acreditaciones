@@ -8,8 +8,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent } from '@/lib/services';
+import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent, getEventTenantId } from '@/lib/services';
 import { logAuditAction } from '@/lib/services';
+import { generateQrTokenForRegistration } from '@/lib/services/registrations';
+import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { eventCreateSchema, eventUpdateSchema, safeParse } from '@/lib/schemas';
 
@@ -51,14 +53,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth: requiere al menos autenticado (admin verifica ownership vía tenant_id en body)
-    const { user } = await requireAuth(request);
-
     const body = await request.json();
     const parsed = safeParse(eventCreateSchema, body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+
+    // Auth: requiere admin del tenant donde se crea el evento
+    const { user } = await requireAuth(request, {
+      role: 'admin_tenant',
+      tenantId: parsed.data.tenant_id,
+    });
+
     const event = await createEvent(parsed.data);
 
     await logAuditAction(user.id, 'event.created', 'event', event.id, {
@@ -81,14 +87,18 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Auth: requiere al menos autenticado
-    const { user } = await requireAuth(request);
-
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('id');
     if (!eventId) {
       return NextResponse.json({ error: 'ID de evento es requerido' }, { status: 400 });
     }
+
+    // Resolver tenant del evento y verificar permisos
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    const { user } = await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const body = await request.json();
     const parsed = safeParse(eventUpdateSchema, body);
@@ -96,6 +106,23 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const event = await updateEvent(eventId, parsed.data);
+
+    // Si se habilitó QR, generar tokens para aprobados existentes que no tengan
+    if (parsed.data.qr_enabled === true) {
+      const supabase = createSupabaseAdminClient();
+      const { data: pendingQr } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('status', 'aprobado')
+        .is('qr_token', null);
+
+      if (pendingQr && pendingQr.length > 0) {
+        await Promise.allSettled(
+          pendingQr.map(r => generateQrTokenForRegistration(r.id))
+        );
+      }
+    }
 
     await logAuditAction(user.id, 'event.updated', 'event', event.id, {
       nombre: event.nombre,
@@ -115,14 +142,18 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Auth: requiere al menos autenticado
-    const { user } = await requireAuth(request);
-
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('id');
     if (!eventId) {
       return NextResponse.json({ error: 'ID de evento es requerido' }, { status: 400 });
     }
+
+    // Resolver tenant del evento y verificar permisos
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    const { user } = await requireAuth(request, { role: 'admin_tenant', tenantId });
 
     const hardDelete = searchParams.get('action') === 'delete';
 

@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { LoadingSpinner } from '@/components/shared/ui';
 import { isDeadlinePast, formatDeadlineChile } from '@/lib/dates';
 import type { TenantProfileStatus } from '@/types';
@@ -36,14 +37,17 @@ export default function AcreditadoHomePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('nombre, apellido')
-      .eq('user_id', user.id)
-      .single();
-    
-    if (profileData) setProfile(profileData);
+    // Get profile via API (usa admin client, evita problemas de RLS)
+    try {
+      const profileRes = await fetch('/api/profiles/lookup');
+      const profileJson = await profileRes.json();
+      if (profileJson.found && profileJson.profile) {
+        setProfile({
+          nombre: profileJson.profile.nombre || '',
+          apellido: profileJson.profile.apellido || '',
+        });
+      }
+    } catch { /* ignore */ }
 
     // Get active events
     const { data: eventsData } = await supabase
@@ -74,7 +78,7 @@ export default function AcreditadoHomePage() {
     <div>
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-heading">
-          Hola, {profile?.nombre || 'Acreditado'} 👋
+          Hola, {profile?.nombre} 👋
         </h1>
         <p className="text-body text-sm sm:text-base mt-1">Bienvenido a tu portal de acreditaciones</p>
       </div>
@@ -176,7 +180,7 @@ export default function AcreditadoHomePage() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 sm:justify-between">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     {tenant?.shield_url ? (
-                      <img src={tenant.shield_url} alt="" className="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
+                      <Image src={tenant.shield_url} alt="" width={48} height={48} className="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
                     ) : (
                       <div
                         className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-white font-bold shrink-0"

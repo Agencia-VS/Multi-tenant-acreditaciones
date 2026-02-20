@@ -41,12 +41,23 @@ export default function QRScanner({
     inputRef.current?.focus();
   }, [result]);
 
-  const handleValidate = async (token: string) => {
-    if (!token.trim()) return;
+  /** Extrae el token real de un QR. Soporta URLs (/qr/{token}) o tokens directos. */
+  const extractToken = (raw: string): string => {
+    const trimmed = raw.trim();
+    // Match URL pattern: .../qr/{hex-token}
+    const urlMatch = trimmed.match(/\/qr\/([a-f0-9]{64})$/i);
+    if (urlMatch) return urlMatch[1];
+    // Fallback: use raw value as token
+    return trimmed;
+  };
+
+  const handleValidate = async (rawInput: string) => {
+    if (!rawInput.trim()) return;
+    const token = extractToken(rawInput);
     
     setScanning(true);
     try {
-      const payload: Record<string, string> = { qr_token: token.trim() };
+      const payload: Record<string, string> = { qr_token: token };
       if (isMultidia && selectedDayId) payload.event_day_id = selectedDayId;
 
       const res = await fetch('/api/qr/validate', {
