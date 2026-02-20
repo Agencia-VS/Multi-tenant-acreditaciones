@@ -19,6 +19,7 @@ export async function GET(
     const supabase = createSupabaseAdminClient();
 
     // Buscar registration por qr_token (join con profile y event)
+    // Usa FK explícita porque registrations tiene 2 FKs a profiles (profile_id y submitted_by)
     const { data: reg, error } = await supabase
       .from('registrations')
       .select(`
@@ -31,18 +32,18 @@ export async function GET(
         cargo,
         datos_extra,
         created_at,
-        profiles!inner (
+        profiles!registrations_profile_id_fkey (
           nombre,
           apellido,
           rut,
           foto_url
         ),
-        events!inner (
+        events!registrations_event_id_fkey (
           nombre,
           fecha,
           venue,
           qr_enabled,
-          tenants!inner (
+          tenants!events_tenant_id_fkey (
             nombre,
             slug,
             logo_url,
