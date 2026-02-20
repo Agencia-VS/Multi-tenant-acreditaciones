@@ -11,6 +11,7 @@ const navItems = [
   { href: '/superadmin/tenants', label: 'Tenants', icon: 'fas fa-building' },
   { href: '/superadmin/eventos', label: 'Eventos', icon: 'fas fa-calendar' },
   { href: '/superadmin/admins', label: 'Admins', icon: 'fas fa-user-shield' },
+  { href: '/superadmin/billing', label: 'Billing', icon: 'fas fa-credit-card' },
   { href: '/superadmin/configuracion', label: 'Configuración', icon: 'fas fa-cog' },
 ];
 

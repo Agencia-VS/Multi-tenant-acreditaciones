@@ -53,6 +53,7 @@ export default function AdminHeader() {
     { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge', badge: stats.pendientes, newBadge: newPendientes },
     { key: 'configuracion', label: 'Configuración', icon: 'fa-cog' },
     { key: 'mail', label: 'Mail', icon: 'fa-envelope' },
+    { key: 'plan', label: 'Plan', icon: 'fa-crown' },
   ];
 
   // Mark as seen when switching to the acreditaciones tab

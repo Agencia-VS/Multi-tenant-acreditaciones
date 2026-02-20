@@ -10,6 +10,7 @@ import { getCurrentUser, isSuperAdmin } from '@/lib/services/auth';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { logAuditAction } from '@/lib/services/audit';
+import { checkLimit } from '@/lib/services/billing';
 import { isDeadlinePast } from '@/lib/dates';
 import type { RegistrationFormData } from '@/types';
 
@@ -32,6 +33,17 @@ export async function POST(request: NextRequest) {
         { error: 'El plazo para solicitar acreditación ha cerrado' },
         { status: 403 }
       );
+    }
+
+    // Billing: verificar límite de acreditaciones por evento
+    if (event) {
+      const tenantId = (event as Record<string, unknown>).tenant_id as string;
+      if (tenantId) {
+        const limitCheck = await checkLimit(tenantId, 'registrations', event_id);
+        if (!limitCheck.allowed) {
+          return NextResponse.json({ error: limitCheck.message }, { status: 403 });
+        }
+      }
     }
 
     // ─── Identidad Unificada: resolver usuario autenticado ───

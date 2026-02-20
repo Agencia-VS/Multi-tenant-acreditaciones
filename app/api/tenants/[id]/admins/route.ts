@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createTenantAdmin, listTenantAdmins, updateTenantAdmin, deleteTenantAdmin, sendWelcomeEmail, getTenantById } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { adminCreateSchema, safeParse } from '@/lib/schemas';
+import { checkLimit } from '@/lib/services/billing';
 
 export async function GET(
   request: NextRequest,
@@ -46,6 +47,12 @@ export async function POST(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const { email, nombre, password } = parsed.data;
+
+    // Billing: verificar límite de admins del plan
+    const limitCheck = await checkLimit(tenantId, 'admins');
+    if (!limitCheck.allowed) {
+      return NextResponse.json({ error: limitCheck.message }, { status: 403 });
+    }
 
     const admin = await createTenantAdmin(tenantId, email, nombre, password || undefined);
 

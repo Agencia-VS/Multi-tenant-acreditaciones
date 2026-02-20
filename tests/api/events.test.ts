@@ -41,6 +41,10 @@ vi.mock('@/lib/services/tenants', () => ({
   getTenantBySlug: vi.fn().mockResolvedValue({ id: 'tenant-1' }),
 }));
 
+vi.mock('@/lib/services/billing', () => ({
+  checkLimit: vi.fn().mockResolvedValue({ allowed: true }),
+}));
+
 import { GET, POST, PATCH, DELETE } from '@/app/api/events/route';
 
 /** Helper: simula requireAuth exitoso */

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { listTenants, listActiveTenants, createTenant, updateTenant, logAuditAction } from '@/lib/services';
+import { listTenants, listActiveTenants, createTenant, updateTenant, logAuditAction, assignFreePlan } from '@/lib/services';
 import type { TenantFormData } from '@/types';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { tenantCreateSchema, tenantUpdateSchema, safeParse } from '@/lib/schemas';
@@ -46,6 +46,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const tenant = await createTenant(parsed.data as TenantFormData);
+
+    // Auto-assign plan Free al nuevo tenant
+    await assignFreePlan(tenant.id).catch(() => {
+      // No bloquear creación si falla asignación de plan
+    });
 
     await logAuditAction(user.id, 'tenant.created', 'tenant', tenant.id, {
       nombre: tenant.nombre,

@@ -18,6 +18,7 @@ vi.mock('@/lib/services', () => ({
   createTenant: (...args: unknown[]) => mockCreateTenant(...args),
   updateTenant: (...args: unknown[]) => mockUpdateTenant(...args),
   logAuditAction: (...args: unknown[]) => mockLogAuditAction(...args),
+  assignFreePlan: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/services/requireAuth', () => ({
@@ -28,6 +29,10 @@ vi.mock('@/lib/schemas', async () => {
   const actual = await vi.importActual('@/lib/schemas');
   return actual;
 });
+
+vi.mock('@/lib/services/billing', () => ({
+  assignFreePlan: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { GET, POST, PATCH } from '@/app/api/tenants/route';
 

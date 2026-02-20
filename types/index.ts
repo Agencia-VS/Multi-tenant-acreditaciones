@@ -406,9 +406,110 @@ export interface NavItem {
   badge?: number;
 }
 
+// ─── Tipos Billing ────────────────────────────────────────────────────────
+
+export interface PlanLimits {
+  max_events: number;
+  max_registrations_per_event: number;
+  max_admins: number;
+  max_storage_mb: number;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price_monthly_clp: number;
+  price_monthly_brl: number;
+  price_monthly_usd: number;
+  stripe_price_id_clp: string | null;
+  stripe_price_id_brl: string | null;
+  stripe_price_id_usd: string | null;
+  limits: PlanLimits;
+  is_active: boolean;
+  is_free: boolean;
+  sort_order: number;
+  features: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'incomplete' | 'unpaid';
+  current_period_start: string | null;
+  current_period_end: string | null;
+  canceled_at: string | null;
+  currency: 'CLP' | 'BRL' | 'USD';
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UsageRecord {
+  id: string;
+  tenant_id: string;
+  metric: 'events' | 'registrations' | 'admins' | 'storage_mb';
+  current_value: number;
+  period_start: string;
+  period_end: string;
+  recorded_at: string;
+}
+
+export interface BillingLimitCheck {
+  allowed: boolean;
+  current: number;
+  limit: number;
+  metric: string;
+  plan_name: string;
+  percentage?: number;
+  message: string;
+  subscription_status?: string;
+}
+
+export interface UsageMetric {
+  current: number;
+  limit: number;
+  label: string;
+}
+
+export interface UsageSummary {
+  plan: Plan;
+  metrics: {
+    events: UsageMetric;
+    registrations_per_event: UsageMetric;
+    admins: UsageMetric;
+    storage_mb: UsageMetric;
+  };
+  is_free: boolean;
+}
+
+export interface Invoice {
+  id: string;
+  tenant_id: string;
+  stripe_invoice_id: string | null;
+  stripe_event_id: string | null;
+  amount: number;
+  currency: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  period_start: string | null;
+  period_end: string | null;
+  paid_at: string | null;
+  hosted_invoice_url: string | null;
+  invoice_pdf_url: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Tipos Admin Dashboard ────────────────────────────────────────────────
 
-export type AdminTab = 'acreditaciones' | 'configuracion' | 'mail';
+export type AdminTab = 'acreditaciones' | 'configuracion' | 'mail' | 'plan';
 
 export interface AdminFilterState {
   search: string;

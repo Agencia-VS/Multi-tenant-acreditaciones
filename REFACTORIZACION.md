@@ -2,7 +2,7 @@
 
 > **Proyecto**: Multi-tenant Acreditaciones  
 > **Stack**: Next.js 16 (App Router + Turbopack) · TypeScript · Tailwind CSS v4 · Supabase · Vercel  
-> **Codebase**: ~22,500 líneas TS/TSX/CSS · 22 API routes · 15 servicios · 343 tests (30 suites)  
+> **Codebase**: ~24,000 líneas TS/TSX/CSS · 26 API routes · 16 servicios · 362 tests (31 suites)  
 > **Fecha**: 20 de febrero de 2026  
 
 ---
@@ -14,15 +14,15 @@ tres roles (acreditado, admin_tenant, superadmin), formularios dinámicos, siste
 zonas/cupos, exportación PuntoTicket, gestión de equipos, QR check-in multidía,
 emails brandizados y eventos públicos/privados/por invitación.
 
-Se completaron **19 de 20 milestones de refactorización** entre el 13 y 20 de febrero
-de 2026. Solo queda pendiente M16 (Billing). Además se implementó **P0 — Registro Simplificado +
+Se completaron **20 de 20 milestones de refactorización** entre el 13 y 20 de febrero
+de 2026. El último, M16 (Billing con Stripe), fue completado el 20 de febrero. Además se implementó **P0 — Registro Simplificado +
 Google OAuth** que reduce la fricción de entrada de 5 campos a 2 clics, y el **Sprint 1 — Quick Wins**
 (P7, P8, P11, P12, T4) completado el mismo día.
 El codebase está estable, seguro y testeado.
 
 ---
 
-## Refactorización Completada (19/20 milestones)
+## Refactorización Completada (20/20 milestones)
 
 | # | Milestone | Fecha | Impacto principal |
 |---|-----------|-------|-------------------|
@@ -45,8 +45,9 @@ El codebase está estable, seguro y testeado.
 | M19 | UX formulario | 18 feb | Modal confirmación rediseñado · progress overlay · SuccessView |
 | M20 | Gate perfil → equipo | 18 feb | `isProfileComplete()` · banner bloqueante · auto-redirect |
 | M21 | Security Hardening III | 20 feb | RLS linter-clean · SECURITY INVOKER vistas · `search_path` en ~20 funciones · rol hierarchy (admin/editor/viewer) · FK ON DELETE · CHECK constraints · 4 índices performance |
+| **M16** | **Billing + Stripe** | **20 feb** | **Planes Free/Pro/Enterprise · Suscripciones por tenant · Stripe Checkout + Customer Portal · Webhooks idempotentes · checkLimit() en 3 POSTs · Admin Plan tab · SuperAdmin billing page · Multi-moneda CLP/BRL/USD** |
 
-**Estado actual**: 343 tests · 30 suites · build limpio · Supabase linter 0 ERRORs.
+**Estado actual**: 362 tests · 31 suites · build limpio · Supabase linter 0 ERRORs.
 
 ### P0 — Registro Simplificado + Google OAuth ✅ (20 feb)
 
@@ -61,6 +62,23 @@ El codebase está estable, seguro y testeado.
 - **Nueva Solicitud**: Banner informativo si faltan campos para acreditación
 - **Compatibilidad**: `isProfileComplete()` sin cambios (gate de equipo sigue igual), bulk import sin cambios
 - **Tests**: 16 tests nuevos para `isReadyToAccredit`, `getMissingAccreditationFields`, `ACCREDITATION_REQUIRED_FIELDS`
+
+### M16 — Billing con Stripe ✅ (20 feb)
+
+**Implementado**: Sistema completo de planes, suscripciones y pagos con Stripe.
+
+- **Migración SQL** (`supabase-billing.sql`): Tablas `plans`, `subscriptions`, `usage_records`, `invoices` con RLS, vistas, función `get_tenant_plan_limits()`, seed 3 planes (Free/Pro/Enterprise)
+- **Servicio** (`lib/services/billing.ts` ~600 líneas): `listPlans`, `checkLimit`, `createCheckoutSession`, `createPortalSession`, `processStripeWebhook`, `getBillingSummary`, etc.
+- **API routes**: `/api/billing` (GET/POST), `/api/billing/webhook` (Stripe webhooks), `/api/billing/callback` (post-checkout redirect), `/api/billing/plans` (SuperAdmin CRUD)
+- **Enforcement**: `checkLimit()` en POST de `/api/events`, `/api/registrations`, `/api/tenants/[id]/admins`
+- **Auto-assign**: Plan Free asignado automáticamente al crear tenant
+- **Admin UI**: Tab "Plan" con barras de uso, cards de planes, botón checkout Stripe, portal de autoservicio
+- **BillingBanner**: Alerta al 80%+ de uso y cuando suscripción es `past_due`
+- **SuperAdmin**: Página `/superadmin/billing` con tabla de suscripciones, CRUD de planes, asignación manual
+- **Multi-moneda**: Soporte CLP, BRL, USD en planes y checkout
+- **Webhooks**: Procesamiento idempotente de `subscription.created/updated/deleted`, `invoice.paid/payment_failed`
+- **Tests**: 19 tests unitarios (planes, suscripciones, límites, usage, Stripe configuración)
+- **Env vars requeridas**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (producción)
 
 ### Nota de seguridad post-M21
 
@@ -84,28 +102,9 @@ El codebase está estable, seguro y testeado.
 
 ---
 
-## Milestone Pendiente
+## Milestones Pendientes
 
-### M16 — Sistema de Billing para Admin Tenant ⬜
-
-**Objetivo**: Infraestructura de planes y límites para monetización de la plataforma.
-
-**Modelo de datos**:
-- `plans` — Planes con límites (eventos, acreditados/evento, admins, storage)
-- `subscriptions` — Suscripción activa por tenant (1:1)
-- `usage_records` — Historial de uso para facturación
-
-**Servicio** (`lib/services/billing.ts`):
-- `checkLimit(tenantId, metric)` — Verifica si el tenant puede crear más recursos
-- `getTenantPlan()` / `getUsageSummary()` / `recordUsage()`
-
-**Implementación**:
-- Enforcement: `checkLimit()` en POST de events, registrations y admins
-- UI Admin: Tab "Plan" con barras de uso y tabla de planes
-- UI SuperAdmin: Gestión de planes + asignación manual + métricas
-- Auto-assign: Plan free al crear tenant
-- Notificaciones: Banner al 80% del límite
-- Pasarela: Interfaz abstracta `PaymentProvider` (placeholder para Stripe/MercadoPago)
+Ninguno — todos los milestones completados.
 
 ---
 
@@ -461,14 +460,14 @@ Hoy el acreditado debe ir al formulario del evento y seleccionar miembros desde 
 - [ ] **P5** — Auto-save formulario (draft)
 - [ ] **T1** — Rate limiting
 
-### Sprint 3 — Monetización (3-4 días)
-- [ ] **M16** — Billing (infraestructura completa)
+### Sprint 3 — Monetización ✅ (completado 20 feb)
+- [x] **M16** — Billing con Stripe (planes, suscripciones, checkout, webhooks, portal, límites, UI admin+superadmin)
 - [ ] **T2** — PWA manifest + service worker
 
 ### Sprint 4 — Automatización (2-3 días)
 - [ ] **P3** — Auto-aprobación condicional
 - [ ] **P6** — Recordatorios automáticos
-- [ ] **P9** — QR con URL + scanner cámara
+- [x] **P9** — QR con URL + scanner cámara ✅
 
 ### Sprint 5 — Polish (2-3 días)
 - [ ] **P4** — Dashboard analytics

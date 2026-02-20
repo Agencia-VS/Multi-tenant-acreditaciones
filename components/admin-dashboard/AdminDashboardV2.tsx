@@ -10,10 +10,12 @@ import AdminDetailModal from './AdminDetailModal';
 import AdminRejectModal from './AdminRejectModal';
 import AdminConfigTab from './AdminConfigTab';
 import AdminMailTab from './AdminMailTab';
+import AdminPlanTab from './AdminPlanTab';
+import BillingBanner from './BillingBanner';
 import type { RegistrationFull } from '@/types';
 
 function AdminDashboardInner() {
-  const { activeTab, setFilters, filters, fetchData } = useAdmin();
+  const { activeTab, setFilters, filters, fetchData, tenant } = useAdmin();
   const [detailReg, setDetailReg] = useState<RegistrationFull | null>(null);
   const [rejectReg, setRejectReg] = useState<RegistrationFull | null>(null);
 
@@ -51,6 +53,9 @@ function AdminDashboardInner() {
     <div className="min-h-screen bg-gray-50">
       <AdminHeader />
 
+      {/* Billing warning banner */}
+      {tenant && <BillingBanner tenantId={tenant.id} />}
+
       <div className="max-w-[1600px] mx-auto px-3 py-4 sm:px-6 sm:py-6">
         {activeTab === 'acreditaciones' ? (
           <div className="space-y-6">
@@ -70,6 +75,8 @@ function AdminDashboardInner() {
           <AdminConfigTab />
         ) : activeTab === 'mail' ? (
           <AdminMailTab />
+        ) : activeTab === 'plan' ? (
+          <AdminPlanTab />
         ) : null}
       </div>
 

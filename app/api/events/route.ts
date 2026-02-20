@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent, getEventTenantId } from '@/lib/services';
 import { logAuditAction } from '@/lib/services';
+import { checkLimit } from '@/lib/services/billing';
 import { generateQrTokenForRegistration } from '@/lib/services/registrations';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/services/requireAuth';
@@ -64,6 +65,12 @@ export async function POST(request: NextRequest) {
       role: 'admin_tenant',
       tenantId: parsed.data.tenant_id,
     });
+
+    // Billing: verificar límite de eventos del plan
+    const limitCheck = await checkLimit(parsed.data.tenant_id, 'events');
+    if (!limitCheck.allowed) {
+      return NextResponse.json({ error: limitCheck.message }, { status: 403 });
+    }
 
     const event = await createEvent(parsed.data);
 
