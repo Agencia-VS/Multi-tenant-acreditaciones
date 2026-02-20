@@ -145,6 +145,17 @@ export default function AdminHeader() {
             >
               <i className="fas fa-sync-alt" />
             </button>
+            {/* Scanner QR — solo si el evento tiene QR habilitado */}
+            {selectedEvent?.qr_enabled && (
+              <Link
+                href={`/${tenant?.slug || ''}/admin/scanner`}
+                className="px-3 py-2 text-body hover:text-brand hover:bg-accent-light rounded-lg transition flex items-center gap-2"
+                title="Scanner QR — Control de acceso"
+              >
+                <i className="fas fa-qrcode" />
+                <span className="hidden md:inline text-base font-medium">Scanner</span>
+              </Link>
+            )}
             <button
               onClick={() => setShowChangePassword(true)}
               className="px-3 py-2 text-body hover:text-brand hover:bg-accent-light rounded-lg transition flex items-center gap-2"
