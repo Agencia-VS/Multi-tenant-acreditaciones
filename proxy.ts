@@ -1,18 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-// Configura aquí tu dominio principal
+// ─── Dominios ────────────────────────────────────────────────
 const MAIN_DOMAIN = 'accredia.cl';
 const LOCALHOSTS = ['localhost', '127.0.0.1'];
 
-function isStaticOrApiPath(pathname: string): boolean {
-  return (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/static') ||
-    /\.(png|jpg|jpeg|ico|svg|webp|gif|css|js|map)$/i.test(pathname)
+/**
+ * Rutas "compartidas" que viven en app/ raíz y NO deben
+ * reescribirse con prefijo de tenant en subdominios.
+ * (Las rutas /api, /_next, /static ya se excluyen en el matcher.)
+ */
+const SHARED_PATHS = ['/auth', '/acreditado', '/superadmin', '/qr'];
+
+function isSharedPath(pathname: string): boolean {
+  return SHARED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
   );
 }
+
+// ─── Resolver tenant ─────────────────────────────────────────
 
 /**
  * Resuelve el tenant a partir de subdominio o query param.
@@ -21,54 +27,65 @@ function isStaticOrApiPath(pathname: string): boolean {
 function resolveTenantRewrite(req: NextRequest): string | undefined {
   const { hostname, pathname, searchParams } = req.nextUrl;
 
-  // Excepciones: rutas estáticas, api, archivos
-  if (isStaticOrApiPath(pathname)) {
+  // Rutas compartidas nunca se reescriben (auth, acreditado, etc.)
+  if (isSharedPath(pathname)) {
     return undefined;
   }
 
-  // Si es localhost, permitir tenant por query param o subdominio local
+  // ── Localhost / dev ──────────────────────────────────────────
   if (LOCALHOSTS.some((host) => hostname.startsWith(host))) {
     let tenant = searchParams.get('tenant') || '';
-    
-    // club.localhost:3000
+
+    // Subdominio local: club.localhost:3000
     const match = hostname.match(/^([^.]+)\.localhost/);
     if (!tenant && match) {
       tenant = match[1];
     }
-    
+
     if (tenant) {
-      // Si pathname ya incluye el tenant, no reescribir
+      // Si el pathname ya lleva el tenant, no reescribir
       if (pathname.startsWith(`/${tenant}`)) {
         return undefined;
       }
-      // Retornar la nueva URL para rewrite
       return `/${tenant}${pathname}`;
     }
     return undefined;
   }
 
-  // Si es dominio principal sin subdominio, no hacer nada
-  if (hostname === MAIN_DOMAIN || !hostname.endsWith('.' + MAIN_DOMAIN)) {
+  // ── Dominio principal (accredia.cl / www.accredia.cl) ───────
+  // Si es el dominio principal o www, dejar pasar → app/page.tsx (landing)
+  if (
+    hostname === MAIN_DOMAIN ||
+    hostname === `www.${MAIN_DOMAIN}` ||
+    !hostname.endsWith(`.${MAIN_DOMAIN}`)
+  ) {
     return undefined;
   }
 
-  // Extraer subdominio
-  const subdomain = hostname.replace('.' + MAIN_DOMAIN, '');
-  if (!subdomain || subdomain === hostname) {
+  // ── Subdominio → tenant ─────────────────────────────────────
+  const subdomain = hostname.replace(`.${MAIN_DOMAIN}`, '');
+  if (!subdomain || subdomain === 'www') {
     return undefined;
   }
 
-  // Rewrite al tenant correspondiente
+  // Si el pathname ya incluye el tenant, no duplicar
+  if (pathname.startsWith(`/${subdomain}`)) {
+    return undefined;
+  }
+
+  // Rewrite: cruzados.accredia.cl/admin → /cruzados/admin
   return `/${subdomain}${pathname}`;
 }
 
+// ─── Middleware principal ─────────────────────────────────────
+
 /**
- * Proxy — Next.js 16 (reemplaza middleware.ts)
+ * Middleware de Next.js
  *
  * 1. Refresca la sesión de Supabase (evita "Refresh Token Not Found")
  * 2. Resuelve tenant por subdominio/query → rewrite de URL
  */
-export async function proxy(req: NextRequest) {
+export async function tenantMiddleware(req: NextRequest) {
   // 1. Refresh de sesión Supabase (actualiza cookies)
   const { supabaseResponse } = await updateSession(req);
 
@@ -93,9 +110,3 @@ export async function proxy(req: NextRequest) {
 
   return supabaseResponse;
 }
-
-export const config = {
-  matcher: [
-    '/((?!_next|api|static|.*\\.(?:png|jpg|jpeg|ico|svg|webp|gif|css|js|map)$).*)',
-  ],
-};
