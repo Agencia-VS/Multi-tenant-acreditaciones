@@ -24,6 +24,7 @@ import { getProfileByUserId } from '@/lib/services/profiles';
 import { logAuditAction } from '@/lib/services/audit';
 import { isAccreditationClosed } from '@/lib/dates';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import type { Json } from '@/lib/supabase/database.types';
 
 interface BulkRow {
   rut: string;
@@ -302,8 +303,8 @@ export async function POST(request: NextRequest) {
         'bulk_check_and_create_registrations',
         {
           p_event_id: event_id,
-          p_submitted_by: submitterProfileId || null,
-          p_rows: rpcRows as unknown as import('@/lib/supabase/database.types').Json,
+          p_submitted_by: submitterProfileId || undefined,
+          p_rows: rpcRows as unknown as Json,
         }
       );
 

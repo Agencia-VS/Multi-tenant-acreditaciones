@@ -374,7 +374,7 @@ describe('POST /api/bulk-accreditation', () => {
     expect(mockRpc).toHaveBeenCalledWith(
       'bulk_check_and_create_registrations',
       expect.objectContaining({
-        p_submitted_by: null,
+        p_submitted_by: undefined,
       }),
     );
     expect(mockGetProfileByUserId).not.toHaveBeenCalled();
