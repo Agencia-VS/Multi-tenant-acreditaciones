@@ -6,12 +6,14 @@ import { usePathname } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
+const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
+
 const navItems = [
   { href: '/superadmin', label: 'Dashboard', icon: 'fas fa-chart-line' },
   { href: '/superadmin/tenants', label: 'Tenants', icon: 'fas fa-building' },
   { href: '/superadmin/eventos', label: 'Eventos', icon: 'fas fa-calendar' },
   { href: '/superadmin/admins', label: 'Admins', icon: 'fas fa-user-shield' },
-  { href: '/superadmin/billing', label: 'Billing', icon: 'fas fa-credit-card' },
+  ...(billingEnabled ? [{ href: '/superadmin/billing', label: 'Billing', icon: 'fas fa-credit-card' }] : []),
   { href: '/superadmin/configuracion', label: 'Configuración', icon: 'fas fa-cog' },
 ];
 

@@ -204,7 +204,13 @@ describe('getTenantSubscription', () => {
 });
 
 describe('checkLimit', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_BILLING_ENABLED = 'true';
+  });
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_BILLING_ENABLED;
+  });
 
   it('allows creation when under limit (events)', async () => {
     // Mock: subscription lookup returns free plan
@@ -314,6 +320,14 @@ describe('checkLimit', () => {
     expect(result.allowed).toBe(true);
     expect(result.percentage).toBe(90);
     expect(result.message).toContain('90%');
+  });
+
+  it('allows everything when BILLING_ENABLED is not set', async () => {
+    delete process.env.NEXT_PUBLIC_BILLING_ENABLED;
+    const result = await checkLimit('tenant-1', 'events');
+    expect(result.allowed).toBe(true);
+    expect(result.limit).toBe(-1);
+    expect(result.message).toContain('deshabilitado');
   });
 });
 

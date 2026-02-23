@@ -54,7 +54,7 @@ function AdminDashboardInner() {
       <AdminHeader />
 
       {/* Billing warning banner */}
-      {tenant && <BillingBanner tenantId={tenant.id} />}
+      {process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true' && tenant && <BillingBanner tenantId={tenant.id} />}
 
       <div className="max-w-[1600px] mx-auto px-3 py-4 sm:px-6 sm:py-6">
         {activeTab === 'acreditaciones' ? (

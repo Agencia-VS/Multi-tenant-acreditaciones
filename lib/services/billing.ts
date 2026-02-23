@@ -185,6 +185,11 @@ export async function checkLimit(
   metric: 'events' | 'registrations' | 'admins' | 'storage_mb',
   eventId?: string
 ): Promise<BillingLimitCheck> {
+  // Feature flag: si billing no está habilitado, permitir todo
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return { allowed: true, current: 0, limit: -1, metric, plan_name: 'N/A', message: 'Billing deshabilitado' };
+  }
+
   const typedSb = createSupabaseAdminClient();
 
   // 1. Obtener plan y suscripción

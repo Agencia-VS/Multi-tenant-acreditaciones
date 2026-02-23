@@ -49,11 +49,13 @@ export default function AdminHeader() {
     setMounted(true);
   }, []);
 
+  const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
+
   const tabs: { key: AdminTab; label: string; icon: string; badge?: number; newBadge?: number }[] = [
     { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge', badge: stats.pendientes, newBadge: newPendientes },
     { key: 'configuracion', label: 'Configuración', icon: 'fa-cog' },
     { key: 'mail', label: 'Mail', icon: 'fa-envelope' },
-    { key: 'plan', label: 'Plan', icon: 'fa-crown' },
+    ...(billingEnabled ? [{ key: 'plan' as AdminTab, label: 'Plan', icon: 'fa-crown' }] : []),
   ];
 
   // Mark as seen when switching to the acreditaciones tab
