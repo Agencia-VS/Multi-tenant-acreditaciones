@@ -52,7 +52,7 @@ export default function AcreditadoHomePage() {
     // Get active events
     const { data: eventsData } = await supabase
       .from('events')
-      .select('id, nombre, fecha, venue, fecha_limite_acreditacion, tenant:tenants(nombre, slug, shield_url, color_primario)')
+      .select('id, nombre, fecha, venue, fecha_limite_acreditacion, tenant:tenants(nombre, slug, logo_url, shield_url, color_primario)')
       .eq('is_active', true)
       .order('fecha', { ascending: true });
 
@@ -179,8 +179,8 @@ export default function AcreditadoHomePage() {
               <div key={event.id} className="bg-surface rounded-xl border border-edge p-4 sm:p-6 transition hover:shadow-md">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 sm:justify-between">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    {tenant?.shield_url ? (
-                      <Image src={tenant.shield_url} alt="" width={48} height={48} className="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
+                    {tenant?.logo_url ? (
+                      <Image src={tenant.logo_url} alt="" width={48} height={48} className="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
                     ) : (
                       <div
                         className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-white font-bold shrink-0"
