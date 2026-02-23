@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { LoadingSpinner } from '@/components/shared/ui';
 
@@ -15,9 +15,72 @@ interface Tenant {
 
 /* ── Wise Tone: intrepid, concise, energetic, delightfully-simple ── */
 
+/**
+ * useScrollReveal — IntersectionObserver that adds `.revealed` class
+ * to elements with `.scroll-reveal`, `.scroll-reveal-scale`, `.scroll-reveal-left`
+ */
+function useScrollReveal(rescanFlag: boolean) {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+          } else {
+            entry.target.classList.remove('revealed');
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -30px 0px' }
+    );
+
+    const timer = setTimeout(() => {
+      const targets = document.querySelectorAll(
+        '.scroll-reveal, .scroll-reveal-scale, .scroll-reveal-left, .counter-reveal'
+      );
+      targets.forEach((el) => observer.observe(el));
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [rescanFlag]);
+}
+
 export default function LandingPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [navScrolled, setNavScrolled] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  useScrollReveal(loading);
+
+  // Force scroll to top on mount (prevents browser scroll restoration)
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
+  // ── Parallax + navbar scroll handler ──
+  const handleScroll = useCallback(() => {
+    const scrollY = window.scrollY;
+
+    // Navbar blur effect
+    setNavScrolled(scrollY > 60);
+
+    // Parallax on hero background elements
+    if (heroRef.current) {
+      heroRef.current.style.setProperty('--scroll-y', `${scrollY * 0.001}px`);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   useEffect(() => {
     const loadTenants = async () => {
@@ -39,11 +102,11 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════════════════════════
           HERO — "Write headlines as if it's illegal to write subcopy"
          ════════════════════════════════════════════════════════════════ */}
-      <header className="relative overflow-hidden">
-        {/* Ambient gradient glow */}
+      <header className="relative overflow-hidden" ref={heroRef}>
+        {/* Ambient gradient glow — parallax layers */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-40%] left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-brand/8 blur-[120px]" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-accent/6 blur-[100px]" />
+          <div className="absolute top-[-40%] left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-brand/8 blur-[120px] parallax-slow" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-accent/6 blur-[100px] parallax-fast" />
         </div>
 
         {/* Subtle dot grid */}
@@ -52,74 +115,77 @@ export default function LandingPage() {
           backgroundSize: '32px 32px',
         }} />
 
-        {/* Nav */}
-        <nav className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-brand/20 backdrop-blur-sm rounded-xl flex items-center justify-center group-hover:bg-brand/30 transition-snappy">
-                <i className="fas fa-id-badge text-accent text-lg" />
+        {/* Nav — glass effect on scroll */}
+        <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${navScrolled ? 'nav-scrolled py-3' : 'py-6'}`}>
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="flex justify-between items-center">
+              <Link href="/" className="flex items-center gap-3 group">
+                <div className={`bg-brand/20 backdrop-blur-sm rounded-xl flex items-center justify-center group-hover:bg-brand/30 transition-all duration-300 ${navScrolled ? 'w-8 h-8' : 'w-10 h-10'}`}>
+                  <i className={`fas fa-id-badge text-accent ${navScrolled ? 'text-base' : 'text-lg'} transition-all duration-300`} />
+                </div>
+                <span className={`font-bold text-white tracking-tight transition-all duration-300 ${navScrolled ? 'text-xl' : 'text-2xl'}`}>Accredia</span>
+              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/auth/acreditado"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium px-4 py-2 rounded-lg transition-snappy"
+                >
+                  <i className="fas fa-user-circle text-xs" />
+                  Mi cuenta
+                </Link>
+                <Link
+                  href="/superadmin"
+                  className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold rounded-lg backdrop-blur-sm border border-white/10 transition-snappy hover:border-white/20"
+                >
+                  Admin
+                </Link>
               </div>
-              <span className="text-2xl font-bold text-white tracking-tight">Accredia</span>
-            </Link>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/auth/acreditado"
-                className="hidden sm:inline-flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium px-4 py-2 rounded-lg transition-snappy"
-              >
-                <i className="fas fa-user-circle text-xs" />
-                Mi cuenta
-              </Link>
-              <Link
-                href="/superadmin"
-                className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold rounded-lg backdrop-blur-sm border border-white/10 transition-snappy"
-              >
-                Admin
-              </Link>
             </div>
           </div>
         </nav>
 
         {/* Hero content */}
-        <div className="relative z-10 max-w-5xl mx-auto px-6 lg:px-8 pt-16 sm:pt-24 pb-24 sm:pb-32">
+        <div className="relative z-10 max-w-5xl mx-auto px-6 lg:px-8 pt-20 sm:pt-24 pb-24 sm:pb-32">
           <div className="text-center opacity-0 animate-fade-in">
             {/* Chip/badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-white/70 text-sm mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/[0.06] border border-white/10 text-white/70 text-sm mb-8 hover:bg-white/[0.1] hover:border-white/20 transition-fluid cursor-default">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               Plataforma activa — acreditaciones abiertas
             </div>
 
             <h1 className="text-5xl sm:text-7xl font-bold text-white mb-6 tracking-tight leading-[0.9]">
               Tu pase de prensa.
-              <span className="block text-accent mt-3">Sin el papeleo.</span>
+              <span className="block text-accent mt-3 opacity-0 animate-fade-in-delay-1">Sin el papeleo.</span>
             </h1>
 
-            <p className="text-lg sm:text-xl text-white/60 max-w-xl mx-auto mb-12 leading-relaxed">
+            <p className="text-lg sm:text-xl text-white/60 max-w-xl mx-auto mb-12 leading-relaxed opacity-0 animate-fade-in-delay-1">
               Solicita, gestiona y recibe acreditaciones para eventos deportivos en 2 minutos. Digital. Rápido. Sin vueltas.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center opacity-0 animate-fade-in-delay-1">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center opacity-0 animate-fade-in-delay-2">
               <Link
                 href="/auth/acreditado"
-                className="group px-6 py-3.5 sm:px-8 sm:py-4 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl transition-snappy shadow-lg shadow-brand/20 inline-flex items-center justify-center gap-2"
+                className="group px-6 py-3.5 sm:px-8 sm:py-4 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl transition-snappy shadow-lg shadow-brand/20 inline-flex items-center justify-center gap-2 cta-glow hover:scale-[1.03] active:scale-[0.98]"
               >
                 Acredítate ahora
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 group-hover:translate-x-1.5 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </Link>
-              <a
-                href="#clubes"
-                className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white/[0.06] hover:bg-white/[0.1] text-white font-semibold rounded-xl border border-white/10 backdrop-blur-sm transition-snappy"
+              <button
+                onClick={() => document.getElementById('clubes')?.scrollIntoView({ behavior: 'smooth' })}
+                className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white/[0.06] hover:bg-white/[0.12] text-white font-semibold rounded-xl border border-white/10 hover:border-white/20 backdrop-blur-sm transition-fluid hover:scale-[1.02] active:scale-[0.98] inline-flex items-center justify-center gap-2 cursor-pointer"
               >
+                <i className="fas fa-chevron-down text-xs text-white/50" />
                 Ver eventos
-              </a>
+              </button>
             </div>
           </div>
         </div>
 
         {/* Stats strip */}
-        <div className="relative z-10 max-w-4xl mx-auto px-6 lg:px-8 pb-20 opacity-0 animate-fade-in-delay-2">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 py-4 sm:py-6 px-4 sm:px-8 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
+        <div className="relative z-10 max-w-4xl mx-auto px-6 lg:px-8 pb-20">
+          <div className="scroll-reveal grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 py-4 sm:py-6 px-4 sm:px-8 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
             {[
               { value: '50+', label: 'Eventos gestionados' },
               { value: '2,000+', label: 'Credenciales emitidas' },
@@ -127,7 +193,7 @@ export default function LandingPage() {
               { value: '<10 min', label: 'Tiempo promedio' },
             ].map((stat, i) => (
               <div key={i} className="text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-white">{stat.value}</p>
+                <p className={`text-2xl sm:text-3xl font-bold text-white counter-reveal stagger-${i + 1}`}>{stat.value}</p>
                 <p className="text-white/40 text-xs mt-1 uppercase tracking-wider">{stat.label}</p>
               </div>
             ))}
@@ -140,7 +206,7 @@ export default function LandingPage() {
          ════════════════════════════════════════════════════════════════ */}
       <section className="py-20 bg-surface">
         <div className="max-w-5xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16 scroll-reveal">
             <p className="text-sm font-semibold text-brand uppercase tracking-wider mb-3">Así de simple</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-heading tracking-tight">
               3 pasos. Nada más.
@@ -168,12 +234,12 @@ export default function LandingPage() {
                 desc: 'El club aprueba y recibes tu acreditación digital al instante.',
               },
             ].map((item, i) => (
-              <div key={i} className="relative text-center group">
+              <div key={i} className={`relative text-center group scroll-reveal stagger-${i + 1}`}>
                 {/* Connector line (hidden on mobile, visible between steps on md+) */}
                 {i < 2 && (
                   <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-px bg-edge" />
                 )}
-                <div className="relative z-10 w-20 h-20 mx-auto mb-6 rounded-2xl bg-canvas border border-edge flex items-center justify-center group-hover:border-brand group-hover:bg-accent-light transition-snappy">
+                <div className="relative z-10 w-20 h-20 mx-auto mb-6 rounded-2xl bg-canvas border border-edge flex items-center justify-center group-hover:border-brand group-hover:bg-accent-light group-hover:-translate-y-1 transition-all duration-300">
                   <i className={`fas ${item.icon} text-2xl text-brand`} />
                 </div>
                 <span className="text-xs font-bold text-muted uppercase tracking-widest">{item.step}</span>
@@ -188,9 +254,9 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════════════════════════
           CLUBES — Portal de acceso directo
          ════════════════════════════════════════════════════════════════ */}
-      <section id="clubes" className="py-20 bg-canvas">
+      <section id="clubes" className="py-20 bg-canvas scroll-mt-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 scroll-reveal">
             <p className="text-sm font-semibold text-brand uppercase tracking-wider mb-3">Eventos activos</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-heading tracking-tight mb-3">
               Elige tu destino
@@ -205,30 +271,30 @@ export default function LandingPage() {
               <LoadingSpinner />
             </div>
           ) : tenants.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="text-center py-12 scroll-reveal">
               <i className="fas fa-calendar-xmark text-4xl text-muted mb-4" />
               <p className="text-muted">No hay eventos activos en este momento.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {tenants.map((tenant) => (
+              {tenants.map((tenant, i) => (
                 <Link
                   key={tenant.id}
                   href={`/${tenant.slug}`}
-                  className="group relative bg-surface border border-edge hover:border-brand rounded-2xl p-6 text-center transition-snappy hover:shadow-lg hover:shadow-brand/5"
+                  className={`group relative bg-surface border border-edge hover:border-brand rounded-2xl p-6 text-center card-hover-lift hover:shadow-xl hover:shadow-brand/8 scroll-reveal-scale stagger-${i + 1}`}
                 >
                   {/* Hover glow */}
-                  <div className="absolute inset-0 rounded-2xl bg-brand/[0.02] opacity-0 group-hover:opacity-100 transition-snappy pointer-events-none" />
+                  <div className="absolute inset-0 rounded-2xl bg-brand/[0.03] opacity-0 group-hover:opacity-100 transition-fluid pointer-events-none" />
 
                   {tenant.logo_url ? (
                     <img
                       src={tenant.logo_url}
                       alt={tenant.nombre}
-                      className="w-20 h-20 object-contain mx-auto mb-4 group-hover:scale-105 transition-fluid"
+                      className="w-20 h-20 object-contain mx-auto mb-4 group-hover:scale-110 transition-fluid"
                     />
                   ) : (
                     <div
-                      className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white text-2xl font-bold group-hover:scale-105 transition-fluid shadow-sm"
+                      className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white text-2xl font-bold group-hover:scale-110 transition-fluid shadow-sm"
                       style={{ backgroundColor: tenant.color_primario || 'var(--color-brand)' }}
                     >
                       {tenant.nombre.charAt(0)}
@@ -253,7 +319,7 @@ export default function LandingPage() {
          ════════════════════════════════════════════════════════════════ */}
       <section className="py-20 bg-surface">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16 scroll-reveal">
             <p className="text-sm font-semibold text-brand uppercase tracking-wider mb-3">Ventajas</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-heading tracking-tight">
               Acreditaciones sin fricción
@@ -307,9 +373,9 @@ export default function LandingPage() {
             ].map((f, i) => (
               <div
                 key={i}
-                className="group bg-surface rounded-2xl p-7 border border-edge hover:border-brand/30 hover:shadow-md transition-fluid"
+                className={`group bg-surface rounded-2xl p-7 border border-edge hover:border-brand/30 card-hover-lift hover:shadow-lg scroll-reveal stagger-${i + 1}`}
               >
-                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-5`}>
+                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-5 group-hover:scale-110 transition-fluid`}>
                   <i className={`fas ${f.icon} text-lg ${f.color}`} />
                 </div>
                 <h3 className="text-lg font-semibold text-heading mb-2 group-hover:text-brand transition-snappy">
@@ -334,33 +400,35 @@ export default function LandingPage() {
         }} />
 
         <div className="relative z-10 max-w-3xl mx-auto px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 text-white/80 text-sm mb-8 border border-white/10">
-            <i className="fas fa-building text-xs" />
-            Para clubes y organizadores
+          <div className="scroll-reveal">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 text-white/80 text-sm mb-8 border border-white/10">
+              <i className="fas fa-building text-xs" />
+              Para clubes y organizadores
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-5 tracking-tight">
+              ¿Organizas eventos?
+              <span className="block mt-2 text-[#00C48C]">Digitaliza tu acreditación.</span>
+            </h2>
+
+            <p className="text-white/60 text-lg mb-10 max-w-lg mx-auto leading-relaxed">
+              Deja de gestionar acreditaciones por email. Control total, aprobaciones en tiempo real, exportación de datos.
+            </p>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-5 tracking-tight">
-            ¿Organizas eventos?
-            <span className="block mt-2 text-[#00C48C]">Digitaliza tu acreditación.</span>
-          </h2>
-
-          <p className="text-white/60 text-lg mb-10 max-w-lg mx-auto leading-relaxed">
-            Deja de gestionar acreditaciones por email. Control total, aprobaciones en tiempo real, exportación de datos.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center scroll-reveal">
             <Link
               href="/superadmin"
-              className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-[#00C48C] text-white font-semibold rounded-xl hover:bg-[#00A676] transition-snappy shadow-lg shadow-[#00C48C]/20"
+              className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-[#00C48C] text-white font-semibold rounded-xl hover:bg-[#00A676] transition-snappy shadow-lg shadow-[#00C48C]/20 cta-glow hover:scale-[1.03] active:scale-[0.98]"
             >
               Solicitar acceso
-              <svg className="w-4 h-4 group-hover:translate-x-1 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 group-hover:translate-x-1.5 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Link>
             <a
               href="mailto:contacto@accredia.cl"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-white/10 text-white font-semibold rounded-xl border border-white/15 hover:bg-white/15 transition-snappy"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:px-8 sm:py-4 bg-white/10 text-white font-semibold rounded-xl border border-white/15 hover:bg-white/15 hover:border-white/25 transition-fluid hover:scale-[1.02] active:scale-[0.98]"
             >
               <i className="fas fa-envelope text-sm" />
               Contactar

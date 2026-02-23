@@ -98,7 +98,7 @@ El codebase está estable, seguro y testeado.
 - [ ] **Leaked password protection** — Activar en Dashboard → Auth → Settings → Password Security (no es SQL)
 - [ ] **`registration_days.checked_in_by`** es TEXT, debería ser UUID con FK a `auth.users` — requiere migración de datos
 - [ ] **`mt_reglas_cupo`** tiene RLS habilitado pero sin policies — tabla legacy, evaluar si se sigue usando
-- [ ] **`registrations_insert`** WITH CHECK(true) — intencionalmente abierto para formulario público; `check_and_create_registration()` valida cuotas/duplicados server-side
+- [x] **`registrations_insert`** WITH CHECK restrictivo — solo permite INSERT si el usuario es dueño del perfil, manager del equipo, admin del tenant o superadmin (defense-in-depth; los inserts reales van por RPCs con service_role)
 
 ---
 

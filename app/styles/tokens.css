@@ -105,6 +105,7 @@
 /* ─── Accesibilidad: base legible y responsive ─── */
 html {
   font-size: 16px;
+  scroll-behavior: smooth;
 }
 
 @media (min-width: 768px) {

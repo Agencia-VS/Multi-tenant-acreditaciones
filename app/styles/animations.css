@@ -99,6 +99,145 @@
 .orb-drift-2 { animation: orbDrift2 25s ease-in-out infinite; }
 .orb-drift-3 { animation: orbDrift3 18s ease-in-out infinite; }
 
+/* ── Scroll-triggered reveal (IntersectionObserver) ── */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+@keyframes revealScale {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes revealLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(40px) scale(0.97);
+  filter: blur(4px);
+  transition: opacity 0.6s var(--ease-fluid),
+              transform 0.6s var(--ease-fluid),
+              filter 0.6s var(--ease-fluid);
+  will-change: transform, opacity, filter;
+}
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.88);
+  transition: opacity 0.5s var(--ease-fluid),
+              transform 0.5s var(--ease-fluid);
+  will-change: transform, opacity;
+}
+.scroll-reveal-scale.revealed {
+  opacity: 1;
+  transform: scale(1);
+}
+.scroll-reveal-left {
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: opacity 0.5s var(--ease-fluid),
+              transform 0.5s var(--ease-fluid);
+  will-change: transform, opacity;
+}
+.scroll-reveal-left.revealed {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Stagger delay classes for children */
+.stagger-1 { transition-delay: 0.08s; }
+.stagger-2 { transition-delay: 0.16s; }
+.stagger-3 { transition-delay: 0.24s; }
+.stagger-4 { transition-delay: 0.32s; }
+.stagger-5 { transition-delay: 0.40s; }
+.stagger-6 { transition-delay: 0.48s; }
+
+/* ── Counter rolling animation ── */
+.counter-reveal {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: opacity 0.5s var(--ease-snappy),
+              transform 0.5s var(--ease-snappy);
+  will-change: transform, opacity;
+}
+.counter-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Parallax helper (JS sets --scroll-y) ── */
+.parallax-slow {
+  will-change: transform;
+  transform: translateY(calc(var(--scroll-y, 0) * 0.3));
+  transition: transform 0.1s linear;
+}
+.parallax-fast {
+  will-change: transform;
+  transform: translateY(calc(var(--scroll-y, 0) * -0.15));
+  transition: transform 0.1s linear;
+}
+
+/* ── Navbar scroll state ── */
+.nav-scrolled {
+  background: rgba(17, 17, 17, 0.85) !important;
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Enhanced card hover lift ── */
+.card-hover-lift {
+  transition: transform 0.4s var(--ease-fluid),
+              box-shadow 0.4s var(--ease-fluid),
+              border-color 0.3s var(--ease-snappy);
+}
+.card-hover-lift:hover {
+  transform: translateY(-6px) scale(1.02);
+}
+
+/* ── CTA glow pulse ── */
+@keyframes ctaGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 196, 140, 0.2),
+                0 8px 32px rgba(0, 196, 140, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 196, 140, 0.35),
+                0 8px 48px rgba(0, 196, 140, 0.25);
+  }
+}
+.cta-glow {
+  animation: ctaGlow 3s ease-in-out infinite;
+}
+
 /* ── Grain texture overlay ── */
 .grain-overlay::after {
   content: '';

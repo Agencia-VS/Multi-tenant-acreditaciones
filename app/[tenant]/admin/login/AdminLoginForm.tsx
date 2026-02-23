@@ -1,14 +1,20 @@
 'use client';
 
 /**
- * Admin Login Form — Client Component con diseño glassmorphism
- * Adapta colores y logo al tenant
+ * Admin Login Form — Wise Design Foundations
+ *
+ * Consistente con TenantLanding:
+ *   - Fondo oscuro multicapa (forest + orbs + grain + vignette)
+ *   - Tarjeta glassmorphism oscura
+ *   - Motion tokens (snappy, fluid)
+ *   - Paleta semántica via generateTenantPalette
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { BackButton, useToast, ButtonSpinner } from '@/components/shared/ui';
 import { shouldForcePasswordChange, getForceChangeRedirectUrl } from '@/lib/services/passwordPolicy';
+import { generateTenantPalette } from '@/lib/colors';
 
 interface AdminLoginFormProps {
   tenantSlug: string;
@@ -37,6 +43,13 @@ export default function AdminLoginForm({
   const [loading, setLoading] = useState(false);
   const { showError, showSuccess } = useToast();
 
+  const p = useMemo(() => generateTenantPalette(
+    colorPrimario,
+    colorSecundario,
+    colorLight,
+    colorDark,
+  ), [colorPrimario, colorSecundario, colorLight, colorDark]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -62,7 +75,6 @@ export default function AdminLoginForm({
       }
 
       if (data.session) {
-        // Si el usuario debe cambiar su contraseña, redirigir al formulario
         if (shouldForcePasswordChange(data.user)) {
           window.location.href = getForceChangeRedirectUrl(
             window.location.origin,
@@ -104,30 +116,84 @@ export default function AdminLoginForm({
 
   return (
     <main
-      className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
-      style={{
-        background: `linear-gradient(135deg, ${colorDark} 0%, ${colorPrimario} 40%, ${colorLight} 100%)`,
-      }}
+      className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden dark-surface"
+      style={{ background: p.forest }}
     >
-      {/* Decorative blur circles */}
+      {/* ── Background layers (matching TenantLanding) ── */}
+
+      {/* Orb 1 — bright accent, top-right (the "pop") */}
       <div
-        className="absolute top-20 left-10 w-72 h-72 rounded-full blur-3xl opacity-10"
-        style={{ backgroundColor: colorSecundario }}
+        className="absolute orb-drift-1 pointer-events-none"
+        style={{
+          top: '-8%',
+          right: '-5%',
+          width: '55%',
+          height: '55%',
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${p.bright}14 0%, transparent 70%)`,
+          filter: 'blur(80px)',
+        }}
       />
+
+      {/* Orb 2 — primario, center-left */}
       <div
-        className="absolute bottom-20 right-10 w-96 h-96 rounded-full blur-3xl opacity-10"
-        style={{ backgroundColor: colorLight }}
+        className="absolute orb-drift-2 pointer-events-none"
+        style={{
+          bottom: '5%',
+          left: '-10%',
+          width: '50%',
+          height: '60%',
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${colorPrimario}18 0%, transparent 65%)`,
+          filter: 'blur(100px)',
+        }}
+      />
+
+      {/* Orb 3 — secondary, subtle mid-right warmth */}
+      <div
+        className="absolute orb-drift-3 pointer-events-none"
+        style={{
+          top: '40%',
+          right: '10%',
+          width: '30%',
+          height: '35%',
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${colorSecundario}0C 0%, transparent 60%)`,
+          filter: 'blur(90px)',
+        }}
+      />
+
+      {/* Diagonal accent lines */}
+      <div
+        className="diagonal-accent"
+        style={{ '--accent-line-color': `${p.bright}0A` } as React.CSSProperties}
+      />
+
+      {/* Grain texture */}
+      <div className="absolute inset-0 grain-overlay" />
+
+      {/* Bottom vignette */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse 100% 60% at 50% 100%, ${p.forest}C0 0%, transparent 70%)`,
+        }}
+      />
+
+      {/* Ambient glow */}
+      <div
+        className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full blur-[160px] pointer-events-none"
+        style={{ background: `${p.bright}06` }}
       />
 
       {/* Back button */}
       <BackButton href={`/${tenantSlug}`} />
 
-      {/* Login card */}
-      <div className="w-full max-w-md relative z-10">
-        <div className="bg-white shadow-2xl rounded-3xl border border-edge backdrop-blur-xl p-8 sm:p-10">
+      {/* ── Login card — white surface ── */}
+      <div className="w-full max-w-md relative z-10 opacity-0 animate-fade-in">
+        <div className="bg-white rounded-2xl p-8 sm:p-10 shadow-2xl border border-white/20">
           {/* Header */}
           <div className="text-center mb-8">
-            {/* Logo */}
             {logoUrl && (
               <div className="flex justify-center mb-4">
                 <Image
@@ -143,7 +209,7 @@ export default function AdminLoginForm({
             <h1 className="text-2xl sm:text-3xl font-bold text-heading">
               Panel de Administración
             </h1>
-            <p className="text-body text-sm mt-1">{tenantName}</p>
+            <p className="text-sm text-body mt-1">{tenantName}</p>
           </div>
 
           {/* Form */}
@@ -167,7 +233,7 @@ export default function AdminLoginForm({
                   placeholder="admin@ejemplo.com"
                   required
                   disabled={loading}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-edge text-heading placeholder-muted bg-canvas focus:bg-white disabled:opacity-60 transition-all text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-edge text-heading placeholder-muted bg-canvas focus:bg-white disabled:opacity-60 transition-snappy text-sm"
                 />
               </div>
             </div>
@@ -191,22 +257,20 @@ export default function AdminLoginForm({
                   placeholder="••••••••"
                   required
                   disabled={loading}
-                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-edge text-heading placeholder-muted bg-canvas focus:bg-white disabled:opacity-60 transition-all text-sm"
+                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-edge text-heading placeholder-muted bg-canvas focus:bg-white disabled:opacity-60 transition-snappy text-sm"
                 />
                 {/* Toggle password visibility */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-body transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-body transition-snappy"
                   tabIndex={-1}
                 >
                   {showPassword ? (
-                    /* Eye slash — password visible, click to hide */
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                     </svg>
                   ) : (
-                    /* Eye open — password hidden, click to show */
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -234,28 +298,38 @@ export default function AdminLoginForm({
               </div>
             )}
 
-            {/* Submit button */}
+            {/* Submit button — matching TenantLanding CTA */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-xl font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100 flex items-center justify-center gap-2"
+              className="group relative w-full overflow-hidden rounded-2xl py-3.5 font-bold shadow-2xl transition-snappy hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100 flex items-center justify-center gap-2 cursor-pointer"
               style={{
-                background: `linear-gradient(135deg, ${colorPrimario}, ${colorDark})`,
+                background: p.ctaBg,
+                border: `1px solid ${p.ctaBorder}50`,
+                color: p.ctaText,
+                boxShadow: `0 8px 32px ${p.forest}60`,
               }}
             >
-              {loading ? (
-                <>
-                  <ButtonSpinner />
-                  Iniciando sesión...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                  </svg>
-                  Iniciar Sesión
-                </>
-              )}
+              {/* Hover fill layer */}
+              <span
+                className="absolute inset-0 translate-y-full group-hover:translate-y-0 transition-fluid"
+                style={{ background: p.ctaHoverBg }}
+              />
+              <span className="relative flex items-center gap-2">
+                {loading ? (
+                  <>
+                    <ButtonSpinner />
+                    Iniciando sesión...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                    </svg>
+                    Iniciar Sesión
+                  </>
+                )}
+              </span>
             </button>
           </form>
 
@@ -265,7 +339,7 @@ export default function AdminLoginForm({
               type="button"
               onClick={handleForgotPassword}
               disabled={loading}
-              className="text-xs hover:underline disabled:opacity-50"
+              className="text-xs font-medium transition-snappy hover:underline disabled:opacity-50"
               style={{ color: colorPrimario }}
             >
               ¿Olvidaste tu contraseña?
