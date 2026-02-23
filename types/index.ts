@@ -603,11 +603,27 @@ export interface BulkTemplateColumn {
   width?: number;     // ancho de columna en Excel
 }
 
+/** A single disclaimer section — icon + title + body */
+export interface DisclaimerSection {
+  id: string;           // unique key, e.g. 'proceso', 'restricciones'
+  icon: string;         // emoji, e.g. '📋'
+  title: string;        // section heading
+  body: string;         // paragraph(s) - supports simple text
+  color: 'blue' | 'yellow' | 'red' | 'green' | 'purple' | 'gray';
+}
+
+/** Disclaimer configuration stored in event.config.disclaimer */
+export interface DisclaimerConfig {
+  enabled: boolean;                 // switch on/off
+  sections: DisclaimerSection[];    // custom sections (empty = use defaults)
+}
+
 /** Typed event config */
 export interface EventConfig {
   zonas?: string[];              // zone options for this event
   acreditacion_abierta?: boolean; // manual override to keep accreditation open
   bulk_template_columns?: BulkTemplateColumn[]; // columnas dinámicas para carga masiva
+  disclaimer?: DisclaimerConfig; // configurable disclaimer
   [key: string]: unknown;
 }
 

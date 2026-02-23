@@ -1,6 +1,8 @@
 'use client';
 
 import ImageUploadField from '@/components/shared/ImageUploadField';
+import DisclaimerEditor from './DisclaimerEditor';
+import type { DisclaimerSection } from '@/types';
 import type { EventForm } from './useEventForm';
 
 interface EventFormFieldsProps {
@@ -199,6 +201,21 @@ export default function EventFormFields({
             <i className="fas fa-plus text-xs" /> Agregar
           </button>
         </div>
+      </div>
+
+      {/* Disclaimer configurable */}
+      <div>
+        <label className="text-xs text-body mb-1 block">
+          <i className="fas fa-file-contract mr-1 text-indigo-500" />
+          Disclaimer / Términos y Condiciones
+        </label>
+        <p className="text-xs text-muted mb-2">Configura si el acreditado debe aceptar términos antes de registrarse y personaliza las secciones.</p>
+        <DisclaimerEditor
+          enabled={form.disclaimer_enabled}
+          sections={form.disclaimer_sections}
+          onToggle={(enabled: boolean) => setForm(f => ({ ...f, disclaimer_enabled: enabled }))}
+          onSectionsChange={(sections: DisclaimerSection[]) => setForm(f => ({ ...f, disclaimer_sections: sections }))}
+        />
       </div>
     </div>
   );

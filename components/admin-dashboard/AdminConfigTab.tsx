@@ -31,12 +31,19 @@ export default function AdminConfigTab() {
     try {
       const eventConfig: EventConfig = {};
       if (zonas.length > 0) eventConfig.zonas = zonas;
+      eventConfig.disclaimer = {
+        enabled: form.disclaimer_enabled,
+        sections: form.disclaimer_sections,
+      };
+
+      // Exclude disclaimer fields — they live inside config, not as event columns
+      const { disclaimer_enabled: _de, disclaimer_sections: _ds, ...formData } = form;
 
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form, tenant_id: tenant.id, config: eventConfig, form_fields: formFields,
+          ...formData, tenant_id: tenant.id, config: eventConfig, form_fields: formFields,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
@@ -68,14 +75,24 @@ export default function AdminConfigTab() {
     setSaving(true);
     try {
       const existingConfig: EventConfig = editEvent.config || {};
-      const updatedConfig: EventConfig = { ...existingConfig, zonas: zonas.length > 0 ? zonas : undefined };
+      const updatedConfig: EventConfig = {
+        ...existingConfig,
+        zonas: zonas.length > 0 ? zonas : undefined,
+        disclaimer: {
+          enabled: form.disclaimer_enabled,
+          sections: form.disclaimer_sections,
+        },
+      };
       if (!updatedConfig.zonas) delete updatedConfig.zonas;
+
+      // Exclude disclaimer fields — they live inside config, not as event columns
+      const { disclaimer_enabled: _de, disclaimer_sections: _ds, ...formData } = form;
 
       const res = await fetch(`/api/events?id=${editEvent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form, config: updatedConfig,
+          ...formData, config: updatedConfig,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });

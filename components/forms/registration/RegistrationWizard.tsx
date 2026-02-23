@@ -213,6 +213,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
     contactEmail,
     eventType,
     eventDays,
+    disclaimerConfig,
   } = props;
 
   const form = useRegistrationForm(props);
@@ -240,6 +241,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
           eventVenue={eventVenue}
           fechaLimite={fechaLimite}
           contactEmail={contactEmail}
+          disclaimerConfig={disclaimerConfig}
         />
       )}
 

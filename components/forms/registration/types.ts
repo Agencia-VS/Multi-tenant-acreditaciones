@@ -50,6 +50,8 @@ export interface RegistrationFormProps {
   /** Multi-day support */
   eventType?: EventType;
   eventDays?: EventDay[];
+  /** Custom disclaimer config from event.config.disclaimer */
+  disclaimerConfig?: import('@/types').DisclaimerConfig;
 }
 
 export const STEP_LABELS = ['Responsable', 'Tipo de medio', 'Acreditados'];

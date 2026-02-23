@@ -92,6 +92,7 @@ export default async function AcreditacionPage({
 
   // Verificar si la acreditación está cerrada (override manual + fecha límite)
   const eventConfig = event.config ?? {};
+  const disclaimerConfig = eventConfig.disclaimer as import('@/types').DisclaimerConfig | undefined;
   const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
     eventConfig,
     event.fecha_limite_acreditacion
@@ -156,6 +157,7 @@ export default async function AcreditacionPage({
             bulkEnabled={!!tenant.config?.acreditacion_masiva_enabled}
             eventType={eventType}
             eventDays={eventDays}
+            disclaimerConfig={disclaimerConfig}
             userProfile={userProfile ? {
               id: userProfile.id,
               rut: userProfile.rut,

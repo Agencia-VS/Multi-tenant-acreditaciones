@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { isoToLocalDatetime } from '@/lib/dates';
-import type { Event, EventVisibility, FormFieldDefinition, ZoneMatchField } from '@/types';
+import type { Event, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -20,6 +20,8 @@ export interface EventForm {
   fecha_limite_acreditacion: string;
   qr_enabled: boolean;
   visibility: EventVisibility;
+  disclaimer_enabled: boolean;
+  disclaimer_sections: DisclaimerSection[];
 }
 
 export interface QuotaRule {
@@ -44,6 +46,8 @@ const INITIAL_FORM: EventForm = {
   league: '', descripcion: '',
   fecha_limite_acreditacion: '', qr_enabled: false,
   visibility: 'public',
+  disclaimer_enabled: true,
+  disclaimer_sections: [],
 };
 
 export const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
@@ -97,6 +101,8 @@ export function useEventForm() {
 
   /** Sincronizas el formulario con un evento existente (para edición) */
   const syncFromEvent = (event: Event) => {
+    const eventConfig = event.config ?? {};
+    const dc = eventConfig.disclaimer as DisclaimerConfig | undefined;
     setForm({
       nombre: event.nombre || '',
       fecha: event.fecha || '',
@@ -109,8 +115,9 @@ export function useEventForm() {
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
       qr_enabled: event.qr_enabled || false,
       visibility: (event as Event & { visibility?: string }).visibility as EventVisibility || 'public',
+      disclaimer_enabled: dc?.enabled ?? true,
+      disclaimer_sections: dc?.sections ?? [],
     });
-    const eventConfig = event.config ?? {};
     setZonas(eventConfig.zonas || []);
   };
 
@@ -144,6 +151,14 @@ export function useEventForm() {
 
       const evConfig = source.config ?? {};
       setZonas(evConfig.zonas || []);
+
+      // Clone disclaimer config
+      const dc = evConfig.disclaimer as DisclaimerConfig | undefined;
+      setForm(f => ({
+        ...f,
+        disclaimer_enabled: dc?.enabled ?? true,
+        disclaimer_sections: dc?.sections ?? [],
+      }));
 
       try {
         const res = await fetch(`/api/events/${source.id}/quotas`);

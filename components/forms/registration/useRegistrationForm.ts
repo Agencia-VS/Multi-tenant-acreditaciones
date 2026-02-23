@@ -88,14 +88,17 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     tenantColors,
     userProfile,
     onSuccess,
+    disclaimerConfig,
   } = props;
+
+  const disclaimerEnabled = disclaimerConfig?.enabled !== false; // default true
 
   const { quotaResult, checkQuota } = useQuotaCheck(eventId);
   const { buildDynamicDataForProfile, saveTenantData } = useTenantProfile();
 
   // ─── Steps ───
-  const [step, setStep] = useState<Step>('disclaimer');
-  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [step, setStep] = useState<Step>(disclaimerEnabled ? 'disclaimer' : 'responsable');
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(!disclaimerEnabled);
 
   // ─── Responsable data ───
   const [responsable, setResponsable] = useState<ResponsableData>({
@@ -618,8 +621,8 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   };
 
   const resetForm = () => {
-    setStep('disclaimer');
-    setDisclaimerAccepted(false);
+    setStep(disclaimerEnabled ? 'disclaimer' : 'responsable');
+    setDisclaimerAccepted(!disclaimerEnabled);
     setResponsable({ rut: '', nombre: '', apellido: '', segundo_apellido: '', email: '', telefono: '', organizacion: '' });
     setRespErrors({});
     setRespTouched(new Set());

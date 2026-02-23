@@ -1,8 +1,8 @@
 /**
- * Tests: API /api/bulk-accreditation — Optimized batch accreditation
+ * Tests: API /api/bulk-accreditation — Bulk RPC v2
  *
  * Validates HTTP layer: validation, auth, deadline, profile batch ops,
- * zone resolution, RPC registration, and response shape.
+ * zone resolution, single bulk RPC registration, and response shape.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -46,8 +46,6 @@ let zoneRulesStore: { cargo: string; zona: string; match_field: string }[] = [];
 
 /**
  * Creates a smart from() mock that returns correct chains based on table name.
- * Profiles table supports: select().in(), upsert().select(), update().eq()
- * event_zone_rules table supports: select().eq()
  */
 function createFromMock() {
   return vi.fn((table: string) => {
@@ -57,7 +55,6 @@ function createFromMock() {
           in: vi.fn().mockResolvedValue({ data: [...profileStore] }),
         }),
         upsert: vi.fn().mockImplementation((rows: { rut: string; nombre: string }[]) => {
-          // Simulate upsert: add to store and return
           const created = rows.map((r, i) => {
             const existing = profileStore.find(p => p.rut === r.rut);
             if (existing) return { id: existing.id, rut: existing.rut };
@@ -81,7 +78,6 @@ function createFromMock() {
         }),
       };
     }
-    // fallback
     return {
       select: vi.fn().mockReturnValue({
         in: vi.fn().mockResolvedValue({ data: [] }),
@@ -123,6 +119,17 @@ function makeRow(rut: string, nombre: string, apellido: string, extra: Record<st
   return { rut, nombre, apellido, ...extra };
 }
 
+/**
+ * Helper: configure mockRpc to simulate bulk_check_and_create_registrations.
+ */
+function mockBulkRpcSuccess(rowResults: Array<{ row_index: number; ok: boolean; error?: string; reg_id?: string }>) {
+  mockRpc.mockResolvedValueOnce({ data: rowResults, error: null });
+}
+
+function mockBulkRpcError(message: string) {
+  mockRpc.mockResolvedValueOnce({ data: null, error: { message } });
+}
+
 describe('POST /api/bulk-accreditation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,7 +137,6 @@ describe('POST /api/bulk-accreditation', () => {
     mockIsSuperAdmin.mockResolvedValue(false);
     mockGetEventById.mockResolvedValue(null);
     mockLogAuditAction.mockResolvedValue(undefined);
-    // Reset stores
     profileStore = [];
     zoneRulesStore = [];
   });
@@ -204,18 +210,19 @@ describe('POST /api/bulk-accreditation', () => {
     });
   });
 
-  // ── Success flow ──
+  // ── Success flow (single bulk RPC) ──
 
-  it('processes valid rows with existing profiles via RPC', async () => {
+  it('processes valid rows via single bulk RPC call', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [
       { id: 'prof-1', rut: '11111111-1', user_id: null },
       { id: 'prof-2', rut: '22222222-2', user_id: null },
     ];
 
-    mockRpc
-      .mockResolvedValueOnce({ data: 'reg-1', error: null })
-      .mockResolvedValueOnce({ data: 'reg-2', error: null });
+    mockBulkRpcSuccess([
+      { row_index: 0, ok: true, reg_id: 'reg-1' },
+      { row_index: 1, ok: true, reg_id: 'reg-2' },
+    ]);
 
     const rows = [
       makeRow('11111111-1', 'Juan', 'Pérez'),
@@ -231,14 +238,51 @@ describe('POST /api/bulk-accreditation', () => {
     expect(body.results).toHaveLength(2);
     expect(body.results[0].ok).toBe(true);
     expect(body.results[1].ok).toBe(true);
+
+    // Verify single RPC call (not N calls)
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'bulk_check_and_create_registrations',
+      expect.objectContaining({
+        p_event_id: 'evt-1',
+      }),
+    );
+  });
+
+  it('sends all rows in a single RPC payload', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+    profileStore = [
+      { id: 'prof-1', rut: '11111111-1', user_id: null },
+      { id: 'prof-2', rut: '22222222-2', user_id: null },
+      { id: 'prof-3', rut: '33333333-3', user_id: null },
+    ];
+
+    mockBulkRpcSuccess([
+      { row_index: 0, ok: true, reg_id: 'reg-1' },
+      { row_index: 1, ok: true, reg_id: 'reg-2' },
+      { row_index: 2, ok: true, reg_id: 'reg-3' },
+    ]);
+
+    const rows = [
+      makeRow('11111111-1', 'A', 'B'),
+      makeRow('22222222-2', 'C', 'D'),
+      makeRow('33333333-3', 'E', 'F'),
+    ];
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    await POST(req);
+
+    // Verify the RPC received 3 rows in a single call
+    const rpcCall = mockRpc.mock.calls[0];
+    expect(rpcCall[0]).toBe('bulk_check_and_create_registrations');
+    const payload = rpcCall[1].p_rows as Array<{ profile_id: string }>;
+    expect(payload).toHaveLength(3);
   });
 
   it('creates new profiles via upsert for unknown RUTs', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
-    // No existing profiles — will trigger upsert
     profileStore = [];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('99999999-9', 'Nuevo', 'Periodista')];
     const req = makeRequest({ event_id: 'evt-1', rows });
@@ -246,21 +290,21 @@ describe('POST /api/bulk-accreditation', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(1);
-    // Profile was auto-created in the store by upsert mock
     expect(profileStore).toHaveLength(1);
     expect(profileStore[0].rut).toBe('99999999-9');
   });
 
-  it('handles RPC errors gracefully (partial success)', async () => {
+  it('handles RPC per-row errors (partial success)', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [
       { id: 'prof-1', rut: '11111111-1', user_id: null },
       { id: 'prof-2', rut: '22222222-2', user_id: null },
     ];
 
-    mockRpc
-      .mockResolvedValueOnce({ data: 'reg-1', error: null })
-      .mockResolvedValueOnce({ data: null, error: { message: 'Duplicate registration' } });
+    mockBulkRpcSuccess([
+      { row_index: 0, ok: true, reg_id: 'reg-1' },
+      { row_index: 1, ok: false, error: 'Esta persona ya está registrada en este evento' },
+    ]);
 
     const rows = [
       makeRow('11111111-1', 'Juan', 'Pérez'),
@@ -272,14 +316,30 @@ describe('POST /api/bulk-accreditation', () => {
     expect(body.total).toBe(2);
     expect(body.success).toBe(1);
     expect(body.errors).toBe(1);
-    expect(body.results.find((r: { rut: string }) => r.rut === '22222222-2').error).toContain('Duplicate');
+    expect(body.results.find((r: { rut: string }) => r.rut === '22222222-2').error).toContain('registrada');
+  });
+
+  it('handles RPC-level failure (all fail)', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+    profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+    mockBulkRpcError('Connection timeout');
+
+    const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    const res = await POST(req);
+    const body = await res.json();
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(1);
+    expect(body.results[0].ok).toBe(false);
+    expect(body.results[0].error).toContain('Connection timeout');
   });
 
   it('mixes valid and invalid rows correctly', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 1, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [
       makeRow('', 'Bad', 'Row'), // invalid: no rut
@@ -305,16 +365,16 @@ describe('POST /api/bulk-accreditation', () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
     const req = makeRequest({ event_id: 'evt-1', rows });
     await POST(req);
 
     expect(mockRpc).toHaveBeenCalledWith(
-      'check_and_create_registration',
+      'bulk_check_and_create_registrations',
       expect.objectContaining({
-        p_submitted_by: undefined,
+        p_submitted_by: null,
       }),
     );
     expect(mockGetProfileByUserId).not.toHaveBeenCalled();
@@ -327,39 +387,35 @@ describe('POST /api/bulk-accreditation', () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
     const req = makeRequest({ event_id: 'evt-1', rows });
     await POST(req);
 
     expect(mockRpc).toHaveBeenCalledWith(
-      'check_and_create_registration',
+      'bulk_check_and_create_registrations',
       expect.objectContaining({
         p_submitted_by: 'user-prof-1',
       }),
     );
   });
 
-  // ── Zone resolution ──
+  // ── Zone resolution (still happens in JS before RPC) ──
 
-  it('resolves zone from cargo rule locally', async () => {
+  it('resolves zone from cargo rule locally and includes in datos_extra', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
     zoneRulesStore = [{ cargo: 'Periodista', zona: 'Prensa', match_field: 'cargo' }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('11111111-1', 'Juan', 'Pérez', { cargo: 'Periodista' })];
     const req = makeRequest({ event_id: 'evt-1', rows });
     await POST(req);
 
-    expect(mockRpc).toHaveBeenCalledWith(
-      'check_and_create_registration',
-      expect.objectContaining({
-        p_datos_extra: expect.objectContaining({ zona: 'Prensa' }),
-      }),
-    );
+    const rpcPayload = (mockRpc.mock.calls[0][1].p_rows as Array<{ datos_extra: Record<string, string> }>);
+    expect(rpcPayload[0].datos_extra.zona).toBe('Prensa');
   });
 
   it('resolves zone from tipo_medio when cargo has no match', async () => {
@@ -367,27 +423,23 @@ describe('POST /api/bulk-accreditation', () => {
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
     zoneRulesStore = [{ cargo: 'TV', zona: 'Media', match_field: 'tipo_medio' }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('11111111-1', 'Juan', 'Pérez', { tipo_medio: 'TV', cargo: 'Unknown' })];
     const req = makeRequest({ event_id: 'evt-1', rows });
     await POST(req);
 
-    expect(mockRpc).toHaveBeenCalledWith(
-      'check_and_create_registration',
-      expect.objectContaining({
-        p_datos_extra: expect.objectContaining({ zona: 'Media' }),
-      }),
-    );
+    const rpcPayload = (mockRpc.mock.calls[0][1].p_rows as Array<{ datos_extra: Record<string, string> }>);
+    expect(rpcPayload[0].datos_extra.zona).toBe('Media');
   });
 
   // ── Datos extra ──
 
-  it('passes extra fields as datos_extra', async () => {
+  it('passes extra fields in datos_extra to RPC rows', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('11111111-1', 'Juan', 'Pérez', {
       patente: 'AB-1234',
@@ -396,26 +448,22 @@ describe('POST /api/bulk-accreditation', () => {
     const req = makeRequest({ event_id: 'evt-1', rows });
     await POST(req);
 
-    expect(mockRpc).toHaveBeenCalledWith(
-      'check_and_create_registration',
-      expect.objectContaining({
-        p_datos_extra: expect.objectContaining({
-          patente: 'AB-1234',
-          vehiculo: 'Sedan',
-        }),
-      }),
-    );
+    const rpcPayload = (mockRpc.mock.calls[0][1].p_rows as Array<{ datos_extra: Record<string, string> }>);
+    expect(rpcPayload[0].datos_extra.patente).toBe('AB-1234');
+    expect(rpcPayload[0].datos_extra.vehiculo).toBe('Sedan');
   });
 
   // ── Duplicate RUTs in same batch ──
 
-  it('deduplicates profiles for repeated RUTs in same batch', async () => {
+  it('deduplicates profiles for repeated RUTs (PG handles duplicate check)', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
 
-    mockRpc
-      .mockResolvedValueOnce({ data: 'reg-1', error: null })
-      .mockResolvedValueOnce({ data: 'reg-2', error: null });
+    // PG function handles the duplicate check — first succeeds, second fails
+    mockBulkRpcSuccess([
+      { row_index: 0, ok: true, reg_id: 'reg-1' },
+      { row_index: 1, ok: false, error: 'Esta persona ya está registrada en este evento' },
+    ]);
 
     const rows = [
       makeRow('11111111-1', 'Juan', 'Pérez'),
@@ -424,7 +472,8 @@ describe('POST /api/bulk-accreditation', () => {
     const req = makeRequest({ event_id: 'evt-1', rows });
     const res = await POST(req);
     const body = await res.json();
-    expect(body.success).toBe(2);
+    expect(body.success).toBe(1);
+    expect(body.errors).toBe(1);
   });
 
   // ── Audit ──
@@ -435,7 +484,7 @@ describe('POST /api/bulk-accreditation', () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
 
-    mockRpc.mockResolvedValueOnce({ data: 'reg-1', error: null });
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
     const req = makeRequest({ event_id: 'evt-1', rows });
@@ -453,5 +502,32 @@ describe('POST /api/bulk-accreditation', () => {
         errors: 0,
       }),
     );
+  });
+
+  // ── Performance: single RPC call verification ──
+
+  it('makes exactly 1 RPC call regardless of row count', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+    profileStore = Array.from({ length: 50 }, (_, i) => ({
+      id: `prof-${i}`,
+      rut: `${10000000 + i}-${i % 10}`,
+      user_id: null,
+    }));
+
+    const rpcResults = profileStore.map((_, i) => ({
+      row_index: i,
+      ok: true,
+      reg_id: `reg-${i}`,
+    }));
+    mockBulkRpcSuccess(rpcResults);
+
+    const rows = profileStore.map(p => makeRow(p.rut, 'Nombre', 'Apellido'));
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(body.success).toBe(50);
+    // The key assertion: only 1 RPC call, not 50
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 });

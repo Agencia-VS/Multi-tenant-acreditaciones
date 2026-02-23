@@ -1,12 +1,19 @@
 /**
- * API: Acreditación Masiva (Bulk) — Optimized Batch
+ * API: Acreditación Masiva (Bulk) — Optimized Single-RPC Batch
  * POST — Procesa un array de registros (CSV parseado en frontend)
  * 
- * Optimización: en vez de N queries por fila (N+1 pattern), usa:
- * 1. Batch lookup de profiles existentes por RUT (1 query)
- * 2. Batch upsert de profiles nuevos/actualizados (chunks)
- * 3. Pre-fetch de zona rules del evento (1 query)
- * 4. Inserts de registrations via RPC (chunks paralelos)
+ * Optimización v2: usa bulk_check_and_create_registrations() RPC
+ * que procesa TODO el array en una sola transacción PostgreSQL.
+ * 
+ * Flujo:
+ * 1. Verificar evento + deadline
+ * 2. Resolver usuario autenticado
+ * 3. Validar filas (campos requeridos)
+ * 4. Batch lookup/upsert de profiles (chunks de 50-100)
+ * 5. Pre-fetch zone rules + resolver zonas en JS
+ * 6. ★ Una sola llamada RPC con todo el array → PG hace checks + inserts
+ * 7. Batch save tenant profile data (paralelo)
+ * 8. Audit log
  * 
  * NO vincula authUserId a profiles de bulk (evita duplicate key user_id).
  */
@@ -241,75 +248,122 @@ export async function POST(request: NextRequest) {
       return null;
     }
 
-    // ── 6. Create registrations via RPC (chunks for concurrency control) ──
+    // ── 6. Create registrations via SINGLE bulk RPC ──
+    // Build the payload array for the PG function
     let successCount = 0;
-    const REGISTRATION_CHUNK = 20; // parallel RPC calls per chunk
+    const rpcRows: {
+      profile_id: string;
+      organizacion: string | null;
+      tipo_medio: string | null;
+      cargo: string | null;
+      datos_extra: Record<string, string>;
+      row_index: number;
+    }[] = [];
 
-    for (const regChunk of chunk(validRows, REGISTRATION_CHUNK)) {
-      const promises = regChunk.map(async ({ index, formData }) => {
-        const profile = existingProfiles.get(formData.rut);
-        if (!profile?.id) {
-          return { index, ok: false, error: `Perfil no encontrado para RUT ${formData.rut}` };
-        }
+    const skippedResults: typeof results = [];
 
-        // Resolve zone locally (no DB call)
-        const datosExtra = { ...formData.datos_extra };
-        if (!datosExtra.zona) {
-          const autoZona = resolveZoneLocal(formData.cargo, formData.tipo_medio);
-          if (autoZona) datosExtra.zona = autoZona;
-        }
+    for (const { index, formData } of validRows) {
+      const profile = existingProfiles.get(formData.rut);
+      if (!profile?.id) {
+        skippedResults.push({
+          row: index + 1,
+          rut: formData.rut,
+          nombre: `${formData.nombre} ${formData.apellido}`,
+          ok: false,
+          error: `Perfil no encontrado para RUT ${formData.rut}`,
+        });
+        errorCount++;
+        continue;
+      }
 
-        try {
-          const { data: regId, error: rpcError } = await supabase.rpc(
-            'check_and_create_registration',
-            {
-              p_event_id: event_id,
-              p_profile_id: profile.id,
-              p_organizacion: formData.organizacion || undefined,
-              p_tipo_medio: formData.tipo_medio || undefined,
-              p_cargo: formData.cargo || undefined,
-              p_submitted_by: submitterProfileId || undefined,
-              p_datos_extra: datosExtra as unknown as import('@/lib/supabase/database.types').Json,
-            }
-          );
+      // Resolve zone locally (no DB call)
+      const datosExtra = { ...formData.datos_extra };
+      if (!datosExtra.zona) {
+        const autoZona = resolveZoneLocal(formData.cargo, formData.tipo_medio);
+        if (autoZona) datosExtra.zona = autoZona;
+      }
 
-          if (rpcError) {
-            return { index, ok: false, error: rpcError.message };
-          }
-          return { index, ok: true, regId };
-        } catch (err) {
-          return { index, ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
-        }
+      rpcRows.push({
+        profile_id: profile.id,
+        organizacion: formData.organizacion || null,
+        tipo_medio: formData.tipo_medio || null,
+        cargo: formData.cargo || null,
+        datos_extra: datosExtra,
+        row_index: index,
       });
+    }
 
-      const chunkResults = await Promise.all(promises);
+    // Add skipped results
+    results.push(...skippedResults);
 
-      for (const cr of chunkResults) {
-        const vr = validRows.find(v => v.index === cr.index)!;
-        if (cr.ok) {
-          successCount++;
-          results.push({
-            row: cr.index + 1, rut: vr.formData.rut,
-            nombre: `${vr.formData.nombre} ${vr.formData.apellido}`, ok: true,
-          });
-        } else {
+    // ★ Single RPC call for ALL registrations
+    if (rpcRows.length > 0) {
+      const { data: rpcResults, error: rpcError } = await supabase.rpc(
+        'bulk_check_and_create_registrations',
+        {
+          p_event_id: event_id,
+          p_submitted_by: submitterProfileId || null,
+          p_rows: rpcRows as unknown as import('@/lib/supabase/database.types').Json,
+        }
+      );
+
+      if (rpcError) {
+        // RPC-level failure: mark all rows as failed
+        for (const rpcRow of rpcRows) {
+          const vr = validRows.find(v => v.index === rpcRow.row_index)!;
           errorCount++;
           results.push({
-            row: cr.index + 1, rut: vr.formData.rut,
+            row: rpcRow.row_index + 1,
+            rut: vr.formData.rut,
             nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
-            ok: false, error: cr.error,
+            ok: false,
+            error: rpcError.message || 'Error interno en acreditación masiva',
           });
+        }
+      } else {
+        // Parse individual results from the RPC response
+        const rowResults = (rpcResults || []) as Array<{
+          row_index: number;
+          ok: boolean;
+          error?: string;
+          reg_id?: string;
+        }>;
+
+        // Build a map for quick lookup
+        const resultMap = new Map(rowResults.map(r => [r.row_index, r]));
+
+        for (const rpcRow of rpcRows) {
+          const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+          const rr = resultMap.get(rpcRow.row_index);
+
+          if (rr?.ok) {
+            successCount++;
+            results.push({
+              row: rpcRow.row_index + 1,
+              rut: vr.formData.rut,
+              nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+              ok: true,
+            });
+          } else {
+            errorCount++;
+            results.push({
+              row: rpcRow.row_index + 1,
+              rut: vr.formData.rut,
+              nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+              ok: false,
+              error: rr?.error || 'Error desconocido',
+            });
+          }
         }
       }
     }
 
-    // ── 7. Batch save tenant profile data (fire-and-forget) ──
+    // ── 7. Batch save tenant profile data (parallel) ──
     try {
       const tenantId = event.tenant_id;
       const formKeys = ((event.form_fields || []) as unknown as Array<{ key: string }>).map(f => f.key);
 
       if (tenantId && formKeys.length > 0) {
-        // Only for successful registrations with datos_extra
         const dataToSave = validRows
           .filter(vr => results.find(r => r.rut === vr.formData.rut && r.ok))
           .filter(vr => Object.keys(vr.formData.datos_extra).length > 0)
@@ -322,9 +376,9 @@ export async function POST(request: NextRequest) {
           }))
           .filter(d => d.profileId);
 
-        // Batch: read all profiles datos_base, merge, update
         if (dataToSave.length > 0) {
           const profileIds = dataToSave.map(d => d.profileId!);
+
           for (const idChunk of chunk(profileIds, CHUNK_SIZE)) {
             const { data: profiles } = await supabase
               .from('profiles')
@@ -332,7 +386,8 @@ export async function POST(request: NextRequest) {
               .in('id', idChunk);
 
             if (profiles) {
-              const updates = profiles.map(p => {
+              // Build all update payloads, then fire them in parallel
+              const updatePayloads = profiles.map(p => {
                 const saveDatum = dataToSave.find(d => d.profileId === p.id);
                 if (!saveDatum) return null;
 
@@ -354,13 +409,14 @@ export async function POST(request: NextRequest) {
                 flatMerge._tenant = { ...(tenantMap as object), [tenantId]: mergedTenantData };
 
                 return { id: p.id, datos_base: flatMerge };
-              }).filter(Boolean);
+              }).filter(Boolean) as { id: string; datos_base: Record<string, unknown> }[];
 
-              for (const u of updates) {
-                if (u) {
-                  await supabase.from('profiles').update({ datos_base: u.datos_base as any }).eq('id', u.id);
-                }
-              }
+              // ★ Fire all updates in parallel instead of sequential awaits
+              await Promise.allSettled(
+                updatePayloads.map(u =>
+                  supabase.from('profiles').update({ datos_base: u.datos_base as any }).eq('id', u.id)
+                )
+              );
             }
           }
         }
