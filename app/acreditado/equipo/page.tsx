@@ -42,6 +42,7 @@ export default function EquipoPage() {
   const { showSuccess, showError } = useToast();
   const { confirmation, confirm, cancel, execute } = useConfirmation();
   const [rutError, setRutError] = useState('');
+  const [cargoOtroMode, setCargoOtroMode] = useState(false);
   const [profileMedio, setProfileMedio] = useState('');
   const [profileTipoMedio, setProfileTipoMedio] = useState('');
   const [profileIncomplete, setProfileIncomplete] = useState(false);
@@ -144,6 +145,7 @@ export default function EquipoPage() {
       setForm({ ...emptyForm, medio: profileMedio, tipo_medio: profileTipoMedio });
       setShowForm(false);
       setRutError('');
+      setCargoOtroMode(false);
       await loadMembers();
     } catch {
       showError('Error de conexión');
@@ -374,23 +376,52 @@ export default function EquipoPage() {
               </div>
               <div>
                 <label className={labelClass}>Cargo</label>
-                <select
-                  value={form.cargo}
-                  onChange={(e) => setForm({ ...form, cargo: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">Selecciona...</option>
-                  {CARGOS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                {cargoOtroMode ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={form.cargo}
+                      onChange={(e) => setForm({ ...form, cargo: e.target.value })}
+                      placeholder="Escribe el cargo..."
+                      autoFocus
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setCargoOtroMode(false); setForm({ ...form, cargo: '' }); }}
+                      className="px-2 py-1 text-xs text-muted hover:text-danger transition rounded-lg border border-edge hover:border-danger/30"
+                      title="Volver a la lista"
+                    >
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.cargo}
+                    onChange={(e) => {
+                      if (e.target.value === '__otro__') {
+                        setCargoOtroMode(true);
+                        setForm({ ...form, cargo: '' });
+                      } else {
+                        setForm({ ...form, cargo: e.target.value });
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Selecciona...</option>
+                    {CARGOS.filter(c => c !== 'Otro').map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__otro__">Otro (especificar)</option>
+                  </select>
+                )}
               </div>
             </div>
 
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setForm({ ...emptyForm, medio: profileMedio, tipo_medio: profileTipoMedio }); setRutError(''); }}
+                onClick={() => { setShowForm(false); setForm({ ...emptyForm, medio: profileMedio, tipo_medio: profileTipoMedio }); setRutError(''); setCargoOtroMode(false); }}
                 className="px-4 py-2 text-body hover:text-heading transition"
               >
                 Cancelar

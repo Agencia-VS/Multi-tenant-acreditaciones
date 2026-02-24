@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CARGOS } from '@/types';
 import type { FormFieldDefinition } from '@/types';
 import { validateRut, validateEmail, cleanRut, formatRut } from '@/lib/validation';
@@ -139,6 +139,13 @@ export default function AcreditadoRow({
     }
     return [...CARGOS];
   }, [cargoFieldConfig]);
+
+  // Track "Otro" free-text mode for cargo
+  const [cargoOtroMode, setCargoOtroMode] = useState(() => {
+    // Initialize: if current value exists but isn't in options, we're in "otro" mode
+    return !!data.cargo && !([...CARGOS] as string[]).includes(data.cargo)
+      && data.cargo !== '';
+  });
 
   return (
     <div
@@ -294,15 +301,46 @@ export default function AcreditadoRow({
               <label className="field-label">
                 {cargoFieldConfig.label || 'Cargo'} {cargoFieldConfig.required && '*'}
               </label>
-              <select
-                value={data.cargo}
-                onChange={(e) => handleChange('cargo', e.target.value)}
-                onBlur={() => handleBlur('cargo')}
-                className={`field-input ${errors.cargo ? 'field-input-error' : ''}`}
-              >
-                <option value="">Selecciona...</option>
-                {cargosOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {cargoOtroMode ? (
+                /* Free-text input when "Otro" is selected */
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={data.cargo}
+                    onChange={(e) => handleChange('cargo', e.target.value)}
+                    onBlur={() => handleBlur('cargo')}
+                    placeholder="Escribe el cargo..."
+                    autoFocus
+                    className={`field-input flex-1 ${errors.cargo ? 'field-input-error' : ''}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setCargoOtroMode(false); handleChange('cargo', ''); }}
+                    className="px-2 py-1 text-xs text-muted hover:text-danger transition rounded-lg border border-edge hover:border-danger/30"
+                    title="Volver a la lista"
+                  >
+                    <i className="fas fa-times" />
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={data.cargo}
+                  onChange={(e) => {
+                    if (e.target.value === '__otro__') {
+                      setCargoOtroMode(true);
+                      handleChange('cargo', '');
+                    } else {
+                      handleChange('cargo', e.target.value);
+                    }
+                  }}
+                  onBlur={() => handleBlur('cargo')}
+                  className={`field-input ${errors.cargo ? 'field-input-error' : ''}`}
+                >
+                  <option value="">Selecciona...</option>
+                  {cargosOptions.filter(c => c !== 'Otro').map((c) => <option key={c} value={c}>{c}</option>)}
+                  <option value="__otro__">Otro (especificar)</option>
+                </select>
+              )}
               {errors.cargo && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" />{errors.cargo}</p>}
             </div>
           )}
