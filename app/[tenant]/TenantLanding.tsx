@@ -31,6 +31,7 @@ interface SocialLinks {
 
 export default function TenantLanding({ tenant, event, slug }: TenantLandingProps) {
   const [isNavigating, setIsNavigating] = useState(false);
+  const [navTarget, setNavTarget] = useState<string | null>(null);
   const router = useRouter();
 
   const p = useMemo(() => generateTenantPalette(
@@ -51,7 +52,14 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
 
   const handleNavigate = () => {
     setIsNavigating(true);
+    setNavTarget('acreditacion');
     router.push(`/${slug}/acreditacion`);
+  };
+
+  const handleNavClick = (href: string, key: string) => {
+    setIsNavigating(true);
+    setNavTarget(key);
+    router.push(href);
   };
 
   const isMatchEvent = Boolean(event?.opponent_name);
@@ -250,23 +258,28 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
         {/* Right: Nav links */}
         <div className="flex items-center gap-1.5">
           {[
-            { href: '/', label: 'Inicio', icon: 'fa-house' },
-            { href: '/auth/acreditado', label: 'Mi cuenta', icon: 'fa-user' },
-            { href: `/${slug}/admin`, label: 'Admin', icon: 'fa-shield-halved' },
-          ].map(({ href, label, icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-snappy hover-colors"
+            { href: '/', label: 'Inicio', icon: 'fa-house', key: 'inicio' },
+            { href: '/auth/acreditado', label: 'Mi cuenta', icon: 'fa-user', key: 'cuenta' },
+            { href: `/${slug}/admin`, label: 'Admin', icon: 'fa-shield-halved', key: 'admin' },
+          ].map(({ href, label, icon, key }) => (
+            <button
+              key={key}
+              onClick={() => handleNavClick(href, key)}
+              disabled={isNavigating}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-snappy hover-colors disabled:opacity-60"
               style={{
                 border: `1px solid ${p.bright}20`,
                 '--hc-bg': `${p.bright}12`, '--hc-bg-hover': `${p.bright}25`,
                 '--hc-color': '#FFFFFFA0', '--hc-color-hover': '#FFFFFF',
               } as React.CSSProperties}
             >
-              <i className={`fas ${icon} text-[0.65rem]`} />
+              {navTarget === key ? (
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <i className={`fas ${icon} text-[0.65rem]`} />
+              )}
               <span className="hidden sm:inline">{label}</span>
-            </Link>
+            </button>
           ))}
         </div>
       </nav>
@@ -432,26 +445,37 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                   style={{ background: p.ctaHoverBg }}
                 />
                 <span className="relative flex items-center gap-3">
-                  <i className="fas fa-id-badge" />
-                  <span>Acredítate</span>
-                  <svg className="w-5 h-5 group-hover:translate-x-1.5 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
+                  {navTarget === 'acreditacion' ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <i className="fas fa-id-badge" />
+                  )}
+                  <span>{navTarget === 'acreditacion' ? 'Cargando...' : 'Acredítate'}</span>
+                  {navTarget !== 'acreditacion' && (
+                    <svg className="w-5 h-5 group-hover:translate-x-1.5 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  )}
                 </span>
               </button>
 
 
               {/* Sub-link for returning users */}
-              <Link
-                href="/auth/acreditado"
-                className="text-xs font-medium transition-snappy hover-color-only"
+              <button
+                onClick={() => handleNavClick('/auth/acreditado', 'cuenta-sub')}
+                disabled={isNavigating}
+                className="text-xs font-medium transition-snappy hover-color-only disabled:opacity-60 flex items-center gap-1"
                 style={{
                   '--hc-color': `${p.tint}80`, '--hc-color-hover': p.bright,
                 } as React.CSSProperties}
               >
-                <i className="fas fa-user-circle mr-1" />
+                {navTarget === 'cuenta-sub' ? (
+                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <i className="fas fa-user-circle mr-1" />
+                )}
                 ¿Ya tienes cuenta? Entra aquí
-              </Link>
+              </button>
             </div>
           </div>
         ) : (

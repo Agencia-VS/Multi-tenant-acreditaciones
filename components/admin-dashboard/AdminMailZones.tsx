@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdmin } from './AdminContext';
 import { ButtonSpinner, LoadingSpinner } from '@/components/shared/ui';
 import { sanitizeHtml } from '@/lib/sanitize';
-import type { EmailZoneContent, EmailTemplateType, TenantConfig } from '@/types';
+import type { EmailZoneContent, EmailTemplateType, TenantConfig, EventConfig } from '@/types';
 
 /**
  * AdminMailZones — Editor de contenido de email por zona
@@ -14,15 +14,59 @@ import type { EmailZoneContent, EmailTemplateType, TenantConfig } from '@/types'
  * Este contenido se inyecta en las plantillas de email vía variables.
  */
 export default function AdminMailZones() {
-  const { tenant, showSuccess, showError } = useAdmin();
+  const { tenant, events, registrations, showSuccess, showError } = useAdmin();
   const [activeType, setActiveType] = useState<EmailTemplateType>('aprobacion');
   const [zoneContents, setZoneContents] = useState<EmailZoneContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null); // zona being saved
 
-  // Zonas del tenant
-  const tenantConfig = tenant?.config as TenantConfig | undefined;
-  const zonas = tenantConfig?.zonas || [];
+  // Zone rule zonas fetched from all events
+  const [zoneRuleZonas, setZoneRuleZonas] = useState<string[]>([]);
+
+  // Fetch zone rule zonas from all events of this tenant
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const allRuleZonas: string[] = [];
+      await Promise.all(events.map(async (ev) => {
+        try {
+          const res = await fetch(`/api/events/${ev.id}/zones`);
+          if (res.ok) {
+            const rules: { zona: string }[] = await res.json();
+            if (Array.isArray(rules)) {
+              rules.forEach(r => { if (r.zona) allRuleZonas.push(r.zona); });
+            }
+          }
+        } catch { /* ignore */ }
+      }));
+      if (!cancelled) setZoneRuleZonas(allRuleZonas);
+    })();
+    return () => { cancelled = true; };
+  }, [events]);
+
+  // Zonas: merge de TODAS las fuentes disponibles
+  const zonas = useMemo(() => {
+    const tenantConfig = tenant?.config as TenantConfig | undefined;
+    const tenantZonas = tenantConfig?.zonas || [];
+
+    // Zonas definidas en event.config.zonas
+    const eventConfigZonas = (events || []).flatMap(ev => {
+      const cfg = ev.config as EventConfig | undefined;
+      return cfg?.zonas || [];
+    });
+
+    // Zonas definidas en event_zone_rules (cargo/tipo_medio → zona)
+    // (ya cargadas en zoneRuleZonas)
+
+    // Zonas ya asignadas en registrations existentes
+    const registrationZonas = (registrations || [])
+      .map(r => (r.datos_extra as Record<string, unknown>)?.zona as string | undefined)
+      .filter((z): z is string => !!z);
+
+    // Deduplicar preservando orden
+    return [...new Set([...tenantZonas, ...eventConfigZonas, ...zoneRuleZonas, ...registrationZonas])];
+  }, [tenant, events, zoneRuleZonas, registrations]);
 
   // Currently editing zona
   const [selectedZona, setSelectedZona] = useState<string>('');

@@ -176,7 +176,7 @@ export default function AdminMailTab() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-heading">Plantillas de Email</h2>
-            <p className="text-sm text-body">Personaliza los correos que se envían a los acreditados</p>
+            <p className="text-sm text-body">Personaliza los correos que se envían a los acreditados. Se configuran una vez y aplican a <strong>todos los eventos</strong> del tenant.</p>
           </div>
         </div>
 
@@ -214,6 +214,7 @@ export default function AdminMailTab() {
               placeholder="Asunto del correo..."
               className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading focus:border-brand transition"
             />
+            <p className="text-[11px] text-muted mt-1.5">Puedes usar variables como <code className="text-[10px] text-[#7c3aed]">{'{evento}'}</code> o <code className="text-[10px] text-[#7c3aed]">{'{nombre}'}</code> también en el asunto.</p>
           </div>
 
           {/* Body */}
@@ -362,6 +363,10 @@ export default function AdminMailTab() {
               <li className="flex items-start gap-2">
                 <i className="fas fa-check text-[#059669] mt-0.5 text-[10px]" />
                 <span>Si no guardas plantilla, se usa la plantilla por defecto del sistema</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <i className="fas fa-database text-[#3b82f6] mt-0.5 text-[10px]" />
+                <span>La plantilla aplica a <strong>todos los eventos</strong> de este tenant — no necesitas configurarla de nuevo</span>
               </li>
               <li className="flex items-start gap-2">
                 <i className="fas fa-map-pin text-[#d97706] mt-0.5 text-[10px]" />

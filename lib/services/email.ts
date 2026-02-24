@@ -411,12 +411,13 @@ export async function sendRejectionEmail(
 export async function sendBulkApprovalEmails(
   registrations: RegistrationFull[],
   tenant: Tenant
-): Promise<{ sent: number; errors: number }> {
+): Promise<{ sent: number; skipped: number; errors: number }> {
   let sent = 0;
+  let skipped = 0;
   let errors = 0;
 
   for (const reg of registrations) {
-    if (!reg.profile_email) { errors++; continue; }
+    if (!reg.profile_email) { skipped++; continue; }
     
     const result = await sendApprovalEmail(reg, tenant);
     if (result.success) sent++;
@@ -426,7 +427,7 @@ export async function sendBulkApprovalEmails(
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
-  return { sent, errors };
+  return { sent, skipped, errors };
 }
 
 /**

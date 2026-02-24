@@ -57,6 +57,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
+    // ─── Bulk Email (resend only, no status change) ──
+    if (action === 'email') {
+      const supabase = createSupabaseAdminClient();
+      const { data: fullRegsData } = await supabase
+        .from('v_registration_full')
+        .select('*')
+        .in('id', registration_ids);
+
+      const fullRegs = (fullRegsData || []) as RegistrationFull[];
+
+      if (fullRegs.length === 0) {
+        return NextResponse.json({ emails: { sent: 0, skipped: 0, errors: 0 } });
+      }
+
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('id', fullRegs[0].tenant_id!)
+        .single();
+
+      if (!tenant) {
+        return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 });
+      }
+
+      const emailResult = await sendBulkApprovalEmails(fullRegs, tenant as Tenant);
+      await logAuditAction(user.id, 'registration.bulk_email', 'registration', registration_ids[0], {
+        count: registration_ids.length,
+        ...emailResult,
+      });
+      return NextResponse.json({ emails: emailResult });
+    }
+
     if (!status || !['aprobado', 'rechazado'].includes(status)) {
       return NextResponse.json({ error: 'status debe ser aprobado o rechazado' }, { status: 400 });
     }

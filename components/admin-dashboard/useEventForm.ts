@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { isoToLocalDatetime } from '@/lib/dates';
-import type { Event, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig } from '@/types';
+import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -19,6 +19,7 @@ export interface EventForm {
   descripcion: string;
   fecha_limite_acreditacion: string;
   qr_enabled: boolean;
+  event_type: EventType;
   visibility: EventVisibility;
   disclaimer_enabled: boolean;
   disclaimer_sections: DisclaimerSection[];
@@ -45,6 +46,7 @@ const INITIAL_FORM: EventForm = {
   opponent_name: '', opponent_logo_url: '',
   league: '', descripcion: '',
   fecha_limite_acreditacion: '', qr_enabled: false,
+  event_type: 'simple',
   visibility: 'public',
   disclaimer_enabled: true,
   disclaimer_sections: [],
@@ -114,6 +116,7 @@ export function useEventForm() {
       descripcion: event.descripcion || '',
       fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
       qr_enabled: event.qr_enabled || false,
+      event_type: (event.event_type as EventType) || 'simple',
       visibility: (event as Event & { visibility?: string }).visibility as EventVisibility || 'public',
       disclaimer_enabled: dc?.enabled ?? true,
       disclaimer_sections: dc?.sections ?? [],
@@ -145,6 +148,7 @@ export function useEventForm() {
         opponent_name: '',
         opponent_logo_url: '',
         qr_enabled: source.qr_enabled,
+        event_type: (source.event_type as EventType) || 'simple',
       }));
 
       setFormFields(source.form_fields?.length ? source.form_fields : DEFAULT_FORM_FIELDS);

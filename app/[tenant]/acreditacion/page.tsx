@@ -119,7 +119,7 @@ export default async function AcreditacionPage({
         <BackButton href={`/${slug}`} />
         <div className="relative flex flex-col items-center justify-center gap-3 pt-8 sm:pt-0">
           {tenant.shield_url && (
-            <Image src={tenant.shield_url} alt={tenant.nombre} width={48} height={48} className="h-10 sm:h-12 w-auto object-contain opacity-90" />
+            <Image src={tenant.shield_url} alt={tenant.nombre}  width={80} height={48} className="h-10 sm:h-12 w-auto object-contain opacity-90" />
           )}
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">

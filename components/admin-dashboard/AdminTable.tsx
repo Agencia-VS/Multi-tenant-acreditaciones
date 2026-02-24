@@ -31,6 +31,12 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   const hasSel = ids.length > 0;
   const allSelected = hasSel && selectedIds.size === registrations.length;
 
+  // Count selected registrations that have email
+  const selectedWithEmail = useMemo(() => {
+    if (!hasSel) return 0;
+    return registrations.filter(r => selectedIds.has(r.id) && r.profile_email).length;
+  }, [registrations, selectedIds, hasSel]);
+
   const updateFilter = (key: string, value: string) => {
     setFilters({ ...filters, [key]: value });
   };
@@ -239,10 +245,11 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
                 )}
                 <button
                   onClick={() => handleBulkAction({ action: 'email', registration_ids: ids })}
-                  disabled={processing === 'bulk'}
+                  disabled={processing === 'bulk' || selectedWithEmail === 0}
+                  title={selectedWithEmail === 0 ? 'Ninguno de los seleccionados tiene email' : `${selectedWithEmail} de ${ids.length} tienen email`}
                   className="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 disabled:opacity-50 transition"
                 >
-                  <i className="fas fa-envelope mr-1" /> Email
+                  <i className="fas fa-envelope mr-1" /> Email {selectedWithEmail < ids.length && `(${selectedWithEmail})`}
                 </button>
                 <button
                   onClick={() => setShowBulkDeleteConfirm(true)}
@@ -354,7 +361,7 @@ function PaginatedTable({
         <table className="w-full text-base">
           <thead className="sticky top-0 z-10 bg-canvas [&_th]:border-b [&_th]:border-edge">
             <tr>
-              <th className="p-3 pl-4 text-left w-10">
+              <th className="px-3 py-2 pl-4 text-left w-10">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -363,15 +370,15 @@ function PaginatedTable({
                   aria-label="Seleccionar todos los registros"
                 />
               </th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
-              <th className="p-3 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-edge">

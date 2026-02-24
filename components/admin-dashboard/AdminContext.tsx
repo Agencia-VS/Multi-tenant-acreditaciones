@@ -286,19 +286,23 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         const data = await res.json();
         showSuccess(`${data.success || 0} registros eliminados`);
       } else if (payload.action === 'email') {
-        // Resend approval emails
+        // Resend approval emails (no status change)
         const res = await fetch('/api/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             registration_ids: payload.registration_ids,
-            status: 'aprobado',
-            send_emails: true,
-            resend_only: true,
+            action: 'email',
           }),
         });
         const data = await res.json();
-        showSuccess(`Emails reenviados: ${data.emails?.sent || 0}`);
+        const em = data.emails || { sent: 0, skipped: 0, errors: 0 };
+        const parts: string[] = [];
+        if (em.sent > 0) parts.push(`${em.sent} enviados`);
+        if (em.skipped > 0) parts.push(`${em.skipped} sin email`);
+        if (em.errors > 0) parts.push(`${em.errors} fallidos`);
+        if (parts.length === 0) parts.push('No se enviaron emails');
+        showSuccess(`Emails: ${parts.join(', ')}`);
       }
       setSelectedIds(new Set());
       fetchData();

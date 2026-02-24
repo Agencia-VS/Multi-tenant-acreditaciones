@@ -2,7 +2,7 @@
 
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import DisclaimerEditor from './DisclaimerEditor';
-import type { DisclaimerSection } from '@/types';
+import type { DisclaimerSection, EventType } from '@/types';
 import type { EventForm } from './useEventForm';
 
 interface EventFormFieldsProps {
@@ -29,6 +29,7 @@ export default function EventFormFields({
             placeholder="Ej: UC vs Colo-Colo"
             className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
+          <p className="text-[11px] text-muted mt-1">Este nombre se muestra en la landing y en los emails a los acreditados.</p>
         </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Liga / Competencia</label>
@@ -38,6 +39,7 @@ export default function EventFormFields({
             placeholder="Ej: Copa Libertadores"
             className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
+          <p className="text-[11px] text-muted mt-1">Opcional. Se muestra como contexto adicional del evento.</p>
         </div>
       </div>
 
@@ -50,6 +52,7 @@ export default function EventFormFields({
             onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
             className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
+          <p className="text-[11px] text-muted mt-1">Día del evento. Se usa en emails con <code className="text-[10px] text-purple-600">{'{fecha}'}</code>.</p>
         </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Hora</label>
@@ -68,28 +71,62 @@ export default function EventFormFields({
             placeholder="Ej: Estadio San Carlos de Apoquindo"
             className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
+          <p className="text-[11px] text-muted mt-1">Aparece en la landing y en emails con <code className="text-[10px] text-purple-600">{'{lugar}'}</code>.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Rival</label>
-          <input
-            value={form.opponent_name}
-            onChange={e => setForm(f => ({ ...f, opponent_name: e.target.value }))}
-            placeholder="Ej: Colo-Colo"
-            className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
+      {/* Tipo de evento */}
+      <div>
+        <label className="text-xs text-body mb-1 block">
+          <i className="fas fa-layer-group mr-1 text-indigo-500" />
+          Tipo de evento
+        </label>
+        <div className="flex gap-2">
+          {([
+            { value: 'simple' as EventType, label: 'Simple', icon: 'fa-calendar', desc: 'Evento de un día' },
+            { value: 'deportivo' as EventType, label: 'Deportivo', icon: 'fa-futbol', desc: 'Partido / competencia' },
+            { value: 'multidia' as EventType, label: 'Multi-día', icon: 'fa-calendar-week', desc: 'Evento de varias jornadas' },
+          ]).map(({ value, label, icon, desc }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, event_type: value }))}
+              className={`flex-1 p-2.5 rounded-xl border-2 text-left transition text-sm ${
+                form.event_type === value
+                  ? 'border-indigo-500 bg-indigo-50'
+                  : 'border-edge hover:border-indigo-300'
+              }`}
+            >
+              <i className={`fas ${icon} mr-1.5 ${form.event_type === value ? 'text-indigo-600' : 'text-muted'}`} />
+              <span className={`font-medium ${form.event_type === value ? 'text-indigo-700' : 'text-heading'}`}>{label}</span>
+              <p className="text-xs text-muted mt-0.5">{desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Rival — solo visible para eventos deportivos */}
+      {form.event_type === 'deportivo' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 bg-indigo-50/50 rounded-xl border border-indigo-200/50">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Rival</label>
+            <input
+              value={form.opponent_name}
+              onChange={e => setForm(f => ({ ...f, opponent_name: e.target.value }))}
+              placeholder="Ej: Colo-Colo"
+              className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading bg-white"
+            />
+          </div>
+          <ImageUploadField
+            label="Logo rival"
+            value={form.opponent_logo_url}
+            onChange={(url) => setForm(f => ({ ...f, opponent_logo_url: url }))}
+            folder="events"
+            rounded
+            previewSize="sm"
           />
         </div>
-        <ImageUploadField
-          label="Logo rival"
-          value={form.opponent_logo_url}
-          onChange={(url) => setForm(f => ({ ...f, opponent_logo_url: url }))}
-          folder="events"
-          rounded
-          previewSize="sm"
-        />
-      </div>
+      )}
 
       <div>
         <label className="text-xs text-body mb-1 block">Descripción</label>
@@ -111,6 +148,7 @@ export default function EventFormFields({
             onChange={e => setForm(f => ({ ...f, fecha_limite_acreditacion: e.target.value }))}
             className="w-full px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
           />
+          <p className="text-[11px] text-muted mt-1">Después de esta fecha, el formulario de acreditación se cierra automáticamente.</p>
         </div>
         <div className="flex items-end">
           <label className="flex items-center gap-3 p-3 bg-canvas rounded-xl cursor-pointer w-full">

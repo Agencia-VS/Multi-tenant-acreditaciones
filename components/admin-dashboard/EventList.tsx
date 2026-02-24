@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
-import { EmptyState, useToast } from '@/components/shared/ui';
+import { EmptyState, useToast, ButtonSpinner } from '@/components/shared/ui';
 import type { Event } from '@/types';
 
 interface EventListProps {
@@ -13,6 +13,7 @@ interface EventListProps {
 export default function EventList({ onCreateNew, onEditEvent }: EventListProps) {
   const { tenant, events, selectedEvent, selectEvent, showSuccess, showError, fetchData, refreshEvents } = useAdmin();
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [processingDeleteId, setProcessingDeleteId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const getInviteLink = (ev: Event) => {
@@ -51,6 +52,7 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
   };
 
   const handleDeleteEvent = async (eventId: string) => {
+    setProcessingDeleteId(eventId);
     try {
       const res = await fetch(`/api/events?id=${eventId}&action=delete`, { method: 'DELETE' });
       if (res.ok) {
@@ -64,6 +66,8 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
       }
     } catch {
       showError('Error de conexión');
+    } finally {
+      setProcessingDeleteId(null);
     }
   };
 
@@ -146,19 +150,28 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
 
                 {deletingEventId === ev.id ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-danger font-medium">¿Eliminar?</span>
-                    <button
-                      onClick={() => handleDeleteEvent(ev.id)}
-                      className="px-2 py-1 bg-danger text-white rounded text-xs font-medium hover:bg-danger/90 transition"
-                    >
-                      Sí
-                    </button>
-                    <button
-                      onClick={() => setDeletingEventId(null)}
-                      className="px-2 py-1 text-body hover:text-label text-xs"
-                    >
-                      No
-                    </button>
+                    {processingDeleteId === ev.id ? (
+                      <>
+                        <ButtonSpinner className="w-3.5 h-3.5 text-danger" />
+                        <span className="text-xs text-danger font-medium">Eliminando…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs text-danger font-medium">¿Eliminar?</span>
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="px-2 py-1 bg-danger text-white rounded text-xs font-medium hover:bg-danger/90 transition"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          onClick={() => setDeletingEventId(null)}
+                          className="px-2 py-1 text-body hover:text-label text-xs"
+                        >
+                          No
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <button

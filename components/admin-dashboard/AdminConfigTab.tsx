@@ -44,19 +44,29 @@ export default function AdminConfigTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData, tenant_id: tenant.id, config: eventConfig, form_fields: formFields,
+          event_type: form.event_type,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
       if (res.ok) {
         const created = await res.json();
-        // Clonar cupos si existen
+        // Clonar cupos y reglas de zona en paralelo
+        const clonePromises: Promise<unknown>[] = [];
         if (quotaRules.length > 0) {
-          try { for (const rule of quotaRules) { await fetch(`/api/events/${created.id}/quotas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) }); } } catch { /* ignore */ }
+          clonePromises.push(
+            Promise.all(quotaRules.map(rule =>
+              fetch(`/api/events/${created.id}/quotas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) })
+            )).catch(() => { /* ignore */ })
+          );
         }
-        // Clonar reglas de zona si existen
         if (zoneRules.length > 0) {
-          try { for (const rule of zoneRules) { await fetch(`/api/events/${created.id}/zones`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) }); } } catch { /* ignore */ }
+          clonePromises.push(
+            Promise.all(zoneRules.map(rule =>
+              fetch(`/api/events/${created.id}/zones`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) })
+            )).catch(() => { /* ignore */ })
+          );
         }
+        if (clonePromises.length > 0) await Promise.all(clonePromises);
         showSuccess('Evento creado correctamente');
         setShowCreateModal(false);
         resetForm();
@@ -93,6 +103,7 @@ export default function AdminConfigTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData, config: updatedConfig,
+          event_type: form.event_type,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });

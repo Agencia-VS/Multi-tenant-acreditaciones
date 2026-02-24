@@ -122,8 +122,6 @@ export default function PerfilPage() {
           email: profile.email ? sanitize(profile.email) : null,
           telefono: profile.telefono ? sanitize(profile.telefono) : null,
           medio: profile.medio ? sanitize(profile.medio) : null,
-          tipo_medio: profile.tipo_medio,
-          cargo: profile.cargo,
           nacionalidad: profile.nacionalidad ? sanitize(profile.nacionalidad) : null,
           ...(profile.rut ? { rut: sanitize(profile.rut) } : {}),
         }),
@@ -144,7 +142,6 @@ export default function PerfilPage() {
             nombre: sanitize(profile.nombre),
             apellido: sanitize(profile.apellido),
             medio: profile.medio ? sanitize(profile.medio) : null,
-            tipo_medio: profile.tipo_medio,
           };
           if (isProfileComplete(updated)) {
             setTimeout(() => router.push('/acreditado/equipo'), 1200);

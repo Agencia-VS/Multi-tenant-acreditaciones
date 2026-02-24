@@ -39,7 +39,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
           : 'hover:bg-canvas/50'
     }`}>
       {/* Checkbox */}
-      <td className="p-3 pl-4">
+      <td className="px-3 py-2 pl-4">
         <input
           type="checkbox"
           checked={selectedIds.has(reg.id)}
@@ -50,13 +50,13 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
       </td>
 
       {/* RUT */}
-      <td className="p-3">
-        <span className="font-mono text-base text-body">{reg.rut}</span>
+      <td className="px-3 py-2">
+        <span className="font-mono text-sm text-body">{reg.rut}</span>
       </td>
 
       {/* Nombre */}
-      <td className="p-3">
-        <div className="flex items-center gap-3">
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-2.5">
           {reg.profile_foto ? (
             <Image src={reg.profile_foto} alt="" width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
           ) : (
@@ -65,7 +65,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
             </div>
           )}
           <div>
-            <p className="text-base font-medium text-heading flex items-center gap-1.5">
+            <p className="text-sm font-medium text-heading flex items-center gap-1.5">
               {reg.profile_nombre} {reg.profile_apellido}
               {isRecent && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
@@ -73,26 +73,26 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
                 </span>
               )}
             </p>
-            <p className="text-sm text-muted">{reg.profile_email || 'Sin email'}</p>
+            <p className="text-xs text-muted">{reg.profile_email || 'Sin email'}</p>
           </div>
         </div>
       </td>
 
       {/* Organización */}
-      <td className="p-3 text-base text-body">{reg.organizacion || <span className="text-muted">—</span>}</td>
+      <td className="px-3 py-2 text-sm text-body">{reg.organizacion || <span className="text-muted">—</span>}</td>
 
       {/* Tipo Medio */}
-      <td className="p-3">
-        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-subtle text-sm font-medium text-body">
+      <td className="px-3 py-2">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-subtle text-xs font-medium text-body">
           {reg.tipo_medio || '—'}
         </span>
       </td>
 
       {/* Cargo */}
-      <td className="p-3 text-base text-body">{reg.cargo || <span className="text-muted">—</span>}</td>
+      <td className="px-3 py-2 text-sm text-body">{reg.cargo || <span className="text-muted">—</span>}</td>
 
       {/* Zona — always a select dropdown */}
-      <td className="p-3">
+      <td className="px-3 py-2">
         {zonaOptions.length > 0 ? (
           <select
             value={String(reg.datos_extra?.zona || '')}
@@ -115,12 +115,12 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
       </td>
 
       {/* Estado */}
-      <td className="p-3">
+      <td className="px-3 py-2">
         <StatusBadge status={reg.status} />
       </td>
 
       {/* Check-in */}
-      <td className="p-3">
+      <td className="px-3 py-2">
         {reg.checked_in ? (
           <span className="inline-flex items-center gap-1 text-success text-sm font-medium">
             <i className="fas fa-check-circle" /> Sí
@@ -131,7 +131,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
       </td>
 
       {/* Acciones */}
-      <td className="p-3 pr-4">
+      <td className="px-3 py-2 pr-4">
         <div className="flex items-center gap-1">
           {/* View detail */}
           <button

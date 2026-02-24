@@ -164,12 +164,12 @@ export const profileUpdateSchema = z.object({
   rut: rutSchema.optional(),
   nombre: safeString.optional(),
   apellido: safeString.optional(),
-  email: emailSchema.optional(),
-  telefono: safeString.optional(),
-  medio: safeString.optional(),
-  tipo_medio: safeString.optional(),
-  cargo: safeString.optional(),
-  nacionalidad: safeString.optional(),
+  email: emailSchema.nullable().optional(),
+  telefono: safeString.nullable().optional(),
+  medio: safeString.nullable().optional(),
+  tipo_medio: safeString.nullable().optional(),
+  cargo: safeString.nullable().optional(),
+  nacionalidad: safeString.nullable().optional(),
 }).refine(
   data => Object.keys(data).length > 0,
   { message: 'No hay campos para actualizar' }
