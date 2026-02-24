@@ -65,7 +65,10 @@ export async function POST(request: NextRequest) {
         .select('*')
         .in('id', registration_ids);
 
-      const fullRegs = (fullRegsData || []) as RegistrationFull[];
+      const allRegs = (fullRegsData || []) as RegistrationFull[];
+      // Solo enviar email a registros aprobados o rechazados (nunca pendientes)
+      const fullRegs = allRegs.filter(r => r.status === 'aprobado' || r.status === 'rechazado');
+      const skippedPendiente = allRegs.length - fullRegs.length;
 
       if (fullRegs.length === 0) {
         return NextResponse.json({ emails: { sent: 0, skipped: 0, errors: 0 } });
@@ -84,9 +87,10 @@ export async function POST(request: NextRequest) {
       const emailResult = await sendBulkApprovalEmails(fullRegs, tenant as Tenant);
       await logAuditAction(user.id, 'registration.bulk_email', 'registration', registration_ids[0], {
         count: registration_ids.length,
+        skipped_pendiente: skippedPendiente,
         ...emailResult,
       });
-      return NextResponse.json({ emails: emailResult });
+      return NextResponse.json({ emails: { ...emailResult, skipped_pendiente: skippedPendiente } });
     }
 
     if (!status || !['aprobado', 'rechazado'].includes(status)) {

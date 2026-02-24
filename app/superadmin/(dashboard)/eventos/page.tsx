@@ -781,6 +781,7 @@ export default function EventosPage() {
                   columns={bulkTemplateColumns}
                   formFields={formFields}
                   onChange={setBulkTemplateColumns}
+                  eventZonas={eventZonas}
                 />
               )}
 

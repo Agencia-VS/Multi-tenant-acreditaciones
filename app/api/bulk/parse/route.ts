@@ -24,14 +24,15 @@ const DEFAULT_BULK_COLUMNS: BulkTemplateColumn[] = [
 /* ── Header mapping (same as client-side) ─── */
 
 const BULK_HEADER_MAP: Record<string, string> = {
-  rut: 'rut', 'rut_xxxxxxxx-x': 'rut',
-  nombre: 'nombre', first_name: 'nombre',
-  apellido: 'apellido', last_name: 'apellido',
-  email: 'email', correo: 'email', mail: 'email',
+  rut: 'rut', 'rut_xxxxxxxx-x': 'rut', 'rut_(xxxxxxxx-x)': 'rut',
+  nombre: 'nombre', first_name: 'nombre', nombres: 'nombre',
+  apellido: 'apellido', last_name: 'apellido', apellidos: 'apellido',
+  segundo_apellido: 'segundo_apellido',
+  email: 'email', correo: 'email', mail: 'email', 'correo_electronico': 'email',
   telefono: 'telefono', celular: 'telefono', fono: 'telefono', phone: 'telefono',
   cargo: 'cargo', funcion: 'cargo', rol: 'cargo', acreditacion: 'cargo',
   empresa: 'empresa', organizacion: 'empresa', medio: 'empresa', organization: 'empresa',
-  tipo_medio: 'tipo_medio', tipo: 'tipo_medio',
+  tipo_medio: 'tipo_medio', tipo: 'tipo_medio', 'tipo_de_medio': 'tipo_medio',
   area: 'area', 'area_claro_arena_/_cruzados': 'area',
   zona: 'zona', zone: 'zona',
   patente: 'patente', 'patente_(opcional)': 'patente',
@@ -41,7 +42,10 @@ const BULK_HEADER_MAP: Record<string, string> = {
 function normalizeHeader(h: string): string {
   return h.trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_');
+    .replace(/\*/g, '')          // Remove * (required markers from template)
+    .replace(/\s+/g, '_')
+    .replace(/_+$/, '')          // Remove trailing underscores
+    .replace(/^_+/, '');         // Remove leading underscores
 }
 
 interface BulkRow {
@@ -81,6 +85,9 @@ async function parseExcel(buffer: ArrayBuffer): Promise<BulkRow[]> {
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
     const r: BulkRow = { rut: '', nombre: '', apellido: '' };
+    // Detect instruction/note rows (e.g. "↑ Elimina esta fila...")
+    const firstCellVal = row.getCell(1).value?.toString().trim() || '';
+    if (firstCellVal.startsWith('↑') || firstCellVal.startsWith('Elimina')) return;
     row.eachCell((cell, colNumber) => {
       const h = mapped[colNumber - 1];
       if (h) r[h] = cell.value?.toString().trim() || '';
@@ -153,18 +160,53 @@ export async function GET(request: NextRequest) {
             // Fallback: generar columnas a partir de form_fields (excluyendo 'file' y 'foto')
             columns = event.form_fields
               .filter(f => f.type !== 'file' && f.key !== 'foto_url')
-              .map(f => ({
-                key: f.key,
-                header: f.label,
-                required: f.required,
-                example: getFieldExample(f.key, f.type),
-                width: f.key === 'email' ? 28 : f.key === 'rut' ? 16 : 20,
-              }));
+              .map(f => {
+                // Extraer opciones de campos select
+                let opts: string[] | undefined;
+                if (f.type === 'select' && f.options && f.options.length > 0) {
+                  opts = f.options.map((o: string | { value: string; label: string }) =>
+                    typeof o === 'string' ? o : o.value
+                  );
+                }
+                return {
+                  key: f.key,
+                  header: f.label,
+                  required: f.required,
+                  example: getFieldExample(f.key, f.type),
+                  width: f.key === 'email' ? 28 : f.key === 'rut' ? 16 : 20,
+                  ...(opts ? { options: opts } : {}),
+                };
+              });
           }
         }
       } catch {
         // Si falla obtener el evento, usar default
       }
+    }
+
+    // ── Auto-inyectar columna Zona si el evento tiene zonas configuradas ──
+    if (eventId) {
+      try {
+        const ev = await getEventById(eventId);
+        if (ev) {
+          const cfg = (ev.config || {}) as EventConfig;
+          const zonas = cfg.zonas || [];
+          const hasZonaCol = columns.some(c => c.key === 'zona');
+          if (zonas.length > 0 && !hasZonaCol) {
+            columns = [
+              ...columns,
+              {
+                key: 'zona',
+                header: 'Zona',
+                required: false,
+                example: zonas[0] || '',
+                width: 22,
+                options: zonas,
+              },
+            ];
+          }
+        }
+      } catch { /* ignore */ }
     }
 
     const wb = new ExcelJS.Workbook();
@@ -191,6 +233,25 @@ export async function GET(request: NextRequest) {
       exampleRow[col.key] = col.example || '';
     }
     ws.addRow(exampleRow);
+
+    // Aplicar data validation (lista desplegable) para columnas con options
+    columns.forEach((col, colIdx) => {
+      if (col.options && col.options.length > 0) {
+        const colNumber = colIdx + 1;
+        // Aplicar validación a filas 2..1000 (excluyendo header)
+        for (let rowNum = 2; rowNum <= 1000; rowNum++) {
+          const cell = ws.getCell(rowNum, colNumber);
+          cell.dataValidation = {
+            type: 'list',
+            allowBlank: !col.required,
+            formulae: [`"${col.options.join(',')}"`],
+            showErrorMessage: true,
+            errorTitle: 'Valor no válido',
+            error: `Selecciona una opción: ${col.options.join(', ')}`,
+          };
+        }
+      }
+    });
 
     // Agregar nota con instrucciones en una fila extra (gris)
     const noteRow = ws.addRow({});

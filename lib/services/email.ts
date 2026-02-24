@@ -406,7 +406,8 @@ export async function sendRejectionEmail(
 }
 
 /**
- * Enviar emails masivos (bulk approval)
+ * Enviar emails masivos (bulk) — despacha aprobación o rechazo según status.
+ * Solo procesa registros con status aprobado o rechazado.
  */
 export async function sendBulkApprovalEmails(
   registrations: RegistrationFull[],
@@ -418,8 +419,15 @@ export async function sendBulkApprovalEmails(
 
   for (const reg of registrations) {
     if (!reg.profile_email) { skipped++; continue; }
-    
-    const result = await sendApprovalEmail(reg, tenant);
+    // Solo enviar a estados finales (guard server-side)
+    if (reg.status !== 'aprobado' && reg.status !== 'rechazado') { skipped++; continue; }
+
+    let result: { success: boolean; error?: string };
+    if (reg.status === 'rechazado') {
+      result = await sendRejectionEmail(reg, tenant);
+    } else {
+      result = await sendApprovalEmail(reg, tenant);
+    }
     if (result.success) sent++;
     else errors++;
     

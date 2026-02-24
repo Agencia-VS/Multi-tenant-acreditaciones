@@ -83,12 +83,25 @@ export default function QRScanner({
       });
       streamRef.current = stream;
 
+      // Activar cámara primero para que React renderice el <video>
+      setCameraActive(true);
+
+      // Esperar al siguiente frame para que videoRef esté disponible
+      await new Promise<void>((resolve) => {
+        const waitForVideo = () => {
+          if (videoRef.current) {
+            resolve();
+          } else {
+            requestAnimationFrame(waitForVideo);
+          }
+        };
+        requestAnimationFrame(waitForVideo);
+      });
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-
-      setCameraActive(true);
 
       // Check if BarcodeDetector API is available (Chrome/Edge/Android)
       const hasBarcodeDetector = 'BarcodeDetector' in window;

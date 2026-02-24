@@ -601,6 +601,7 @@ export interface BulkTemplateColumn {
   required: boolean;  // si es requerido en la importación
   example?: string;   // valor de ejemplo en la fila demo
   width?: number;     // ancho de columna en Excel
+  options?: string[]; // opciones para lista desplegable en Excel (campos select)
 }
 
 /** A single disclaimer section — icon + title + body */

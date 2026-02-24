@@ -6,6 +6,7 @@ interface EventBulkTemplateTabProps {
   columns: BulkTemplateColumn[];
   formFields: FormFieldDefinition[];
   onChange: (columns: BulkTemplateColumn[]) => void;
+  eventZonas?: string[];
 }
 
 const DEFAULT_EXAMPLES: Record<string, string> = {
@@ -29,6 +30,7 @@ export default function EventBulkTemplateTab({
   columns,
   formFields,
   onChange,
+  eventZonas = [],
 }: EventBulkTemplateTabProps) {
 
   const addColumn = () => {
@@ -56,20 +58,61 @@ export default function EventBulkTemplateTab({
   const generateFromFormFields = () => {
     const generated: BulkTemplateColumn[] = formFields
       .filter(f => f.type !== 'file' && f.key !== 'foto_url')
-      .map(f => ({
-        key: f.key,
-        header: f.label,
-        required: f.required,
-        example: DEFAULT_EXAMPLES[f.key] || '',
-        width: f.key === 'email' ? 28 : f.key === 'rut' ? 16 : 20,
-      }));
+      .map(f => {
+        // Extraer opciones de campos select
+        let opts: string[] | undefined;
+        if (f.type === 'select' && f.options && f.options.length > 0) {
+          opts = f.options.map((o: string | { value: string; label: string }) =>
+            typeof o === 'string' ? o : (o as { value: string }).value
+          );
+        }
+        return {
+          key: f.key,
+          header: f.label,
+          required: f.required,
+          example: DEFAULT_EXAMPLES[f.key] || (opts ? opts[0] : ''),
+          width: f.key === 'email' ? 28 : f.key === 'rut' ? 16 : 20,
+          ...(opts ? { options: opts } : {}),
+        };
+      });
+
+    // Auto-agregar columna Zona si hay zonas del evento y no está ya en form_fields
+    if (eventZonas.length > 0 && !generated.some(c => c.key === 'zona')) {
+      generated.push({
+        key: 'zona',
+        header: 'Zona',
+        required: false,
+        example: eventZonas[0] || '',
+        width: 22,
+        options: eventZonas,
+      });
+    }
+
     onChange(generated);
+  };
+
+  /** Agregar columna Zona con desplegable desde las zonas del evento */
+  const addZonaColumn = () => {
+    if (columns.some(c => c.key === 'zona')) return;
+    onChange([
+      ...columns,
+      {
+        key: 'zona',
+        header: 'Zona',
+        required: false,
+        example: eventZonas[0] || '',
+        width: 22,
+        options: eventZonas,
+      },
+    ]);
   };
 
   /** Agregar columna rápida desde un form_field existente */
   const availableFields = formFields.filter(
     f => f.type !== 'file' && !columns.some(c => c.key === f.key)
   );
+
+  const hasZonaColumn = columns.some(c => c.key === 'zona');
 
   return (
     <div className="space-y-4">
@@ -97,6 +140,16 @@ export default function EventBulkTemplateTab({
           >
             <i className="fas fa-magic mr-1" /> Auto-generar desde formulario
           </button>
+          {eventZonas.length > 0 && !hasZonaColumn && (
+            <button
+              type="button"
+              onClick={addZonaColumn}
+              className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition"
+              title="Agregar columna Zona con lista desplegable de las zonas del evento"
+            >
+              <i className="fas fa-map-marker-alt mr-1" /> + Zona ({eventZonas.length})
+            </button>
+          )}
           <button
             type="button"
             onClick={addColumn}
@@ -147,10 +200,17 @@ export default function EventBulkTemplateTab({
                       value={col.key}
                       onChange={(e) => {
                         const field = formFields.find(f => f.key === e.target.value);
+                        let opts: string[] | undefined;
+                        if (field?.type === 'select' && field.options && field.options.length > 0) {
+                          opts = field.options.map((o: string | { value: string; label: string }) =>
+                            typeof o === 'string' ? o : (o as { value: string }).value
+                          );
+                        }
                         updateColumn(i, {
                           key: e.target.value,
                           header: field?.label || e.target.value,
-                          example: DEFAULT_EXAMPLES[e.target.value] || '',
+                          example: DEFAULT_EXAMPLES[e.target.value] || (opts ? opts[0] : ''),
+                          options: opts,
                         });
                       }}
                       className="w-full px-2 py-1 rounded border text-xs font-mono text-label"
@@ -170,13 +230,20 @@ export default function EventBulkTemplateTab({
                     />
                   )}
                 </div>
-                <input
-                  type="text"
-                  value={col.header}
-                  onChange={(e) => updateColumn(i, { header: e.target.value })}
-                  placeholder="Nombre de columna"
-                  className="col-span-3 px-2 py-1 rounded border text-sm text-label"
-                />
+                <div className="col-span-3 flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={col.header}
+                    onChange={(e) => updateColumn(i, { header: e.target.value })}
+                    placeholder="Nombre de columna"
+                    className="flex-1 px-2 py-1 rounded border text-sm text-label"
+                  />
+                  {col.options && col.options.length > 0 && (
+                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-semibold" title={`Desplegable: ${col.options.join(', ')}`}>
+                      <i className="fas fa-list-ul mr-0.5" />{col.options.length}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={col.example || ''}
@@ -229,6 +296,36 @@ export default function EventBulkTemplateTab({
                   </button>
                 </div>
               </div>
+              {/* Options row — desktop */}
+              {col.options && col.options.length > 0 && (
+                <div className="hidden sm:block mt-2 ml-[8.33%] col-span-11">
+                  <div className="flex items-start gap-2 p-2 rounded bg-purple-50 border border-purple-200">
+                    <i className="fas fa-list-ul text-purple-500 mt-0.5 text-xs" />
+                    <div className="flex-1">
+                      <p className="text-[10px] text-purple-600 font-semibold uppercase mb-1">Opciones desplegable en Excel</p>
+                      <input
+                        type="text"
+                        value={col.options.join(', ')}
+                        onChange={(e) => {
+                          const newOpts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                          updateColumn(i, { options: newOpts.length > 0 ? newOpts : undefined });
+                        }}
+                        placeholder="Opción 1, Opción 2, Opción 3"
+                        className="w-full px-2 py-1 rounded border text-xs text-label"
+                      />
+                      <p className="text-[10px] text-purple-400 mt-0.5">Separadas por coma. Estas aparecerán como lista desplegable en el Excel.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateColumn(i, { options: undefined })}
+                      className="text-purple-400 hover:text-red-500 text-xs p-1"
+                      title="Quitar desplegable"
+                    >
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Mobile: stacked layout */}
               <div className="sm:hidden space-y-2">
                 <div className="flex items-center justify-between">
@@ -256,10 +353,17 @@ export default function EventBulkTemplateTab({
                         value={col.key}
                         onChange={(e) => {
                           const field = formFields.find(f => f.key === e.target.value);
+                          let opts: string[] | undefined;
+                          if (field?.type === 'select' && field.options && field.options.length > 0) {
+                            opts = field.options.map((o: string | { value: string; label: string }) =>
+                              typeof o === 'string' ? o : (o as { value: string }).value
+                            );
+                          }
                           updateColumn(i, {
                             key: e.target.value,
                             header: field?.label || e.target.value,
-                            example: DEFAULT_EXAMPLES[e.target.value] || '',
+                            example: DEFAULT_EXAMPLES[e.target.value] || (opts ? opts[0] : ''),
+                            options: opts,
                           });
                         }}
                         className="w-full px-2 py-1.5 rounded border text-xs font-mono text-label"
@@ -288,6 +392,22 @@ export default function EventBulkTemplateTab({
                     <input type="number" value={col.width || 20} onChange={(e) => updateColumn(i, { width: parseInt(e.target.value) || 20 })} min={8} max={50} className="w-full px-2 py-1.5 rounded border text-xs text-body" />
                   </div>
                 </div>
+                {/* Mobile: options display */}
+                {col.options && col.options.length > 0 && (
+                  <div className="p-2 rounded bg-purple-50 border border-purple-200">
+                    <p className="text-[10px] text-purple-600 font-semibold uppercase mb-1"><i className="fas fa-list-ul mr-0.5" /> Desplegable ({col.options.length})</p>
+                    <input
+                      type="text"
+                      value={col.options.join(', ')}
+                      onChange={(e) => {
+                        const newOpts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                        updateColumn(i, { options: newOpts.length > 0 ? newOpts : undefined });
+                      }}
+                      placeholder="Opción 1, Opción 2"
+                      className="w-full px-2 py-1 rounded border text-xs text-label"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -307,6 +427,11 @@ export default function EventBulkTemplateTab({
                   {columns.map((col, i) => (
                     <th key={i} className="px-3 py-2 text-left font-semibold whitespace-nowrap">
                       {col.header}{col.required ? ' *' : ''}
+                      {col.options && col.options.length > 0 && (
+                        <span className="ml-1 text-[10px] font-normal text-purple-300" title={col.options.join(', ')}>
+                          <i className="fas fa-caret-down" /> {col.options.length}
+                        </span>
+                      )}
                     </th>
                   ))}
                 </tr>
