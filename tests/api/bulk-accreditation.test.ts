@@ -41,9 +41,10 @@ vi.mock('@/lib/dates', () => ({
 
 // ── Supabase mock (table-aware) ──
 const mockRpc = vi.fn();
-let profileStore: { id: string; rut: string; user_id: string | null }[] = [];
+let profileStore: { id: string; rut: string | null; user_id: string | null; document_type?: string; document_normalized?: string }[] = [];
 let zoneRulesStore: { cargo: string; zona: string; match_field: string }[] = [];
 let registrationStore: { profile_id: string }[] = [];
+let registrationEmailStore: string[] = [];
 
 /**
  * Creates a smart from() mock that returns correct chains based on table name.
@@ -55,11 +56,21 @@ function createFromMock() {
         select: vi.fn().mockReturnValue({
           in: vi.fn().mockResolvedValue({ data: [...profileStore] }),
         }),
-        upsert: vi.fn().mockImplementation((rows: { rut: string; nombre: string }[]) => {
+        upsert: vi.fn().mockImplementation((rows: Array<{ rut?: string | null; nombre: string; document_type?: string; document_normalized?: string }>) => {
           const created = rows.map((r, i) => {
-            const existing = profileStore.find(p => p.rut === r.rut);
+            const existing = profileStore.find(
+              p => (r.document_type && r.document_normalized)
+                ? p.document_type === r.document_type && p.document_normalized === r.document_normalized
+                : p.rut === (r.rut ?? null)
+            );
             if (existing) return { id: existing.id, rut: existing.rut };
-            const newProfile = { id: `auto-prof-${Date.now()}-${i}`, rut: r.rut, user_id: null };
+            const newProfile = {
+              id: `auto-prof-${Date.now()}-${i}`,
+              rut: r.rut ?? null,
+              user_id: null,
+              document_type: r.document_type,
+              document_normalized: r.document_normalized,
+            };
             profileStore.push(newProfile);
             return { id: newProfile.id, rut: newProfile.rut };
           });
@@ -69,6 +80,12 @@ function createFromMock() {
         }),
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          in: vi.fn().mockImplementation((_col: string, ids: string[]) => {
+            profileStore = profileStore.filter(p => !ids.includes(p.id));
+            return Promise.resolve({ error: null });
+          }),
         }),
       };
     }
@@ -81,12 +98,28 @@ function createFromMock() {
     }
     if (table === 'registrations') {
       return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockImplementation((_col: string, ids: string[]) => {
-              const matched = registrationStore.filter(r => ids.includes(r.profile_id));
-              return Promise.resolve({ data: matched });
+        select: vi.fn().mockImplementation((columns: string) => {
+          if (columns === 'email_snapshot') {
+            return {
+              eq: vi.fn().mockReturnValue({
+                not: vi.fn().mockResolvedValue({
+                  data: registrationEmailStore.map(email => ({ email_snapshot: email })),
+                }),
+              }),
+            };
+          }
+          return {
+            eq: vi.fn().mockReturnValue({
+              in: vi.fn().mockImplementation((_col: string, ids: string[]) => {
+                const matched = registrationStore.filter(r => ids.includes(r.profile_id));
+                return Promise.resolve({ data: matched });
+              }),
             }),
+          };
+        }),
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ error: null }),
           }),
         }),
       };
@@ -153,6 +186,7 @@ describe('POST /api/bulk-accreditation', () => {
     profileStore = [];
     zoneRulesStore = [];
     registrationStore = [];
+    registrationEmailStore = [];
   });
 
   // ── Validation ──
@@ -308,7 +342,7 @@ describe('POST /api/bulk-accreditation', () => {
     expect(profileStore[0].rut).toBe('99999999-9');
   });
 
-  it('handles RPC per-row errors (partial success)', async () => {
+  it('all-or-nothing: when RPC returns per-row error, response fails all', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [
       { id: 'prof-1', rut: '11111111-1', user_id: null },
@@ -328,9 +362,12 @@ describe('POST /api/bulk-accreditation', () => {
     const res = await POST(req);
     const body = await res.json();
     expect(body.total).toBe(2);
-    expect(body.success).toBe(1);
-    expect(body.errors).toBe(1);
-    expect(body.results.find((r: { rut: string }) => r.rut === '22222222-2').error).toContain('registrada');
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(2);
+    const failed = body.results.find((r: { rut: string }) => r.rut === '22222222-2');
+    const blocked = body.results.find((r: { rut: string }) => r.rut === '11111111-1');
+    expect(failed.error).toContain('registrada');
+    expect(blocked.error).toContain('No se procesó');
   });
 
   it('handles RPC-level failure (all fail)', async () => {
@@ -548,11 +585,20 @@ describe('POST /api/bulk-accreditation', () => {
 
   it('makes exactly 1 RPC call regardless of row count', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
-    profileStore = Array.from({ length: 50 }, (_, i) => ({
-      id: `prof-${i}`,
-      rut: `${10000000 + i}-${i % 10}`,
-      user_id: null,
-    }));
+
+    // Helper: compute valid DV for a RUT body (módulo 11)
+    function computeDV(body: number): string {
+      let sum = 0, mul = 2, n = body;
+      while (n > 0) { sum += (n % 10) * mul; n = Math.floor(n / 10); mul = mul === 7 ? 2 : mul + 1; }
+      const r = 11 - (sum % 11);
+      return r === 11 ? '0' : r === 10 ? 'K' : r.toString();
+    }
+
+    profileStore = Array.from({ length: 50 }, (_, i) => {
+      const body = 10000000 + i;
+      const rut = `${body}-${computeDV(body)}`;
+      return { id: `prof-${i}`, rut, user_id: null };
+    });
 
     const rpcResults = profileStore.map((_, i) => ({
       row_index: i,
@@ -561,7 +607,7 @@ describe('POST /api/bulk-accreditation', () => {
     }));
     mockBulkRpcSuccess(rpcResults);
 
-    const rows = profileStore.map(p => makeRow(p.rut, 'Nombre', 'Apellido'));
+    const rows = profileStore.map(p => makeRow(p.rut || '11111111-1', 'Nombre', 'Apellido'));
     const req = makeRequest({ event_id: 'evt-1', rows });
     const res = await POST(req);
     const body = await res.json();
@@ -569,5 +615,60 @@ describe('POST /api/bulk-accreditation', () => {
     expect(body.success).toBe(50);
     // The key assertion: only 1 RPC call, not 50
     expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Server-side RUT/Email validation ──
+
+  it('rejects rows with invalid RUT (dígito verificador)', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+
+    const rows = [
+      makeRow('11111111-0', 'Juan', 'Pérez'), // DV correcto es 1, no 0
+    ];
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    const res = await POST(req);
+    const body = await res.json();
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(1);
+    expect(body.results[0].ok).toBe(false);
+    expect(body.results[0].error).toContain('RUT inválido');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects rows with invalid email format', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+    profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+    const rows = [
+      makeRow('11111111-1', 'Juan', 'Pérez', { email: 'not-an-email' }),
+    ];
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    const res = await POST(req);
+    const body = await res.json();
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(1);
+    expect(body.results[0].ok).toBe(false);
+    expect(body.results[0].error).toContain('Email inválido');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('sanitizes input data (strips HTML tags)', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+    profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+    mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
+
+    const rows = [
+      makeRow('11111111-1', '<script>alert("xss")</script>Juan', 'Pérez', {
+        email: 'test@example.com',
+        cargo: '<b>Periodista</b>',
+      }),
+    ];
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    await POST(req);
+
+    // cargo is passed directly in the RPC row payload
+    const rpcPayload = mockRpc.mock.calls[0][1].p_rows as Array<{ cargo: string }>;
+    expect(rpcPayload[0].cargo).toBe('Periodista');
   });
 });

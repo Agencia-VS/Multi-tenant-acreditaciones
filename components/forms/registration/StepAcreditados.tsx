@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { FormFieldDefinition, TeamMember } from '@/types';
 import AcreditadoRow from '@/components/forms/AcreditadoRow';
 import type { AcreditadoData } from '@/components/forms/AcreditadoRow';
-import { validateRut, cleanRut } from '@/lib/validation';
+import { validateDocumentByType, cleanRut } from '@/lib/validation';
 import { TIPO_MEDIO_ICONS, type ResponsableData, type BulkImportRow } from './types';
 
 interface QuotaResult {
@@ -59,7 +59,36 @@ function BulkSummary({
   tipoMedio: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const invalidRuts = bulkRows.filter(r => r.rut && !validateRut(r.rut)).length;
+  const getBulkRowError = (row: BulkImportRow, index: number): string | null => {
+    const fileLine = index + 2; // +1 por índice base 0 y +1 por header
+    const docType = row.document_type || 'rut';
+    const docNumber = row.document_number || row.rut;
+
+    if (!row.nombre?.trim() || !row.apellido?.trim() || !docNumber?.trim()) {
+      return `Línea ${fileLine}: faltan Nombre, Apellido o Documento`;
+    }
+
+    const docValidation = validateDocumentByType(docType, docNumber);
+    if (!docValidation.valid) {
+      return `Línea ${fileLine}: ${docType === 'rut' ? 'RUT' : 'Documento'} inválido`;
+    }
+
+    const email = row.extras?.email;
+    if (email && !/^\S+@\S+\.\S+$/.test(email.trim())) {
+      return `Línea ${fileLine}: email inválido`;
+    }
+
+    return null;
+  };
+
+  const bulkErrors = bulkRows.map((row, index) => getBulkRowError(row, index));
+  const firstBulkError = bulkErrors.find(Boolean) || null;
+
+  const invalidDocuments = bulkRows.filter((r) => {
+    const docType = r.document_type || 'rut';
+    const docNumber = r.document_number || r.rut;
+    return docNumber && !validateDocumentByType(docType, docNumber).valid;
+  }).length;
   const missingNames = bulkRows.filter(r => !r.nombre || !r.apellido).length;
   const previewRows = bulkRows.slice(0, 3);
   const PREVIEW_LIMIT = 20;
@@ -96,9 +125,9 @@ function BulkSummary({
                 Carga masiva · {bulkRows.length} persona{bulkRows.length !== 1 ? 's' : ''}
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                {invalidRuts > 0 && (
+                {invalidDocuments > 0 && (
                   <span className="text-xs text-danger font-medium flex items-center gap-1">
-                    <i className="fas fa-exclamation-circle text-[10px]" /> {invalidRuts} RUT inválido{invalidRuts !== 1 ? 's' : ''}
+                    <i className="fas fa-exclamation-circle text-[10px]" /> {invalidDocuments} documento{invalidDocuments !== 1 ? 's' : ''} inválido{invalidDocuments !== 1 ? 's' : ''}
                   </span>
                 )}
                 {missingNames > 0 && (
@@ -106,12 +135,17 @@ function BulkSummary({
                     <i className="fas fa-exclamation-triangle text-[10px]" /> {missingNames} sin nombre completo
                   </span>
                 )}
-                {invalidRuts === 0 && missingNames === 0 && (
+                {invalidDocuments === 0 && missingNames === 0 && (
                   <span className="text-xs text-success font-medium flex items-center gap-1">
                     <i className="fas fa-check-circle text-[10px]" /> Datos validados
                   </span>
                 )}
               </div>
+              {firstBulkError && (
+                <p className="mt-1 text-xs text-danger font-semibold truncate" title={firstBulkError}>
+                  <i className="fas fa-bug mr-1" /> {firstBulkError}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -125,13 +159,21 @@ function BulkSummary({
 
         {/* Preview names (first 3) */}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {previewRows.map((row, i) => (
-            <span key={row.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface border border-edge text-xs text-heading font-medium">
-              <span className="w-4 h-4 rounded-full bg-brand/10 text-brand text-[9px] font-bold flex items-center justify-center">{i + 1}</span>
-              {row.nombre} {row.apellido}
-              {row.rut && !validateRut(row.rut) && <i className="fas fa-exclamation-circle text-danger text-[10px]" />}
-            </span>
-          ))}
+          {previewRows.map((row, i) => {
+            const rowError = bulkErrors[i];
+            return (
+              <span key={row.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${rowError ? 'bg-danger/5 border-danger/30 text-danger' : 'bg-surface border-edge text-heading'}`}>
+                <span className="w-4 h-4 rounded-full bg-brand/10 text-brand text-[9px] font-bold flex items-center justify-center">{i + 1}</span>
+                {row.nombre} {row.apellido}
+                {rowError ? (
+                  <>
+                    <i className="fas fa-exclamation-circle text-danger text-[10px]" />
+                    <span className="hidden sm:inline max-w-[220px] truncate">{rowError}</span>
+                  </>
+                ) : null}
+              </span>
+            );
+          })}
           {bulkRows.length > 3 && (
             <span className="text-xs text-muted font-medium">y {bulkRows.length - 3} más...</span>
           )}
@@ -158,7 +200,9 @@ function BulkSummary({
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide w-8">#</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Nombre</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Apellido</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">RUT</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Tipo Doc.</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Documento</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Error</th>
                   {extraKeys.map(k => (
                     <th key={k} className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide whitespace-nowrap">
                       {EXTRA_LABELS[k] || k.replace(/_/g, ' ')}
@@ -168,14 +212,24 @@ function BulkSummary({
                 </tr>
               </thead>
               <tbody className="divide-y divide-edge/30">
-                {bulkRows.slice(0, PREVIEW_LIMIT).map((row, i) => (
-                  <tr key={row.id} className="hover:bg-surface/40 transition-snappy">
+                {bulkRows.slice(0, PREVIEW_LIMIT).map((row, i) => {
+                  const rowError = bulkErrors[i];
+                  return (
+                  <tr key={row.id} className={`hover:bg-surface/40 transition-snappy ${rowError ? 'bg-danger/5' : ''}`}>
                     <td className="px-3 py-2 text-xs text-muted font-mono">{i + 1}</td>
                     <td className="px-3 py-2 font-medium text-heading">{row.nombre || <span className="text-danger italic text-xs">Vacío</span>}</td>
                     <td className="px-3 py-2 font-medium text-heading">{row.apellido || <span className="text-danger italic text-xs">Vacío</span>}</td>
+                    <td className="px-3 py-2 text-body text-xs whitespace-nowrap">{row.document_type === 'dni_extranjero' ? 'DNI/Pasaporte' : 'RUT'}</td>
                     <td className="px-3 py-2 text-body font-mono text-xs">
-                      {row.rut || <span className="text-danger italic">Vacío</span>}
-                      {row.rut && !validateRut(row.rut) && <i className="fas fa-exclamation-circle text-danger ml-1" />}
+                      {(row.document_number || row.rut) || <span className="text-danger italic">Vacío</span>}
+                      {rowError
+                        ? <i className="fas fa-exclamation-circle text-danger ml-1" />
+                        : null}
+                    </td>
+                    <td className="px-3 py-2 text-xs whitespace-nowrap">
+                      {rowError
+                        ? <span className="text-danger font-medium">{rowError}</span>
+                        : <span className="text-success">OK</span>}
                     </td>
                     {extraKeys.map(k => (
                       <td key={k} className="px-3 py-2 text-body text-xs whitespace-nowrap">
@@ -193,7 +247,8 @@ function BulkSummary({
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {bulkRows.length > PREVIEW_LIMIT && (
@@ -369,7 +424,7 @@ export default function StepAcreditados({
             {teamMembers.map((m) => {
               const p = m.member_profile;
               if (!p) return null;
-              const alreadyAdded = acreditados.some(a => a.rut && cleanRut(a.rut) === cleanRut(p.rut));
+              const alreadyAdded = acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut));
               return (
                 <div key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-surface/60 transition-snappy">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand/10 text-brand text-xs font-bold shrink-0">

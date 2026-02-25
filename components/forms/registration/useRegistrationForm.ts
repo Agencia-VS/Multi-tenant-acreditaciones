@@ -5,7 +5,7 @@ import type { FormFieldDefinition, TeamMember, ProfileDatosBase } from '@/types'
 import { TIPOS_MEDIO } from '@/types';
 import { useQuotaCheck } from '@/hooks/useQuotaCheck';
 import { useTenantProfile } from '@/hooks/useTenantProfile';
-import { validateRut, validateEmail, cleanRut, formatRut, sanitize } from '@/lib/validation';
+import { validateEmail, validateDocumentByType, cleanRut, formatRut, sanitize } from '@/lib/validation';
 import { createEmptyAcreditado, validateAcreditado } from '@/components/forms/AcreditadoRow';
 import type { AcreditadoData } from '@/components/forms/AcreditadoRow';
 import type {
@@ -32,6 +32,8 @@ const fireToast = (type: 'success' | 'error', text: string) => {
    ═══════════════════════════════════════════════════════ */
 
 interface BulkRow {
+  document_type?: string;
+  document_number?: string;
   rut: string;
   nombre: string;
   apellido: string;
@@ -42,6 +44,8 @@ interface BulkRow {
 }
 
 const BULK_HEADER_MAP: Record<string, string> = {
+  tipo_documento: 'document_type', tipo_de_documento: 'document_type', document_type: 'document_type', documento_tipo: 'document_type',
+  documento: 'document_number', nro_documento: 'document_number', numero_documento: 'document_number', document_number: 'document_number',
   rut: 'rut', 'rut_xxxxxxxx-x': 'rut',
   nombre: 'nombre', first_name: 'nombre',
   apellido: 'apellido', last_name: 'apellido',
@@ -69,10 +73,11 @@ function parseCSV(text: string): BulkRow[] {
   const mappedHeaders = headers.map(h => BULK_HEADER_MAP[h] || h);
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const values = line.split(/[,;\t]/).map(v => v.trim().replace(/^"|"$/g, ''));
-    const row: BulkRow = { rut: '', nombre: '', apellido: '' };
+    const row: BulkRow = { rut: '', nombre: '', apellido: '', document_type: 'rut', document_number: '' };
     mappedHeaders.forEach((header, i) => { if (values[i]) row[header] = values[i]; });
+    if (!row.document_number && row.rut) row.document_number = row.rut;
     return row;
-  }).filter(row => row.rut || row.nombre);
+  }).filter(row => row.document_number || row.rut || row.nombre);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -102,6 +107,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   // ─── Responsable data ───
   const [responsable, setResponsable] = useState<ResponsableData>({
+    document_type: 'rut',
     rut: '', nombre: '', apellido: '', segundo_apellido: '',
     email: '', telefono: '', organizacion: '',
   });
@@ -148,6 +154,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   useEffect(() => {
     if (userProfile) {
       setResponsable(prev => ({
+        document_type: ((userProfile as Partial<Record<string, unknown>>)?.document_type as 'rut' | 'dni_extranjero') || prev.document_type || 'rut',
         rut: userProfile.rut || prev.rut,
         nombre: userProfile.nombre || prev.nombre,
         apellido: userProfile.apellido || prev.apellido,
@@ -186,6 +193,9 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   const handleRespChange = (field: string, value: string) => {
     setResponsable(prev => ({ ...prev, [field]: value }));
+    if (field === 'document_type' && respErrors.rut) {
+      setRespErrors(prev => { const n = { ...prev }; delete n.rut; return n; });
+    }
     if (respErrors[field]) {
       setRespErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
     }
@@ -193,7 +203,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   const handleRespBlur = (field: string) => {
     setRespTouched(prev => new Set(prev).add(field));
-    if (field === 'rut' && responsable.rut) {
+    if (field === 'rut' && responsable.rut && (responsable.document_type || 'rut') === 'rut') {
       const cleaned = cleanRut(responsable.rut);
       setResponsable(prev => ({ ...prev, rut: formatRut(cleaned) }));
     }
@@ -204,10 +214,14 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const validateRespField = (field: string): string | null => {
     const v = responsable[field as keyof ResponsableData]?.trim() || '';
     switch (field) {
-      case 'rut': return !v ? 'RUT es requerido' : !validateRut(responsable.rut) ? 'RUT inválido' : null;
+      case 'rut': {
+        const validation = validateDocumentByType(responsable.document_type || 'rut', responsable.rut);
+        if (!v) return (responsable.document_type || 'rut') === 'rut' ? 'RUT es requerido' : 'Documento es requerido';
+        return validation.valid ? null : (validation.error || 'Documento inválido');
+      }
       case 'nombre': return !v ? 'Nombre es requerido' : null;
       case 'apellido': return !v ? 'Apellido es requerido' : null;
-      case 'email': return !v ? 'Email es requerido' : !validateEmail(v) ? 'Email inválido' : null;
+      case 'email': return !v ? 'Email es requerido' : !validateEmail(v).valid ? 'Email inválido' : null;
       case 'organizacion': return !v ? 'Organización es requerida' : null;
       default: return null;
     }
@@ -284,6 +298,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     if (incluirmeDone) return;
     const me: AcreditadoData = {
       id: crypto.randomUUID(),
+      document_type: responsable.document_type || 'rut',
       rut: responsable.rut,
       nombre: responsable.nombre,
       apellido: responsable.apellido,
@@ -300,7 +315,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const handleAddFromTeam = (member: TeamMember) => {
     const p = member.member_profile;
     if (!p) return;
-    if (acreditados.some(a => a.rut && cleanRut(a.rut) === cleanRut(p.rut))) {
+    if (acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut))) {
       setMessage({ type: 'error', text: `${p.nombre} ${p.apellido} ya está en la lista` });
       return;
     }
@@ -313,6 +328,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     const dynamicData = buildDynamicData(p.datos_base);
     const newA: AcreditadoData = {
       id: crypto.randomUUID(),
+      document_type: 'rut',
       rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
       email: p.email || '', telefono: p.telefono || '',
       cargo: eventHasCargo ? (dynamicData['cargo'] || p.cargo || '') : '',
@@ -328,7 +344,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     for (const m of teamMembers) {
       const p = m.member_profile;
       if (!p) continue;
-      const alreadyAdded = acreditados.some(a => a.rut && cleanRut(a.rut) === cleanRut(p.rut));
+      const alreadyAdded = acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut));
       if (alreadyAdded) continue;
       if (acreditados.length + added >= maxCupos) break;
       added++;
@@ -341,13 +357,14 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     for (const m of teamMembers) {
       const p = m.member_profile;
       if (!p) continue;
-      const alreadyAdded = acreditados.some(a => a.rut && cleanRut(a.rut) === cleanRut(p.rut));
+      const alreadyAdded = acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut));
       if (alreadyAdded) continue;
       if (acreditados.length + newAcreditados.length >= maxCupos) break;
       // M12: Usar dynamicData.cargo (tenant-scoped) en vez de p.cargo (global)
       const dynamicData = buildDynamicData(p.datos_base);
       newAcreditados.push({
         id: crypto.randomUUID(),
+        document_type: 'rut',
         rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
         email: p.email || '', telefono: p.telefono || '',
         cargo: eventHasCargo ? (dynamicData['cargo'] || p.cargo || '') : '',
@@ -371,6 +388,13 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const handleAcreditadoChange = (index: number, field: string, value: string) => {
     setAcreditados(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a));
     const id = acreditados[index]?.id;
+    if (field === 'document_type' && id && acreditadoErrors[id]?.rut) {
+      setAcreditadoErrors(prev => {
+        const updated = { ...(prev[id] || {}) };
+        delete updated.rut;
+        return { ...prev, [id]: updated };
+      });
+    }
     if (id && acreditadoErrors[id]?.[field]) {
       setAcreditadoErrors(prev => {
         const updated = { ...prev[id] };
@@ -445,12 +469,14 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     }
 
     const newBulkRows: BulkImportRow[] = rows.map(r => ({
+      document_type: ((r.document_type || '').toLowerCase() === 'dni_extranjero' ? 'dni_extranjero' : 'rut'),
+      document_number: r.document_number || r.rut || '',
       id: crypto.randomUUID(),
       nombre: r.nombre || '', apellido: r.apellido || '',
-      rut: r.rut || '',
+      rut: r.document_number || r.rut || '',
       extras: Object.fromEntries(
         Object.entries(r)
-          .filter(([k, v]) => !['nombre', 'apellido', 'rut'].includes(k) && v)
+          .filter(([k, v]) => !['nombre', 'apellido', 'rut', 'document_type', 'document_number'].includes(k) && v)
           .map(([k, v]) => [k, v!])
       ),
     }));
@@ -487,13 +513,22 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     }
     setAcreditadoErrors(allErrors);
 
-    for (const row of bulkRows) {
-      if (!row.nombre.trim() || !row.apellido.trim() || !row.rut.trim()) {
-        setMessage({ type: 'error', text: 'Algunas filas de la carga masiva no tienen Nombre, Apellido o RUT' });
+    for (const [index, row] of bulkRows.entries()) {
+      const fileLine = index + 2; // +1 por índice base 0 y +1 por fila de encabezado
+      const docType = row.document_type || 'rut';
+      const docNumber = row.document_number || row.rut;
+
+      if (!row.nombre.trim() || !row.apellido.trim() || !docNumber.trim()) {
+        setMessage({ type: 'error', text: `Línea ${fileLine}: faltan Nombre, Apellido o Documento` });
         return false;
       }
-      if (!validateRut(row.rut)) {
-        setMessage({ type: 'error', text: `RUT inválido: ${row.rut} (${row.nombre} ${row.apellido})` });
+      const validation = validateDocumentByType(docType, docNumber);
+      if (!validation.valid) {
+        setMessage({ type: 'error', text: `Línea ${fileLine}: ${docType === 'rut' ? 'RUT' : 'Documento'} inválido (${docNumber}) para ${row.nombre} ${row.apellido}` });
+        return false;
+      }
+      if (row.extras?.email && !validateEmail(row.extras.email).valid) {
+        setMessage({ type: 'error', text: `Línea ${fileLine}: email inválido (${row.extras.email}) para ${row.nombre} ${row.apellido}` });
         return false;
       }
     }
@@ -516,7 +551,11 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       const allRows: Record<string, string | undefined>[] = [];
 
       for (const a of acreditados) {
+        const documentType = a.document_type || 'rut';
+        const documentNumber = sanitize(a.rut);
         allRows.push({
+          document_type: documentType,
+          document_number: documentNumber,
           rut: sanitize(a.rut),
           nombre: sanitize(a.nombre),
           apellido: sanitize(a.apellido),
@@ -538,8 +577,12 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       }
 
       for (const row of bulkRows) {
+        const documentType = row.document_type || 'rut';
+        const documentNumber = sanitize(row.document_number || row.rut);
         allRows.push({
-          rut: sanitize(row.rut),
+          document_type: documentType,
+          document_number: documentNumber,
+          rut: documentNumber,
           nombre: sanitize(row.nombre),
           apellido: sanitize(row.apellido),
           organizacion: row.extras?.organizacion || row.extras?.empresa
@@ -630,7 +673,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const resetForm = () => {
     setStep(disclaimerEnabled ? 'disclaimer' : 'responsable');
     setDisclaimerAccepted(!disclaimerEnabled);
-    setResponsable({ rut: '', nombre: '', apellido: '', segundo_apellido: '', email: '', telefono: '', organizacion: '' });
+    setResponsable({ document_type: 'rut', rut: '', nombre: '', apellido: '', segundo_apellido: '', email: '', telefono: '', organizacion: '' });
     setRespErrors({});
     setRespTouched(new Set());
     setTipoMedio('');

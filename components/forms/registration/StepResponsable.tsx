@@ -61,16 +61,30 @@ export default function StepResponsable({
         {/* Form fields */}
         <div className="p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* RUT */}
+            {/* Tipo documento */}
             <div>
-              <label className="field-label">RUT *</label>
+              <label className="field-label">Tipo documento *</label>
+              <select
+                value={responsable.document_type || 'rut'}
+                onChange={(e) => handleRespChange('document_type', e.target.value)}
+                onBlur={() => handleRespBlur('document_type')}
+                className={getRespInputClass('document_type')}
+              >
+                <option value="rut">RUT (Chile)</option>
+                <option value="dni_extranjero">DNI / Pasaporte (Extranjero)</option>
+              </select>
+            </div>
+
+            {/* Documento */}
+            <div>
+              <label className="field-label">{(responsable.document_type || 'rut') === 'rut' ? 'RUT *' : 'Documento *'}</label>
               <div className="relative">
                 <input
                   type="text"
                   value={responsable.rut}
                   onChange={(e) => handleRespChange('rut', e.target.value)}
                   onBlur={() => handleRespBlur('rut')}
-                  placeholder="12.345.678-9"
+                  placeholder={(responsable.document_type || 'rut') === 'rut' ? '12.345.678-9' : 'Ej: AB1234567'}
                   className={`${getRespInputClass('rut')} pr-10`}
                 />
                 {respTouched.has('rut') && responsable.rut && (

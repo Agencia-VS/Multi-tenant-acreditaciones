@@ -12,6 +12,7 @@ import { getProfileByUserId } from '@/lib/services/profiles';
 import { logAuditAction } from '@/lib/services/audit';
 import { checkLimit } from '@/lib/services/billing';
 import { isDeadlinePast } from '@/lib/dates';
+import { validateEmail, sanitize, normalizeDocumentByType, validateDocumentByType, type DocumentType } from '@/lib/validation';
 import type { RegistrationFormData } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -22,9 +23,48 @@ export async function POST(request: NextRequest) {
     if (!event_id) {
       return NextResponse.json({ error: 'event_id es requerido' }, { status: 400 });
     }
-    if (!formData.rut || !formData.nombre || !formData.apellido) {
-      return NextResponse.json({ error: 'RUT, nombre y apellido son requeridos' }, { status: 400 });
+    const rawDocumentType = typeof body.document_type === 'string' ? body.document_type : undefined;
+    const rawDocumentNumber = typeof body.document_number === 'string' ? body.document_number : undefined;
+    const hasRut = !!formData.rut?.trim();
+    const hasDocument = !!rawDocumentNumber?.trim();
+
+    if ((!hasRut && !hasDocument) || !formData.nombre || !formData.apellido) {
+      return NextResponse.json({ error: 'RUT/documento, nombre y apellido son requeridos' }, { status: 400 });
     }
+
+    const documentType: DocumentType = rawDocumentType === 'dni_extranjero' ? 'dni_extranjero' : 'rut';
+    const documentNumberInput = sanitize(rawDocumentNumber || formData.rut || '');
+
+    const docValidation = validateDocumentByType(documentType, documentNumberInput);
+    if (!docValidation.valid) {
+      return NextResponse.json({
+        error: documentType === 'rut'
+          ? `RUT inv\u00e1lido: ${docValidation.error}`
+          : `Documento extranjero inv\u00e1lido: ${docValidation.error}`,
+      }, { status: 400 });
+    }
+
+    formData.document_type = documentType;
+    formData.document_number = documentNumberInput;
+    formData.rut = documentType === 'rut'
+      ? normalizeDocumentByType('rut', documentNumberInput)
+      : normalizeDocumentByType('dni_extranjero', documentNumberInput);
+
+    // Validar email si viene
+    if (formData.email) {
+      formData.email = sanitize(formData.email);
+      const emailResult = validateEmail(formData.email);
+      if (!emailResult.valid) {
+        return NextResponse.json({ error: `Email inv\u00e1lido: ${emailResult.error}` }, { status: 400 });
+      }
+    }
+
+    // Sanitizar resto de campos
+    formData.nombre = sanitize(formData.nombre);
+    formData.apellido = sanitize(formData.apellido);
+    if (formData.telefono) formData.telefono = sanitize(formData.telefono);
+    if (formData.cargo) formData.cargo = sanitize(formData.cargo);
+    if (formData.organizacion) formData.organizacion = sanitize(formData.organizacion);
 
     // Verificar deadline del evento (backend)
     const event = await getEventById(event_id);

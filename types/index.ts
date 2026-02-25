@@ -267,6 +267,8 @@ export interface QuotaCheckResult {
 /** Datos del formulario de inscripción */
 export interface RegistrationFormData {
   rut: string;
+  document_type?: 'rut' | 'dni_extranjero';
+  document_number?: string;
   nombre: string;
   apellido: string;
   email: string;

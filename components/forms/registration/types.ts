@@ -13,6 +13,7 @@ export interface SubmitResult {
 }
 
 export interface ResponsableData {
+  document_type: 'rut' | 'dni_extranjero';
   rut: string;
   nombre: string;
   apellido: string;
@@ -26,6 +27,8 @@ export interface BulkImportRow {
   id: string;
   nombre: string;
   apellido: string;
+  document_type: 'rut' | 'dni_extranjero';
+  document_number: string;
   rut: string;
   /** Campos extra importados del archivo (email, cargo, telefono, zona, patente, etc.) */
   extras: Record<string, string>;

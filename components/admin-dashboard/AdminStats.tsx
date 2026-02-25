@@ -35,11 +35,11 @@ export default function AdminStats() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {cards.map((_, i) => (
-          <div key={i} className="bg-surface rounded-xl shadow-sm border border-edge p-3 animate-pulse">
-            <div className="h-3 bg-edge rounded w-16 mb-2" />
-            <div className="h-6 bg-edge rounded w-10" />
+          <div key={i} className="bg-surface rounded-2xl shadow-sm border border-edge p-5 animate-pulse">
+            <div className="h-4 bg-edge rounded w-24 mb-3" />
+            <div className="h-8 bg-edge rounded w-16" />
           </div>
         ))}
       </div>
@@ -50,15 +50,15 @@ export default function AdminStats() {
   const progressPct = stats.total > 0 ? Math.round((stats.aprobados / stats.total) * 100) : 0;
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+    <div className="space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {cards.map(card => {
           const isActive = card.filterValue !== '' && filters.status === card.filterValue;
           return (
             <button
               key={card.label}
               onClick={() => handleCardClick(card.filterValue)}
-              className={`bg-surface rounded-xl shadow-sm border p-3 text-left transition-all duration-200 group ${
+              className={`bg-surface rounded-2xl shadow-sm border p-5 sm:p-6 text-left transition-all duration-200 group min-h-[128px] ${
                 isActive
                   ? `ring-2 ${card.ring} border-transparent shadow-md scale-[1.02]`
                   : 'border-edge hover:shadow-md hover:scale-[1.01]'
@@ -66,35 +66,34 @@ export default function AdminStats() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-body uppercase tracking-wide flex items-center gap-1">
+                  <p className="text-[11px] sm:text-xs font-semibold text-body uppercase tracking-wide flex items-center gap-1.5">
                     {card.label}
                     {isActive && <i className="fas fa-filter text-[8px] text-brand" />}
                   </p>
-                  <p className="text-xl sm:text-2xl font-bold text-heading mt-0.5">{card.value}</p>
+                  <p className="text-3xl sm:text-4xl font-bold text-heading mt-1">{card.value}</p>
                 </div>
-                <div className={`w-9 h-9 bg-gradient-to-br ${card.gradient} rounded-lg flex items-center justify-center shadow-sm transition-transform group-hover:scale-110`}>
-                  <i className={`fas ${card.icon} text-white text-sm`} />
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br ${card.gradient} rounded-xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-110`}>
+                  <i className={`fas ${card.icon} text-white text-base sm:text-lg`} />
                 </div>
               </div>
 
               {/* Zone breakdown for Aprobados */}
               {card.label === 'Aprobados' && zoneCounts.length > 0 && stats.aprobados > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {zoneCounts.slice(0, 3).map(([zona, count]) => (
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  {zoneCounts.map(([zona, count]) => (
                     <span
                       key={zona}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#d1fae5] text-[#065f46] text-[10px] font-medium"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#d1fae5] text-[#065f46] text-[11px] font-medium"
                     >
                       {zona} <span className="font-bold">{count}</span>
                     </span>
                   ))}
-                  {zoneCounts.length > 3 && <span className="text-[10px] text-muted">+{zoneCounts.length - 3}</span>}
                 </div>
               )}
 
               {/* Check-in count */}
               {card.label === 'Aprobados' && stats.checked_in > 0 && (
-                <p className="text-xs text-muted mt-0.5">
+                <p className="text-sm text-muted mt-1.5">
                   <i className="fas fa-qrcode mr-1" />
                   {stats.checked_in} check-ins
                 </p>
@@ -106,14 +105,14 @@ export default function AdminStats() {
 
       {/* Progress bar: approval rate */}
       {stats.total > 0 && (
-        <div className="flex items-center gap-3 px-1">
-          <div className="flex-1 h-2 bg-edge rounded-full overflow-hidden">
+        <div className="flex items-center gap-3 px-1 sm:px-2">
+          <div className="flex-1 h-3 bg-edge rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[#059669] to-[#00C48C] rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <span className="text-xs font-medium text-body whitespace-nowrap">
+          <span className="text-sm font-semibold text-body whitespace-nowrap">
             {progressPct}% aprobado
           </span>
         </div>

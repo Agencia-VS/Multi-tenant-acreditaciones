@@ -6,6 +6,7 @@
  */
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { cleanRut, sanitize, normalizeDocumentByType, type DocumentType } from '@/lib/validation';
 import type { Profile, RegistrationFormData, ProfileDatosBase } from '@/types';
 
 // Import + re-export isomorphic autofill (no server deps)
@@ -18,14 +19,32 @@ export { buildMergedAutofillData };
  */
 export async function lookupProfileByRut(rut: string): Promise<Profile | null> {
   const supabase = createSupabaseAdminClient();
+  const normalizedRut = cleanRut(rut);
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('rut', rut)
+    .eq('rut', normalizedRut)
     .single();
 
   if (error || !data) return null;
   return data as Profile;
+}
+
+/**
+ * Busca un perfil por identidad de documento (tipo + valor normalizado).
+ */
+export async function lookupProfileByDocument(documentType: DocumentType, documentNumber: string): Promise<Profile | null> {
+  const supabase = createSupabaseAdminClient();
+  const normalized = normalizeDocumentByType(documentType, documentNumber);
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('document_type', documentType)
+    .eq('document_normalized', normalized)
+    .limit(1);
+
+  if (error || !data || data.length === 0) return null;
+  return data[0] as Profile;
 }
 
 /**
@@ -38,9 +57,31 @@ export async function lookupProfileByRut(rut: string): Promise<Profile | null> {
  */
 export async function getOrCreateProfile(data: RegistrationFormData, userId?: string): Promise<Profile> {
   const supabase = createSupabaseAdminClient();
+
+  const requestedType = (data.document_type || (data.rut ? 'rut' : 'dni_extranjero')) as DocumentType;
+  const documentType: DocumentType = requestedType === 'rut' ? 'rut' : 'dni_extranjero';
+  const inferredNacionalidad = documentType === 'dni_extranjero' ? 'Extranjera' : 'Chilena';
+  const rawDocument = (data.document_number || data.rut || '').trim();
+  const normalizedDocument = normalizeDocumentByType(documentType, rawDocument);
   
-  // Intentar buscar existente
-  const existing = await lookupProfileByRut(data.rut);
+  // Sanitizar datos de entrada
+  data.document_type = documentType;
+  data.document_number = sanitize(rawDocument);
+  if (documentType === 'rut') {
+    data.rut = cleanRut(sanitize(rawDocument));
+  }
+  if (data.nombre) data.nombre = sanitize(data.nombre);
+  if (data.apellido) data.apellido = sanitize(data.apellido);
+  if (data.email) data.email = sanitize(data.email);
+  if (data.telefono) data.telefono = sanitize(data.telefono);
+  if (data.cargo) data.cargo = sanitize(data.cargo);
+  if (data.organizacion) data.organizacion = sanitize(data.organizacion);
+
+  // Intentar buscar existente por documento (fallback a RUT legacy)
+  let existing = await lookupProfileByDocument(documentType, rawDocument);
+  if (!existing && documentType === 'rut' && data.rut) {
+    existing = await lookupProfileByRut(data.rut);
+  }
   
   if (existing) {
     // Actualizar datos que vengan no vacíos
@@ -52,6 +93,18 @@ export async function getOrCreateProfile(data: RegistrationFormData, userId?: st
     if (data.cargo) updates.cargo = data.cargo;
     if (data.tipo_medio) updates.tipo_medio = data.tipo_medio;
     if (data.organizacion) updates.medio = data.organizacion;
+    (updates as Record<string, unknown>).document_type = documentType;
+    (updates as Record<string, unknown>).document_number = data.document_number || rawDocument;
+    (updates as Record<string, unknown>).document_normalized = normalizedDocument;
+    if (documentType === 'rut') {
+      updates.rut = data.rut;
+    }
+    if (documentType === 'dni_extranjero' && (!existing.nacionalidad || existing.nacionalidad.toLowerCase().startsWith('chil'))) {
+      updates.nacionalidad = inferredNacionalidad;
+    }
+    if (documentType === 'rut' && (!existing.nacionalidad || existing.nacionalidad.toLowerCase().startsWith('extr'))) {
+      updates.nacionalidad = inferredNacionalidad;
+    }
     
     // Solo vincular user_id si el perfil no tiene uno Y no hay otro perfil con ese userId
     if (userId && !existing.user_id) {
@@ -90,19 +143,25 @@ export async function getOrCreateProfile(data: RegistrationFormData, userId?: st
     }
   }
   
+  const insertPayload: Record<string, unknown> = {
+    document_type: documentType,
+    document_number: data.document_number || rawDocument,
+    document_normalized: normalizedDocument,
+    rut: documentType === 'rut' ? data.rut : null,
+    nombre: data.nombre,
+    apellido: data.apellido,
+    email: data.email || null,
+    telefono: data.telefono || null,
+    cargo: data.cargo || null,
+    medio: data.organizacion || null,
+    tipo_medio: data.tipo_medio || null,
+    nacionalidad: inferredNacionalidad,
+    user_id: safeUserId,
+  };
+
   const { data: newProfile, error } = await supabase
     .from('profiles')
-    .insert({
-      rut: data.rut,
-      nombre: data.nombre,
-      apellido: data.apellido,
-      email: data.email || null,
-      telefono: data.telefono || null,
-      cargo: data.cargo || null,
-      medio: data.organizacion || null,
-      tipo_medio: data.tipo_medio || null,
-      user_id: safeUserId,
-    })
+    .insert(insertPayload as never)
     .select()
     .single();
   

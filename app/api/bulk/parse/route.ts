@@ -17,13 +17,16 @@ import type { BulkTemplateColumn, EventConfig } from '@/types';
 const DEFAULT_BULK_COLUMNS: BulkTemplateColumn[] = [
   { key: 'nombre', header: 'Nombre', required: true, example: 'Juan', width: 20 },
   { key: 'apellido', header: 'Apellido', required: true, example: 'Pérez', width: 20 },
-  { key: 'rut', header: 'RUT', required: true, example: '12.345.678-9', width: 16 },
+  { key: 'document_type', header: 'Tipo Documento', required: true, example: 'rut', width: 20, options: ['rut', 'dni_extranjero'] },
+  { key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 },
   { key: 'patente', header: 'Patente', required: false, example: 'ABCD-12', width: 20 },
 ];
 
 /* ── Header mapping (same as client-side) ─── */
 
 const BULK_HEADER_MAP: Record<string, string> = {
+  tipo_documento: 'document_type', tipo_de_documento: 'document_type', document_type: 'document_type', documento_tipo: 'document_type',
+  documento: 'document_number', nro_documento: 'document_number', numero_documento: 'document_number', document_number: 'document_number',
   rut: 'rut', 'rut_xxxxxxxx-x': 'rut', 'rut_(xxxxxxxx-x)': 'rut',
   nombre: 'nombre', first_name: 'nombre', nombres: 'nombre',
   apellido: 'apellido', last_name: 'apellido', apellidos: 'apellido',
@@ -49,10 +52,12 @@ function normalizeHeader(h: string): string {
 }
 
 interface BulkRow {
+  document_type?: string;
+  document_number?: string;
   rut: string;
   nombre: string;
   apellido: string;
-  [key: string]: string;
+  [key: string]: string | undefined;
 }
 
 function parseCSV(text: string): BulkRow[] {
@@ -62,10 +67,11 @@ function parseCSV(text: string): BulkRow[] {
   const mappedHeaders = headers.map(h => BULK_HEADER_MAP[h] || h);
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const values = line.split(/[,;\t]/).map(v => v.trim().replace(/^"|"$/g, ''));
-    const row: BulkRow = { rut: '', nombre: '', apellido: '' };
+    const row: BulkRow = { rut: '', nombre: '', apellido: '', document_type: 'rut', document_number: '' };
     mappedHeaders.forEach((header, i) => { if (values[i]) row[header] = values[i]; });
+    if (!row.document_number && row.rut) row.document_number = row.rut;
     return row;
-  }).filter(row => row.rut || row.nombre);
+  }).filter(row => row.document_number || row.rut || row.nombre);
 }
 
 async function parseExcel(buffer: ArrayBuffer): Promise<BulkRow[]> {
@@ -84,7 +90,7 @@ async function parseExcel(buffer: ArrayBuffer): Promise<BulkRow[]> {
   const rows: BulkRow[] = [];
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
-    const r: BulkRow = { rut: '', nombre: '', apellido: '' };
+    const r: BulkRow = { rut: '', nombre: '', apellido: '', document_type: 'rut', document_number: '' };
     // Detect instruction/note rows (e.g. "↑ Elimina esta fila...")
     const firstCellVal = row.getCell(1).value?.toString().trim() || '';
     if (firstCellVal.startsWith('↑') || firstCellVal.startsWith('Elimina')) return;
@@ -92,7 +98,8 @@ async function parseExcel(buffer: ArrayBuffer): Promise<BulkRow[]> {
       const h = mapped[colNumber - 1];
       if (h) r[h] = cell.value?.toString().trim() || '';
     });
-    if (r.rut || r.nombre) rows.push(r);
+    if (!r.document_number && r.rut) r.document_number = r.rut;
+    if (r.document_number || r.rut || r.nombre) rows.push(r);
   });
 
   return rows;
@@ -156,6 +163,20 @@ export async function GET(request: NextRequest) {
           const evConfig = (event.config || {}) as EventConfig;
           if (evConfig.bulk_template_columns && evConfig.bulk_template_columns.length > 0) {
             columns = evConfig.bulk_template_columns;
+            const hasDocumentType = columns.some(c => c.key === 'document_type');
+            const hasDocumentNumber = columns.some(c => c.key === 'document_number' || c.key === 'rut');
+            if (!hasDocumentType) {
+              columns = [
+                { key: 'document_type', header: 'Tipo Documento', required: true, example: 'rut', width: 20, options: ['rut', 'dni_extranjero'] },
+                ...columns,
+              ];
+            }
+            if (!hasDocumentNumber) {
+              columns = [
+                ...columns,
+                { key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 },
+              ];
+            }
           } else if (event.form_fields && event.form_fields.length > 0) {
             // Fallback: generar columnas a partir de form_fields (excluyendo 'file' y 'foto')
             columns = event.form_fields
@@ -173,10 +194,25 @@ export async function GET(request: NextRequest) {
                   header: f.label,
                   required: f.required,
                   example: getFieldExample(f.key, f.type),
-                  width: f.key === 'email' ? 28 : f.key === 'rut' ? 16 : 20,
+                  width: f.key === 'email' ? 28 : (f.key === 'rut' || f.key === 'document_number') ? 20 : 20,
                   ...(opts ? { options: opts } : {}),
                 };
               });
+
+            const hasDocumentType = columns.some(c => c.key === 'document_type');
+            const hasDocumentNumber = columns.some(c => c.key === 'document_number' || c.key === 'rut');
+            if (!hasDocumentType) {
+              columns = [
+                { key: 'document_type', header: 'Tipo Documento', required: true, example: 'rut', width: 20, options: ['rut', 'dni_extranjero'] },
+                ...columns,
+              ];
+            }
+            if (!hasDocumentNumber) {
+              columns = [
+                ...columns,
+                { key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 },
+              ];
+            }
           }
         }
       } catch {

@@ -201,7 +201,39 @@ export async function listRegistrations(
   const { data, error, count } = await query;
 
   if (error) throw new Error(`Error listando registros: ${error.message}`);
-  return { data: (data || []) as RegistrationFull[], count: count || 0 };
+
+  const rows = (data || []) as RegistrationFull[];
+
+  // Fallback para documentos extranjeros: si la vista trae rut null,
+  // usar document_number del perfil para que la columna no quede vacía.
+  const missingRutProfileIds = [...new Set(
+    rows
+      .filter(r => !r.rut && r.profile_id)
+      .map(r => r.profile_id as string)
+  )];
+
+  if (missingRutProfileIds.length > 0) {
+    const { data: profileDocs } = await (supabase as any)
+      .from('profiles')
+      .select('id, rut, document_number')
+      .in('id', missingRutProfileIds);
+
+    if (profileDocs) {
+      const docByProfileId = new Map<string, string>();
+      for (const p of profileDocs) {
+        const displayDocument = (p.rut as string | null) || (p.document_number as string | null) || null;
+        if (displayDocument && p.id) docByProfileId.set(p.id as string, displayDocument);
+      }
+
+      for (const row of rows) {
+        if (!row.rut && row.profile_id) {
+          row.rut = docByProfileId.get(row.profile_id) || null;
+        }
+      }
+    }
+  }
+
+  return { data: rows, count: count || 0 };
 }
 
 /**

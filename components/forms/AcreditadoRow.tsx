@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { CARGOS } from '@/types';
 import type { FormFieldDefinition } from '@/types';
-import { validateRut, validateEmail, cleanRut, formatRut } from '@/lib/validation';
+import { validateEmail, validateDocumentByType, cleanRut, formatRut } from '@/lib/validation';
 
 /* ═══════════════════════════════════════════════════════
    Types
@@ -11,6 +11,7 @@ import { validateRut, validateEmail, cleanRut, formatRut } from '@/lib/validatio
 
 export interface AcreditadoData {
   id: string;
+  document_type: 'rut' | 'dni_extranjero';
   rut: string;
   nombre: string;
   apellido: string;
@@ -24,6 +25,7 @@ export interface AcreditadoData {
 export function createEmptyAcreditado(): AcreditadoData {
   return {
     id: crypto.randomUUID(),
+    document_type: 'rut',
     rut: '',
     nombre: '',
     apellido: '',
@@ -41,12 +43,13 @@ export function validateAcreditado(
   eventZonas: string[] = [],
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!a.rut.trim()) errors.rut = 'RUT es requerido';
-  else if (!validateRut(a.rut)) errors.rut = 'RUT inválido';
+  const docValidation = validateDocumentByType(a.document_type || 'rut', a.rut);
+  if (!a.rut.trim()) errors.rut = a.document_type === 'rut' ? 'RUT es requerido' : 'Documento es requerido';
+  else if (!docValidation.valid) errors.rut = docValidation.error || 'Documento inválido';
   if (!a.nombre.trim()) errors.nombre = 'Nombre es requerido';
   if (!a.apellido.trim()) errors.apellido = 'Apellido es requerido';
   if (!a.email.trim()) errors.email = 'Email es requerido';
-  else if (!validateEmail(a.email)) errors.email = 'Email inválido';
+  else if (!validateEmail(a.email).valid) errors.email = 'Email inválido';
 
   // Cargo: solo validar si está configurado como requerido en form_fields
   const cargoField = formFields.find(f => f.key === 'cargo');
@@ -67,6 +70,7 @@ export function validateAcreditado(
    ═══════════════════════════════════════════════════════ */
 
 const BASE_FIELD_KEYS = new Set([
+  'document_type', 'document_number', 'tipo_documento', 'documento',
   'rut', 'nombre', 'apellido', 'email', 'telefono',
   'nombre_completo', 'name', 'first_name', 'last_name',
   'correo', 'mail', 'phone', 'celular', 'fono',
@@ -114,7 +118,7 @@ export default function AcreditadoRow({
   };
 
   const handleBlur = (field: string) => {
-    if (field === 'rut' && data.rut) {
+    if (field === 'rut' && data.rut && (data.document_type || 'rut') === 'rut') {
       const cleaned = cleanRut(data.rut);
       onChange(index, 'rut', formatRut(cleaned));
     }
@@ -196,10 +200,28 @@ export default function AcreditadoRow({
       {/* ── Fields ── */}
       <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-          {/* RUT */}
+          {/* Tipo documento */}
           <div>
             <label className="field-label">
-              RUT *
+              Tipo documento *
+              {locked && <i className="fas fa-lock text-[0.55rem] text-success ml-1.5" />}
+            </label>
+            <select
+              value={data.document_type || 'rut'}
+              onChange={(e) => handleChange('document_type', e.target.value)}
+              onBlur={() => handleBlur('document_type')}
+              disabled={locked}
+              className={`field-input ${locked ? 'bg-surface/80 text-heading cursor-default' : ''}`}
+            >
+              <option value="rut">RUT (Chile)</option>
+              <option value="dni_extranjero">DNI / Pasaporte (Extranjero)</option>
+            </select>
+          </div>
+
+          {/* Documento */}
+          <div>
+            <label className="field-label">
+              {(data.document_type || 'rut') === 'rut' ? 'RUT *' : 'Documento *'}
               {locked && <i className="fas fa-lock text-[0.55rem] text-success ml-1.5" />}
             </label>
             <div className="relative">
@@ -208,7 +230,7 @@ export default function AcreditadoRow({
                 value={data.rut}
                 onChange={(e) => handleChange('rut', e.target.value)}
                 onBlur={() => handleBlur('rut')}
-                placeholder="12.345.678-9"
+                placeholder={(data.document_type || 'rut') === 'rut' ? '12.345.678-9' : 'Ej: AB1234567'}
                 readOnly={locked}
                 className={`field-input pr-9 ${errors.rut ? 'field-input-error' : ''} ${locked ? 'bg-surface/80 text-heading cursor-default' : ''}`}
               />

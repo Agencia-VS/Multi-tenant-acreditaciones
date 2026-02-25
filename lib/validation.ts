@@ -58,6 +58,14 @@ export interface RutValidationResult {
   formatted?: string;
 }
 
+export type DocumentType = 'rut' | 'dni_extranjero';
+
+export interface DocumentValidationResult {
+  valid: boolean;
+  error?: string;
+  normalized?: string;
+}
+
 /**
  * Valida un RUT chileno.
  * 
@@ -85,6 +93,51 @@ export function validateRut(raw: string): RutValidationResult {
   }
 
   return { valid: true, formatted: formatRut(cleaned) };
+}
+
+/**
+ * Normaliza documento según tipo.
+ * - RUT: sin puntos/espacios, mayúsculas y guión antes del DV
+ * - DNI extranjero: trim + mayúsculas + colapsar espacios internos
+ */
+export function normalizeDocumentByType(type: DocumentType, raw: string): string {
+  if (type === 'rut') return cleanRut(raw);
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Valida documento extranjero (regla flexible, sin módulo 11 chileno).
+ */
+export function validateForeignDocument(raw: string): DocumentValidationResult {
+  if (!raw || !raw.trim()) {
+    return { valid: false, error: 'Documento es requerido' };
+  }
+  const normalized = normalizeDocumentByType('dni_extranjero', raw);
+  if (normalized.length < 5 || normalized.length > 32) {
+    return { valid: false, error: 'Documento extranjero inválido (5-32 caracteres)' };
+  }
+  if (!/^[A-Z0-9][A-Z0-9.\-\/ ]*[A-Z0-9]$/.test(normalized)) {
+    return { valid: false, error: 'Documento extranjero contiene caracteres inválidos' };
+  }
+  return { valid: true, normalized };
+}
+
+/**
+ * Valida documento por tipo (RUT chileno o DNI extranjero).
+ */
+export function validateDocumentByType(type: DocumentType, raw: string): DocumentValidationResult {
+  if (type === 'rut') {
+    const rut = validateRut(raw);
+    return {
+      valid: rut.valid,
+      error: rut.error,
+      normalized: rut.valid ? cleanRut(raw) : undefined,
+    };
+  }
+  return validateForeignDocument(raw);
 }
 
 export interface EmailValidationResult {

@@ -43,6 +43,10 @@ vi.mock('@/lib/dates', () => ({
   isDeadlinePast: (d: string) => d === 'PAST',
 }));
 
+vi.mock('@/lib/services/billing', () => ({
+  checkLimit: () => Promise.resolve({ allowed: true }),
+}));
+
 import { POST, GET } from '@/app/api/registrations/route';
 
 function makeRequest(body: Record<string, unknown>, method = 'POST'): NextRequest {
@@ -63,7 +67,7 @@ describe('POST /api/registrations', () => {
   });
 
   it('returns 400 when event_id is missing', async () => {
-    const req = makeRequest({ rut: '12345678-9', nombre: 'Juan', apellido: 'Pérez' });
+    const req = makeRequest({ rut: '12345678-5', nombre: 'Juan', apellido: 'Pérez' });
     const res = await POST(req);
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -83,7 +87,7 @@ describe('POST /api/registrations', () => {
 
     const req = makeRequest({
       event_id: 'evt-1',
-      rut: '12345678-9',
+      rut: '12345678-5',
       nombre: 'Juan',
       apellido: 'Pérez',
     });
@@ -102,7 +106,7 @@ describe('POST /api/registrations', () => {
 
     const req = makeRequest({
       event_id: 'evt-1',
-      rut: '12345678-9',
+      rut: '12345678-5',
       nombre: 'Juan',
       apellido: 'Pérez',
       organizacion: 'CNN',
@@ -122,7 +126,7 @@ describe('POST /api/registrations', () => {
 
     const req = makeRequest({
       event_id: 'evt-1',
-      rut: '12345678-9',
+      rut: '12345678-5',
       nombre: 'Juan',
       apellido: 'Pérez',
       organizacion: '',
@@ -146,7 +150,7 @@ describe('POST /api/registrations', () => {
 
     const req = makeRequest({
       event_id: 'evt-1',
-      rut: '12345678-9',
+      rut: '12345678-5',
       nombre: 'Juan',
       apellido: 'Pérez',
       organizacion: '',
@@ -159,10 +163,43 @@ describe('POST /api/registrations', () => {
     // createRegistration should have been called with submitterProfileId
     expect(mockCreateRegistration).toHaveBeenCalledWith(
       'evt-1',
-      expect.objectContaining({ rut: '12345678-9' }),
+      expect.objectContaining({ rut: '12345678-5' }),
       'prof-1', // submitterProfileId
       'user-1', // authUserId
       undefined, // eventHint (event was null)
+    );
+  });
+
+  it('accepts dni_extranjero without RUT dv validation', async () => {
+    mockGetEventById.mockResolvedValue({ fecha_limite_acreditacion: null });
+    mockCreateRegistration.mockResolvedValue({
+      registration: { id: 'reg-dni', status: 'pendiente' },
+      profile_id: 'prof-dni',
+    });
+
+    const req = makeRequest({
+      event_id: 'evt-1',
+      document_type: 'dni_extranjero',
+      document_number: 'A-12345678',
+      nombre: 'Alex',
+      apellido: 'Doe',
+      email: 'alex@example.com',
+      organizacion: '',
+      tipo_medio: '',
+      cargo: '',
+      datos_extra: {},
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(mockCreateRegistration).toHaveBeenCalledWith(
+      'evt-1',
+      expect.objectContaining({
+        document_type: 'dni_extranjero',
+        document_number: 'A-12345678',
+      }),
+      undefined,
+      undefined,
+      expect.anything(),
     );
   });
 });

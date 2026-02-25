@@ -10,6 +10,8 @@ interface EventBulkTemplateTabProps {
 }
 
 const DEFAULT_EXAMPLES: Record<string, string> = {
+  document_type: 'rut',
+  document_number: '12.345.678-9',
   nombre: 'Juan',
   apellido: 'Pérez',
   segundo_apellido: 'González',
@@ -26,6 +28,12 @@ const DEFAULT_EXAMPLES: Record<string, string> = {
   area: 'General',
 };
 
+const SYSTEM_TEMPLATE_FIELDS: BulkTemplateColumn[] = [
+  { key: 'document_type', header: 'Tipo Documento', required: true, example: 'rut', width: 20, options: ['rut', 'dni_extranjero'] },
+  { key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 },
+  { key: 'rut', header: 'RUT', required: false, example: '12.345.678-9', width: 16 },
+];
+
 export default function EventBulkTemplateTab({
   columns,
   formFields,
@@ -33,8 +41,58 @@ export default function EventBulkTemplateTab({
   eventZonas = [],
 }: EventBulkTemplateTabProps) {
 
+  const getPresetByKey = (key: string): Partial<BulkTemplateColumn> => {
+    const systemPreset = SYSTEM_TEMPLATE_FIELDS.find(f => f.key === key);
+    if (systemPreset) {
+      return {
+        key: systemPreset.key,
+        header: systemPreset.header,
+        required: systemPreset.required,
+        example: systemPreset.example,
+        width: systemPreset.width,
+        options: systemPreset.options,
+      };
+    }
+
+    const field = formFields.find(f => f.key === key);
+    if (!field) {
+      return { key, header: key, required: false, example: DEFAULT_EXAMPLES[key] || '', width: 20 };
+    }
+
+    let opts: string[] | undefined;
+    if (field.type === 'select' && field.options && field.options.length > 0) {
+      opts = field.options.map((o: string | { value: string; label: string }) =>
+        typeof o === 'string' ? o : (o as { value: string }).value
+      );
+    }
+
+    return {
+      key,
+      header: field.label,
+      required: field.required,
+      example: DEFAULT_EXAMPLES[key] || (opts ? opts[0] : ''),
+      width: key === 'email' ? 28 : key === 'rut' ? 16 : 20,
+      options: opts,
+    };
+  };
+
   const addColumn = () => {
     onChange([...columns, { key: '', header: '', required: false, example: '', width: 20 }]);
+  };
+
+  const addPresetColumn = (key: string) => {
+    if (columns.some(c => c.key === key)) return;
+    onChange([
+      ...columns,
+      {
+        key,
+        header: getPresetByKey(key).header || key,
+        required: getPresetByKey(key).required || false,
+        example: getPresetByKey(key).example || '',
+        width: getPresetByKey(key).width || 20,
+        options: getPresetByKey(key).options,
+      },
+    ]);
   };
 
   const updateColumn = (index: number, updates: Partial<BulkTemplateColumn>) => {
@@ -76,6 +134,14 @@ export default function EventBulkTemplateTab({
         };
       });
 
+    // Campos base de identidad documental siempre disponibles en template
+    if (!generated.some(c => c.key === 'document_type')) {
+      generated.unshift({ key: 'document_type', header: 'Tipo Documento', required: true, example: 'rut', width: 20, options: ['rut', 'dni_extranjero'] });
+    }
+    if (!generated.some(c => c.key === 'document_number') && !generated.some(c => c.key === 'rut')) {
+      generated.push({ key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 });
+    }
+
     // Auto-agregar columna Zona si hay zonas del evento y no está ya en form_fields
     if (eventZonas.length > 0 && !generated.some(c => c.key === 'zona')) {
       generated.push({
@@ -108,8 +174,31 @@ export default function EventBulkTemplateTab({
   };
 
   /** Agregar columna rápida desde un form_field existente */
-  const availableFields = formFields.filter(
-    f => f.type !== 'file' && !columns.some(c => c.key === f.key)
+  const formTemplateFields: BulkTemplateColumn[] = formFields
+    .filter(f => f.type !== 'file' && f.key !== 'foto_url')
+    .map(f => {
+      let opts: string[] | undefined;
+      if (f.type === 'select' && f.options && f.options.length > 0) {
+        opts = f.options.map((o: string | { value: string; label: string }) =>
+          typeof o === 'string' ? o : (o as { value: string }).value
+        );
+      }
+      return {
+        key: f.key,
+        header: f.label,
+        required: f.required,
+        example: DEFAULT_EXAMPLES[f.key] || (opts ? opts[0] : ''),
+        width: f.key === 'email' ? 28 : f.key === 'rut' ? 16 : 20,
+        ...(opts ? { options: opts } : {}),
+      };
+    });
+
+  const selectableFields = [...SYSTEM_TEMPLATE_FIELDS, ...formTemplateFields].filter(
+    (f, idx, arr) => arr.findIndex(x => x.key === f.key) === idx
+  );
+
+  const availableFields = selectableFields.filter(
+    f => !columns.some(c => c.key === f.key)
   );
 
   const hasZonaColumn = columns.some(c => c.key === 'zona');
@@ -120,6 +209,26 @@ export default function EventBulkTemplateTab({
         <i className="fas fa-lightbulb mr-1.5 text-amber-500" />
         <strong>Template de carga masiva.</strong> Configura las columnas del Excel que el responsable descargará para subir acreditados en lote.
         Cada columna se mapea a un campo del formulario. La columna <strong>header</strong> es el nombre visible en el Excel.
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {!columns.some(c => c.key === 'document_type') && (
+          <button
+            type="button"
+            onClick={() => addPresetColumn('document_type')}
+            className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs hover:bg-indigo-700 transition"
+          >
+            + Tipo Documento
+          </button>
+        )}
+        {!columns.some(c => c.key === 'document_number') && (
+          <button
+            type="button"
+            onClick={() => addPresetColumn('document_number')}
+            className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs hover:bg-indigo-700 transition"
+          >
+            + Documento
+          </button>
+        )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -164,7 +273,7 @@ export default function EventBulkTemplateTab({
         <div className="text-center py-8 text-body">
           <i className="fas fa-file-excel text-3xl mb-2 opacity-40" />
           <p className="text-sm">
-            Sin columnas configuradas. Se usará la plantilla por defecto (Nombre, Apellido, RUT, Patente).
+            Sin columnas configuradas. Se usará la plantilla por defecto (Nombre, Apellido, Tipo Documento, Documento, Patente).
           </p>
           <button
             type="button"
@@ -199,18 +308,14 @@ export default function EventBulkTemplateTab({
                     <select
                       value={col.key}
                       onChange={(e) => {
-                        const field = formFields.find(f => f.key === e.target.value);
-                        let opts: string[] | undefined;
-                        if (field?.type === 'select' && field.options && field.options.length > 0) {
-                          opts = field.options.map((o: string | { value: string; label: string }) =>
-                            typeof o === 'string' ? o : (o as { value: string }).value
-                          );
-                        }
+                        const preset = getPresetByKey(e.target.value);
                         updateColumn(i, {
                           key: e.target.value,
-                          header: field?.label || e.target.value,
-                          example: DEFAULT_EXAMPLES[e.target.value] || (opts ? opts[0] : ''),
-                          options: opts,
+                          header: preset.header || e.target.value,
+                          required: preset.required || false,
+                          example: preset.example || '',
+                          width: preset.width || 20,
+                          options: preset.options,
                         });
                       }}
                       className="w-full px-2 py-1 rounded border text-xs font-mono text-label"
@@ -352,18 +457,14 @@ export default function EventBulkTemplateTab({
                       <select
                         value={col.key}
                         onChange={(e) => {
-                          const field = formFields.find(f => f.key === e.target.value);
-                          let opts: string[] | undefined;
-                          if (field?.type === 'select' && field.options && field.options.length > 0) {
-                            opts = field.options.map((o: string | { value: string; label: string }) =>
-                              typeof o === 'string' ? o : (o as { value: string }).value
-                            );
-                          }
+                            const preset = getPresetByKey(e.target.value);
                           updateColumn(i, {
                             key: e.target.value,
-                            header: field?.label || e.target.value,
-                            example: DEFAULT_EXAMPLES[e.target.value] || (opts ? opts[0] : ''),
-                            options: opts,
+                              header: preset.header || e.target.value,
+                              required: preset.required || false,
+                              example: preset.example || '',
+                              width: preset.width || 20,
+                              options: preset.options,
                           });
                         }}
                         className="w-full px-2 py-1.5 rounded border text-xs font-mono text-label"

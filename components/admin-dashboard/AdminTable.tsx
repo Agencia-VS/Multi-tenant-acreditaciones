@@ -132,7 +132,6 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
               <option value="pendiente">⏳ Pendientes</option>
               <option value="aprobado">✅ Aprobados</option>
               <option value="rechazado">❌ Rechazados</option>
-              <option value="revision">🔍 Revisión</option>
             </select>
 
             {/* Refresh */}
