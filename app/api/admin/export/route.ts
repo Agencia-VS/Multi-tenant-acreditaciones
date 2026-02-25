@@ -1,12 +1,13 @@
 /**
  * API: Admin Export
  * GET — Exportar registros a Excel/CSV/PuntoTicket
- * Supports filters: event_id, tenant_id, status, tipo_medio, search, format
+ * Supports filters: event_id, tenant_id, status, tipo_medio, search, format, approved_only
  * Supports columns: comma-separated column keys to include (xlsx format only)
  *
  * Formatos:
  *   xlsx        → Excel completo (18 columnas) para gestión interna del admin
  *   puntoticket → Formato PuntoTicket (7 columnas) para envío a PuntoTicket
+ *                 approved_only=true fuerza export solo aprobados
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenant_id');
     const format = searchParams.get('format') || 'xlsx';
     const columnsParam = searchParams.get('columns'); // comma-separated column keys
+    const approvedOnly = searchParams.get('approved_only') === 'true';
     const statusFilter = searchParams.get('status') as RegistrationStatus | null;
     const tipoMedioFilter = searchParams.get('tipo_medio');
     const searchFilter = searchParams.get('search');
@@ -110,11 +112,14 @@ export async function GET(request: NextRequest) {
     // Nombre | Apellido | RUT | Empresa | Area claro arena/Cruzados | Zona | Patente
     //
     // Exporta según los filtros activos del dashboard (status, tipo_medio, search).
+    // Si approved_only=true, fuerza export solo aprobados.
     // Si no hay filtro de status, exporta todos.
     // ─────────────────────────────────────────────────────
     if (format === 'puntoticket') {
       // Usar los registros ya filtrados por listRegistrations (respeta filtros del dashboard)
-      const rows = registrations;
+      const rows = approvedOnly
+        ? registrations.filter(r => r.status === 'aprobado')
+        : registrations;
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Accredia';

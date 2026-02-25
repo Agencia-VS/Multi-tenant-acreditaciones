@@ -20,9 +20,14 @@ export default function AdminExportActions() {
     return p.toString();
   })();
 
-  const handleExport = (format: string, filtered = false) => {
+  const handleExport = (format: string, filtered = false, extraParams?: Record<string, string>) => {
     const params = filtered ? filteredParams : baseParams;
-    window.open(`/api/admin/export?${params}&format=${format}`, '_blank');
+    const query = new URLSearchParams(params);
+    query.set('format', format);
+    if (extraParams) {
+      Object.entries(extraParams).forEach(([key, value]) => query.set(key, value));
+    }
+    window.open(`/api/admin/export?${query.toString()}`, '_blank');
   };
 
   const handleCustomExport = (columns: string[]) => {
@@ -56,10 +61,19 @@ export default function AdminExportActions() {
           <button
             onClick={() => handleExport('puntoticket')}
             className="px-3 py-2 text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-2"
-            title="Excel formato PuntoTicket (solo aprobados)"
+            title="Excel formato PuntoTicket (respeta filtros actuales; sin filtro de estado incluye todos)"
           >
             <i className="fas fa-ticket-alt text-purple-600" />
             <span className="hidden sm:inline">PuntoTicket</span>
+          </button>
+
+          <button
+            onClick={() => handleExport('puntoticket', false, { approved_only: 'true' })}
+            className="px-3 py-2 text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-2"
+            title="Excel formato PuntoTicket (solo aprobados)"
+          >
+            <i className="fas fa-check-circle text-success" />
+            <span className="hidden sm:inline">PT Aprobados</span>
           </button>
         </div>
 
