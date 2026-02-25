@@ -14,13 +14,29 @@ import type { RegistrationFull, Tenant, EmailTemplateType } from '@/types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function formatSenderNameFromSlug(tenantSlug?: string): string {
+  if (!tenantSlug) return 'Accredia';
+
+  const normalized = tenantSlug
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  if (!normalized) return 'Accredia';
+
+  return normalized
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 // Dirección de envío segura — usa slug del tenant en la dirección
 function getFromEmail(tenantSlug?: string): string {
   const raw = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   // Si el valor es un dominio (sin @), convertir a noreply@dominio
   const domain = raw.includes('@') ? raw.split('@')[1] : raw;
   const local = tenantSlug ? `noreply.${tenantSlug}` : 'noreply';
-  const name = tenantSlug || 'Accredia';
+  const name = formatSenderNameFromSlug(tenantSlug);
   return `${name} <${local}@${domain}>`;
 }
 
