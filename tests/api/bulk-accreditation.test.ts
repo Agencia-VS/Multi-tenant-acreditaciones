@@ -43,6 +43,7 @@ vi.mock('@/lib/dates', () => ({
 const mockRpc = vi.fn();
 let profileStore: { id: string; rut: string; user_id: string | null }[] = [];
 let zoneRulesStore: { cargo: string; zona: string; match_field: string }[] = [];
+let registrationStore: { profile_id: string }[] = [];
 
 /**
  * Creates a smart from() mock that returns correct chains based on table name.
@@ -75,6 +76,18 @@ function createFromMock() {
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ data: [...zoneRulesStore] }),
+        }),
+      };
+    }
+    if (table === 'registrations') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            in: vi.fn().mockImplementation((_col: string, ids: string[]) => {
+              const matched = registrationStore.filter(r => ids.includes(r.profile_id));
+              return Promise.resolve({ data: matched });
+            }),
+          }),
         }),
       };
     }
@@ -139,6 +152,7 @@ describe('POST /api/bulk-accreditation', () => {
     mockLogAuditAction.mockResolvedValue(undefined);
     profileStore = [];
     zoneRulesStore = [];
+    registrationStore = [];
   });
 
   // ── Validation ──
@@ -335,11 +349,9 @@ describe('POST /api/bulk-accreditation', () => {
     expect(body.results[0].error).toContain('Connection timeout');
   });
 
-  it('mixes valid and invalid rows correctly', async () => {
+  it('all-or-nothing: mixes valid and invalid rows — none succeed', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
-
-    mockBulkRpcSuccess([{ row_index: 1, ok: true, reg_id: 'reg-1' }]);
 
     const rows = [
       makeRow('', 'Bad', 'Row'), // invalid: no rut
@@ -349,12 +361,14 @@ describe('POST /api/bulk-accreditation', () => {
     const res = await POST(req);
     const body = await res.json();
     expect(body.total).toBe(2);
-    expect(body.success).toBe(1);
-    expect(body.errors).toBe(1);
-    expect(body.results[0].row).toBe(1);
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(2);
     expect(body.results[0].ok).toBe(false);
-    expect(body.results[1].row).toBe(2);
-    expect(body.results[1].ok).toBe(true);
+    expect(body.results[0].error).toContain('Faltan campos requeridos');
+    expect(body.results[1].ok).toBe(false);
+    expect(body.results[1].error).toContain('No se procesó');
+    // RPC should NOT be called
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   // ── Auth: superadmin does NOT link profile ──
@@ -455,15 +469,9 @@ describe('POST /api/bulk-accreditation', () => {
 
   // ── Duplicate RUTs in same batch ──
 
-  it('deduplicates profiles for repeated RUTs (PG handles duplicate check)', async () => {
+  it('all-or-nothing: deduplicates RUTs in batch — all fail', async () => {
     mockGetEventById.mockResolvedValue(VALID_EVENT);
     profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
-
-    // PG function handles the duplicate check — first succeeds, second fails
-    mockBulkRpcSuccess([
-      { row_index: 0, ok: true, reg_id: 'reg-1' },
-      { row_index: 1, ok: false, error: 'Esta persona ya está registrada en este evento' },
-    ]);
 
     const rows = [
       makeRow('11111111-1', 'Juan', 'Pérez'),
@@ -472,8 +480,40 @@ describe('POST /api/bulk-accreditation', () => {
     const req = makeRequest({ event_id: 'evt-1', rows });
     const res = await POST(req);
     const body = await res.json();
-    expect(body.success).toBe(1);
-    expect(body.errors).toBe(1);
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(2);
+    body.results.forEach((r: { ok: boolean; error: string }) => {
+      expect(r.ok).toBe(false);
+      expect(r.error).toContain('duplicado');
+    });
+    // RPC should NOT be called
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('all-or-nothing: catches pre-existing registrations before RPC', async () => {
+    mockGetEventById.mockResolvedValue(VALID_EVENT);
+    profileStore = [
+      { id: 'prof-1', rut: '11111111-1', user_id: null },
+      { id: 'prof-2', rut: '22222222-2', user_id: null },
+    ];
+    // prof-1 already has a registration for this event
+    registrationStore = [{ profile_id: 'prof-1' }];
+
+    const rows = [
+      makeRow('11111111-1', 'Juan', 'Pérez'),
+      makeRow('22222222-2', 'María', 'López'),
+    ];
+    const req = makeRequest({ event_id: 'evt-1', rows });
+    const res = await POST(req);
+    const body = await res.json();
+    expect(body.success).toBe(0);
+    expect(body.errors).toBe(2);
+    const dupResult = body.results.find((r: { rut: string }) => r.rut === '11111111-1');
+    expect(dupResult.error).toContain('ya está registrada');
+    const otherResult = body.results.find((r: { rut: string }) => r.rut === '22222222-2');
+    expect(otherResult.error).toContain('No se procesó');
+    // RPC should NOT be called
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   // ── Audit ──

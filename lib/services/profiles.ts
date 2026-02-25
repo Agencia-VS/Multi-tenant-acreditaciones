@@ -78,6 +78,18 @@ export async function getOrCreateProfile(data: RegistrationFormData, userId?: st
   }
   
   // Crear nuevo perfil
+  // GUARD: Solo vincular user_id si no existe otro perfil ya vinculado a ese userId
+  // Esto previene el error "duplicate key value violates unique constraint profiles_user_id_key"
+  // cuando un responsable registra a otras personas de su equipo y el authUserId de la sesión
+  // se pasa a getOrCreateProfile para todos los acreditados (no solo para sí mismo).
+  let safeUserId: string | null = null;
+  if (userId) {
+    const alreadyLinked = await getProfileByUserId(userId);
+    if (!alreadyLinked) {
+      safeUserId = userId;
+    }
+  }
+  
   const { data: newProfile, error } = await supabase
     .from('profiles')
     .insert({
@@ -89,7 +101,7 @@ export async function getOrCreateProfile(data: RegistrationFormData, userId?: st
       cargo: data.cargo || null,
       medio: data.organizacion || null,
       tipo_medio: data.tipo_medio || null,
-      user_id: userId || null,
+      user_id: safeUserId,
     })
     .select()
     .single();

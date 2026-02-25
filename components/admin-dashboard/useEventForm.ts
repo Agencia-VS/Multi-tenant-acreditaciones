@@ -135,8 +135,11 @@ export function useEventForm() {
       setForm(f => ({ ...f, descripcion: '', venue: '', league: '', opponent_name: '', opponent_logo_url: '', qr_enabled: false }));
       return;
     }
-    const source = events.find(e => e.id === sourceEventId);
-    if (!source) return;
+    const rawSource = events.find(e => e.id === sourceEventId);
+    if (!rawSource) return;
+
+    // Deep clone to break ALL shared references with the events array
+    const source = JSON.parse(JSON.stringify(rawSource)) as typeof rawSource;
 
     setCloning(true);
     try {

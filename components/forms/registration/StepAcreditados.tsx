@@ -28,6 +28,7 @@ interface StepAcreditadosProps {
   setShowTeamPicker: React.Dispatch<React.SetStateAction<boolean>>;
   bulkEnabled: boolean;
   formFields: FormFieldDefinition[];
+  eventZonas?: string[];
   submitting: boolean;
   tenantColors: { primario: string; secundario: string };
   // Handlers
@@ -62,6 +63,24 @@ function BulkSummary({
   const missingNames = bulkRows.filter(r => !r.nombre || !r.apellido).length;
   const previewRows = bulkRows.slice(0, 3);
   const PREVIEW_LIMIT = 20;
+
+  // Collect all unique extra keys across all bulk rows for dynamic columns
+  const extraKeys = (() => {
+    const keySet = new Set<string>();
+    for (const row of bulkRows) {
+      if (row.extras) {
+        for (const k of Object.keys(row.extras)) keySet.add(k);
+      }
+    }
+    return [...keySet];
+  })();
+
+  // Human-readable labels for common extras
+  const EXTRA_LABELS: Record<string, string> = {
+    cargo: 'Cargo', email: 'Email', telefono: 'Teléfono', zona: 'Zona',
+    empresa: 'Empresa', organizacion: 'Organización', tipo_medio: 'Tipo Medio',
+    area: 'Área', segundo_apellido: 'Segundo Apellido', patente: 'Patente',
+  };
 
   return (
     <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden animate-fade-in">
@@ -140,7 +159,11 @@ function BulkSummary({
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Nombre</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Apellido</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">RUT</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide">Patente</th>
+                  {extraKeys.map(k => (
+                    <th key={k} className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide whitespace-nowrap">
+                      {EXTRA_LABELS[k] || k.replace(/_/g, ' ')}
+                    </th>
+                  ))}
                   <th className="px-2 py-2 w-8"></th>
                 </tr>
               </thead>
@@ -154,7 +177,11 @@ function BulkSummary({
                       {row.rut || <span className="text-danger italic">Vacío</span>}
                       {row.rut && !validateRut(row.rut) && <i className="fas fa-exclamation-circle text-danger ml-1" />}
                     </td>
-                    <td className="px-3 py-2 text-muted text-xs">{row.patente || '—'}</td>
+                    {extraKeys.map(k => (
+                      <td key={k} className="px-3 py-2 text-body text-xs whitespace-nowrap">
+                        {row.extras?.[k] || '—'}
+                      </td>
+                    ))}
                     <td className="px-2 py-2">
                       <button
                         type="button"
@@ -200,6 +227,7 @@ export default function StepAcreditados({
   setShowTeamPicker,
   bulkEnabled,
   formFields,
+  eventZonas,
   submitting,
   tenantColors,
   handleIncluirme,
@@ -402,6 +430,7 @@ export default function StepAcreditados({
                   onRemove={handleRemoveAcreditado}
                   canRemove={true}
                   formFields={formFields}
+                  eventZonas={eventZonas}
                 />
               ))}
             </div>

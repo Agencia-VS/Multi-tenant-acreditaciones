@@ -27,8 +27,7 @@ export interface BulkImportRow {
   nombre: string;
   apellido: string;
   rut: string;
-  patente: string;
-  /** Campos extra importados del archivo (email, cargo, telefono, etc.) */
+  /** Campos extra importados del archivo (email, cargo, telefono, zona, patente, etc.) */
   extras: Record<string, string>;
 }
 
@@ -52,6 +51,8 @@ export interface RegistrationFormProps {
   eventDays?: EventDay[];
   /** Custom disclaimer config from event.config.disclaimer */
   disclaimerConfig?: import('@/types').DisclaimerConfig;
+  /** Zonas available for this event (from event.config.zonas) */
+  eventZonas?: string[];
 }
 
 export const STEP_LABELS = ['Responsable', 'Tipo de medio', 'Acreditados'];

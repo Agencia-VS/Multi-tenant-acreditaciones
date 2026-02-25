@@ -93,6 +93,8 @@ export default async function AcreditacionPage({
   // Verificar si la acreditación está cerrada (override manual + fecha límite)
   const eventConfig = event.config ?? {};
   const disclaimerConfig = eventConfig.disclaimer as import('@/types').DisclaimerConfig | undefined;
+  const eventZonas: string[] = (eventConfig as import('@/types').EventConfig).zonas || [];
+  const zonaEnFormulario = !!(eventConfig as import('@/types').EventConfig).zona_en_formulario;
   const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
     eventConfig,
     event.fecha_limite_acreditacion
@@ -158,6 +160,7 @@ export default async function AcreditacionPage({
             eventType={eventType}
             eventDays={eventDays}
             disclaimerConfig={disclaimerConfig}
+            eventZonas={zonaEnFormulario ? eventZonas : []}
             userProfile={userProfile ? {
               id: userProfile.id,
               rut: userProfile.rut,

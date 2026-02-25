@@ -21,48 +21,70 @@ function SuccessView({
   tenantSlug,
   tenantColors,
   resetForm,
+  goBackToForm,
 }: {
   submitResults: readonly SubmitResult[];
   tenantSlug: string;
   tenantColors: { primario: string; secundario: string };
   resetForm: () => void;
+  goBackToForm?: () => void;
 }) {
   const [showAllErrors, setShowAllErrors] = useState(false);
   const okCount = submitResults.filter(r => r.ok).length;
   const failCount = submitResults.length - okCount;
   const allOk = failCount === 0;
+  const allFailed = okCount === 0 && failCount > 0;
   const isBulk = submitResults.length > 5;
   const failedResults = submitResults.filter(r => !r.ok);
+
+  // Determine unique root-cause errors (exclude the "not processed" filler)
+  const rootErrors = failedResults.filter(
+    r => r.error && !r.error.includes('No se procesó')
+  );
 
   return (
     <div className="animate-fade-in text-center space-y-5 sm:space-y-6 px-2">
       {/* Hero icon */}
       <div className="flex justify-center">
-        <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center ${allOk ? 'bg-success/15' : 'bg-amber-100'}`}>
-          <i className={`fas ${allOk ? 'fa-check' : 'fa-exclamation-triangle'} text-3xl sm:text-4xl ${allOk ? 'text-success' : 'text-amber-500'}`} />
+        <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center ${
+          allOk ? 'bg-success/15' : allFailed ? 'bg-danger/10' : 'bg-amber-100'
+        }`}>
+          <i className={`fas ${
+            allOk ? 'fa-check' : allFailed ? 'fa-times-circle' : 'fa-exclamation-triangle'
+          } text-3xl sm:text-4xl ${
+            allOk ? 'text-success' : allFailed ? 'text-danger' : 'text-amber-500'
+          }`} />
         </div>
       </div>
 
       {/* Title + subtitle */}
       <div>
         <h2 className="text-xl sm:text-2xl font-bold text-heading">
-          {allOk ? '¡Solicitud enviada!' : 'Solicitud enviada con observaciones'}
+          {allOk
+            ? '¡Solicitud enviada!'
+            : allFailed
+              ? 'No se pudieron enviar las acreditaciones'
+              : 'Solicitud enviada con observaciones'}
         </h2>
         <p className="text-muted mt-2 text-sm sm:text-base">
           {allOk
             ? `${okCount} acreditaci${okCount === 1 ? 'ón enviada' : 'ones enviadas'} correctamente`
-            : `${okCount} de ${submitResults.length} enviadas — ${failCount} con error`}
+            : allFailed
+              ? 'Se encontraron errores. Ninguna acreditación fue creada.'
+              : `${okCount} de ${submitResults.length} enviadas — ${failCount} con error`}
         </p>
       </div>
 
       {/* Summary stats for bulk */}
       {isBulk ? (
         <div className="max-w-sm mx-auto">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-success/5 border border-success/20 rounded-xl p-4">
-              <p className="text-2xl font-bold text-success">{okCount}</p>
-              <p className="text-xs text-success/80 font-medium mt-0.5">Exitosas</p>
-            </div>
+          <div className={`grid ${allFailed ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+            {!allFailed && (
+              <div className="bg-success/5 border border-success/20 rounded-xl p-4">
+                <p className="text-2xl font-bold text-success">{okCount}</p>
+                <p className="text-xs text-success/80 font-medium mt-0.5">Exitosas</p>
+              </div>
+            )}
             {failCount > 0 && (
               <div className="bg-danger/5 border border-danger/20 rounded-xl p-4">
                 <p className="text-2xl font-bold text-danger">{failCount}</p>
@@ -85,11 +107,11 @@ function SuccessView({
                 className="text-xs text-danger font-semibold hover:underline flex items-center gap-1 mx-auto"
               >
                 <i className={`fas fa-chevron-${showAllErrors ? 'up' : 'down'} text-[10px]`} />
-                {showAllErrors ? 'Ocultar errores' : `Ver ${failCount} error${failCount !== 1 ? 'es' : ''}`}
+                {showAllErrors ? 'Ocultar errores' : `Ver ${rootErrors.length || failCount} error${(rootErrors.length || failCount) !== 1 ? 'es' : ''}`}
               </button>
               {showAllErrors && (
                 <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
-                  {failedResults.map((r, i) => (
+                  {(rootErrors.length > 0 ? rootErrors : failedResults).map((r, i) => (
                     <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-danger/5 border border-danger/10 text-left">
                       <i className="fas fa-times-circle text-danger text-xs mt-0.5 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -125,6 +147,15 @@ function SuccessView({
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        {allFailed && goBackToForm && (
+          <button
+            type="button"
+            onClick={goBackToForm}
+            className="flex-1 py-3 rounded-xl border-2 border-danger/30 text-danger font-semibold text-center hover:bg-danger/5 transition-snappy"
+          >
+            <i className="fas fa-arrow-left mr-2" /> Volver y corregir
+          </button>
+        )}
         <a
           href={`/${tenantSlug}`}
           className="flex-1 py-3 rounded-xl border border-edge text-body font-semibold text-center hover:bg-surface transition-snappy"
@@ -214,6 +245,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
     eventType,
     eventDays,
     disclaimerConfig,
+    eventZonas,
   } = props;
 
   const form = useRegistrationForm(props);
@@ -321,6 +353,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
           setShowTeamPicker={form.setShowTeamPicker}
           bulkEnabled={bulkEnabled}
           formFields={form.formFields}
+          eventZonas={eventZonas}
           submitting={form.submitting}
           tenantColors={tenantColors}
           handleIncluirme={form.handleIncluirme}
@@ -345,6 +378,7 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
           tenantSlug={tenantSlug}
           tenantColors={tenantColors}
           resetForm={form.resetForm}
+          goBackToForm={() => form.goBack('acreditados')}
         />
       )}
 

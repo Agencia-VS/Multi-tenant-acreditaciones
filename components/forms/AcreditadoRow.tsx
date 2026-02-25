@@ -37,7 +37,8 @@ export function createEmptyAcreditado(): AcreditadoData {
 
 export function validateAcreditado(
   a: AcreditadoData,
-  formFields: FormFieldDefinition[] = []
+  formFields: FormFieldDefinition[] = [],
+  eventZonas: string[] = [],
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!a.rut.trim()) errors.rut = 'RUT es requerido';
@@ -51,6 +52,11 @@ export function validateAcreditado(
   const cargoField = formFields.find(f => f.key === 'cargo');
   if (cargoField?.required && !a.cargo) {
     errors.cargo = 'Cargo es requerido';
+  }
+
+  // Zona: requerida si el evento tiene zonas habilitadas en el formulario
+  if (eventZonas.length > 0 && !a.dynamicData['zona']) {
+    errors.zona = 'Zona es requerida';
   }
 
   return errors;
@@ -83,6 +89,7 @@ interface AcreditadoRowProps {
   onRemove: (index: number) => void;
   canRemove: boolean;
   formFields?: FormFieldDefinition[];
+  eventZonas?: string[];
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -99,6 +106,7 @@ export default function AcreditadoRow({
   onRemove,
   canRemove,
   formFields = [],
+  eventZonas = [],
 }: AcreditadoRowProps) {
 
   const handleChange = (field: string, value: string) => {
@@ -121,9 +129,9 @@ export default function AcreditadoRow({
   const locked = data.isResponsable;
 
   // Filter dynamic fields that duplicate base fields
-  // Also exclude 'cargo' from dynamic — it has its own conditional rendering below
+  // Also exclude 'cargo' and 'zona' from dynamic — they have their own conditional rendering below
   const extraFields = formFields.filter(
-    f => !BASE_FIELD_KEYS.has(f.key.toLowerCase()) && f.key !== 'cargo'
+    f => !BASE_FIELD_KEYS.has(f.key.toLowerCase()) && f.key !== 'cargo' && f.key !== 'zona'
   );
 
   // Cargo field config from form_fields (null if not configured)
@@ -342,6 +350,25 @@ export default function AcreditadoRow({
                 </select>
               )}
               {errors.cargo && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" />{errors.cargo}</p>}
+            </div>
+          )}
+
+          {/* Zona — solo si el evento tiene zonas configuradas */}
+          {eventZonas.length > 0 && (
+            <div>
+              <label className="field-label">
+                <i className="fas fa-map-signs text-[0.65rem] text-purple-500 mr-1" />
+                Zona *
+              </label>
+              <select
+                value={data.dynamicData['zona'] || ''}
+                onChange={(e) => onDynamicChange(index, 'zona', e.target.value)}
+                className={`field-input ${errors.zona ? 'field-input-error' : ''}`}
+              >
+                <option value="">Selecciona zona... *</option>
+                {eventZonas.map((z) => <option key={z} value={z}>{z}</option>)}
+              </select>
+              {errors.zona && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" />{errors.zona}</p>}
             </div>
           )}
         </div>

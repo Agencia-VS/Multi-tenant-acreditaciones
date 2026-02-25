@@ -139,6 +139,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ total: rows.length, success: 0, errors: errorCount, results });
     }
 
+    // ── All-or-nothing: if ANY row failed basic validation, stop everything ──
+    if (errorCount > 0) {
+      for (const { index, formData } of validRows) {
+        results.push({
+          row: index + 1,
+          rut: formData.rut,
+          nombre: `${formData.nombre} ${formData.apellido}`,
+          ok: false,
+          error: 'No se procesó: se encontraron errores en otras personas del lote',
+        });
+      }
+      results.sort((a, b) => a.row - b.row);
+      return NextResponse.json({ total: rows.length, success: 0, errors: rows.length, results });
+    }
+
     // ── 4. Batch lookup/upsert de profiles ──
     // Fetch all existing profiles by RUT in one query
     const allRuts = [...new Set(validRows.map(v => v.formData.rut))];
@@ -297,8 +312,70 @@ export async function POST(request: NextRequest) {
     // Add skipped results
     results.push(...skippedResults);
 
-    // ★ Single RPC call for ALL registrations
+    // ── All-or-nothing: if ANY profile couldn't be resolved, stop everything ──
+    if (skippedResults.length > 0) {
+      for (const rpcRow of rpcRows) {
+        const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+        results.push({
+          row: rpcRow.row_index + 1,
+          rut: vr.formData.rut,
+          nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+          ok: false,
+          error: 'No se procesó: se encontraron errores en otras personas del lote',
+        });
+        errorCount++;
+      }
+      results.sort((a, b) => a.row - b.row);
+      return NextResponse.json({ total: rows.length, success: 0, errors: errorCount, results });
+    }
+
+    // ★ Pre-validate + Single RPC call for ALL registrations
     if (rpcRows.length > 0) {
+      // ── Pre-check: duplicates against existing registrations ──
+      const allProfileIds = [...new Set(rpcRows.map(r => r.profile_id))];
+      const duplicateProfileIds = new Set<string>();
+      for (const pidChunk of chunk(allProfileIds, 100)) {
+        const { data: existingRegs } = await supabase
+          .from('registrations')
+          .select('profile_id')
+          .eq('event_id', event_id)
+          .in('profile_id', pidChunk);
+        if (existingRegs) {
+          for (const e of existingRegs) duplicateProfileIds.add(e.profile_id);
+        }
+      }
+
+      // ── Pre-check: within-batch duplicate RUTs ──
+      const rutCounts = new Map<string, number>();
+      for (const rpcRow of rpcRows) {
+        const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+        rutCounts.set(vr.formData.rut, (rutCounts.get(vr.formData.rut) || 0) + 1);
+      }
+      const batchDuplicateRuts = new Set(
+        [...rutCounts.entries()].filter(([, count]) => count > 1).map(([rut]) => rut)
+      );
+
+      if (duplicateProfileIds.size > 0 || batchDuplicateRuts.size > 0) {
+        for (const rpcRow of rpcRows) {
+          const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+          const nombre = `${vr.formData.nombre} ${vr.formData.apellido}`;
+          if (duplicateProfileIds.has(rpcRow.profile_id)) {
+            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
+              error: 'Esta persona ya está registrada en este evento' });
+          } else if (batchDuplicateRuts.has(vr.formData.rut)) {
+            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
+              error: 'RUT duplicado en el mismo lote' });
+          } else {
+            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
+              error: 'No se procesó: se encontraron errores en otras personas del lote' });
+          }
+          errorCount++;
+        }
+        results.sort((a, b) => a.row - b.row);
+        return NextResponse.json({ total: rows.length, success: 0, errors: errorCount, results });
+      }
+
+      // ── All clear → Single RPC call ──
       const { data: rpcResults, error: rpcError } = await supabase.rpc(
         'bulk_check_and_create_registrations',
         {

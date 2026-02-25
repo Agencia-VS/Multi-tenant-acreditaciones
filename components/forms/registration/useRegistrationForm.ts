@@ -389,7 +389,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const handleAcreditadoBlur = (index: number, field: string) => {
     const a = acreditados[index];
     if (!a) return;
-    const allErrors = validateAcreditado(a, formFields);
+    const allErrors = validateAcreditado(a, formFields, props.eventZonas || []);
     const fieldError = allErrors[field];
     setAcreditadoErrors(prev => {
       const current = prev[a.id] || {};
@@ -447,10 +447,10 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     const newBulkRows: BulkImportRow[] = rows.map(r => ({
       id: crypto.randomUUID(),
       nombre: r.nombre || '', apellido: r.apellido || '',
-      rut: r.rut || '', patente: r.patente || '',
+      rut: r.rut || '',
       extras: Object.fromEntries(
         Object.entries(r)
-          .filter(([k, v]) => !['nombre', 'apellido', 'rut', 'patente'].includes(k) && v)
+          .filter(([k, v]) => !['nombre', 'apellido', 'rut'].includes(k) && v)
           .map(([k, v]) => [k, v!])
       ),
     }));
@@ -482,7 +482,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     const allErrors: Record<string, Record<string, string>> = {};
     let hasErrors = false;
     for (const a of acreditados) {
-      const errs = validateAcreditado(a, formFields);
+      const errs = validateAcreditado(a, formFields, props.eventZonas || []);
       if (Object.keys(errs).length > 0) { allErrors[a.id] = errs; hasErrors = true; }
     }
     setAcreditadoErrors(allErrors);
@@ -509,49 +509,39 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     setShowConfirmModal(false);
     setSubmitting(true);
     setMessage(null);
-    const results: SubmitResult[] = [];
-    const totalSteps = acreditados.length + (bulkRows.length > 0 ? 1 : 0);
-    setSubmitProgress({ current: 0, total: totalSteps });
+    setSubmitProgress({ current: 0, total: 1 });
 
-    // 1. Enviar acreditados manuales
-    for (let idx = 0; idx < acreditados.length; idx++) {
-      const a = acreditados[idx];
-      setSubmitProgress({ current: idx, total: totalSteps });
-      const nombre = `${a.nombre} ${a.apellido}`;
-      try {
-        const payload = {
-          event_id: eventId,
-          rut: sanitize(a.rut), nombre: sanitize(a.nombre), apellido: sanitize(a.apellido),
-          email: sanitize(a.email), telefono: sanitize(a.telefono), cargo: sanitize(a.cargo),
-          organizacion: sanitize(responsable.organizacion), tipo_medio: tipoMedio,
-          datos_extra: {
-            ...a.dynamicData,
-            responsable_rut: sanitize(responsable.rut),
-            responsable_nombre: sanitize(responsable.nombre),
-            responsable_apellido: sanitize(responsable.apellido),
-            responsable_segundo_apellido: sanitize(responsable.segundo_apellido),
-            responsable_email: sanitize(responsable.email),
-            responsable_telefono: sanitize(responsable.telefono),
-          },
-          submitted_by: userProfile?.id || undefined,
-        };
-        const res = await fetch('/api/registrations', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+    try {
+      // ── Build unified rows: manual acreditados + bulk rows ──
+      const allRows: Record<string, string | undefined>[] = [];
+
+      for (const a of acreditados) {
+        allRows.push({
+          rut: sanitize(a.rut),
+          nombre: sanitize(a.nombre),
+          apellido: sanitize(a.apellido),
+          email: sanitize(a.email),
+          telefono: sanitize(a.telefono),
+          cargo: sanitize(a.cargo),
+          organizacion: sanitize(responsable.organizacion),
+          tipo_medio: tipoMedio,
+          ...Object.fromEntries(
+            Object.entries(a.dynamicData || {}).map(([k, v]) => [k, sanitize(v)])
+          ),
+          responsable_rut: sanitize(responsable.rut),
+          responsable_nombre: sanitize(responsable.nombre),
+          responsable_apellido: sanitize(responsable.apellido),
+          responsable_segundo_apellido: sanitize(responsable.segundo_apellido),
+          responsable_email: sanitize(responsable.email),
+          responsable_telefono: sanitize(responsable.telefono),
         });
-        const data = await res.json();
-        results.push(res.ok ? { nombre, ok: true } : { nombre, ok: false, error: data.error || 'Error' });
-      } catch {
-        results.push({ nombre, ok: false, error: 'Error de conexión' });
       }
-    }
 
-    // 2. Enviar carga masiva
-    if (bulkRows.length > 0) {
-      setSubmitProgress({ current: acreditados.length, total: totalSteps });
-      try {
-        const bulkPayloadRows = bulkRows.map(row => ({
-          rut: sanitize(row.rut), nombre: sanitize(row.nombre), apellido: sanitize(row.apellido),
+      for (const row of bulkRows) {
+        allRows.push({
+          rut: sanitize(row.rut),
+          nombre: sanitize(row.nombre),
+          apellido: sanitize(row.apellido),
           organizacion: row.extras?.organizacion || row.extras?.empresa
             ? sanitize(row.extras.organizacion || row.extras.empresa)
             : sanitize(responsable.organizacion),
@@ -559,8 +549,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
           email: row.extras?.email ? sanitize(row.extras.email) : undefined,
           telefono: row.extras?.telefono ? sanitize(row.extras.telefono) : undefined,
           cargo: row.extras?.cargo ? sanitize(row.extras.cargo) : undefined,
-          patente: row.patente || undefined,
-          // Campos extra dinámicos (zona, area, campos custom, etc.)
+          patente: row.extras?.patente ? sanitize(row.extras.patente) : undefined,
           ...Object.fromEntries(
             Object.entries(row.extras || {})
               .filter(([k]) => !['organizacion', 'empresa', 'tipo_medio', 'email', 'telefono', 'cargo'].includes(k))
@@ -572,51 +561,69 @@ export function useRegistrationForm(props: RegistrationFormProps) {
           responsable_segundo_apellido: sanitize(responsable.segundo_apellido),
           responsable_email: sanitize(responsable.email),
           responsable_telefono: sanitize(responsable.telefono),
-        }));
-        const res = await fetch('/api/bulk-accreditation', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event_id: eventId, rows: bulkPayloadRows }),
         });
-        const data = await res.json();
-        if (res.ok && data.results) {
-          for (const r of data.results) results.push({ nombre: r.nombre, ok: r.ok, error: r.error });
-        } else {
-          for (const row of bulkRows) results.push({ nombre: `${row.nombre} ${row.apellido}`, ok: false, error: data.error || 'Error en carga masiva' });
-        }
-      } catch {
-        for (const row of bulkRows) results.push({ nombre: `${row.nombre} ${row.apellido}`, ok: false, error: 'Error de conexión' });
       }
-    }
 
-    setSubmitResults(results);
-    setSubmitting(false);
-    setSubmitProgress(null);
+      // ── Single atomic POST (all-or-nothing) ──
+      const res = await fetch('/api/bulk-accreditation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: eventId, rows: allRows }),
+      });
 
-    // Persistencia inteligente
-    if (tenantId && results.some(r => r.ok)) {
-      try {
-        const successfulAcreditados = acreditados.filter((_, i) => results[i]?.ok);
-        if (successfulAcreditados.length > 0) {
-          const firstData = successfulAcreditados[0]?.dynamicData || {};
-          const formKeys = formFields.map(f => f.key);
-          await saveTenantData(tenantId, firstData, formKeys);
+      const data = await res.json();
+      const results: SubmitResult[] = [];
+
+      if (data.results) {
+        for (const r of data.results) {
+          results.push({ nombre: r.nombre, ok: r.ok, error: r.error });
         }
-      } catch {
-        console.warn('[useRegistrationForm] Error saving tenant profile data');
+      } else if (!res.ok) {
+        const allNames = [
+          ...acreditados.map(a => `${a.nombre} ${a.apellido}`),
+          ...bulkRows.map(r => `${r.nombre} ${r.apellido}`),
+        ];
+        for (const nombre of allNames) {
+          results.push({ nombre, ok: false, error: data.error || 'Error al procesar' });
+        }
       }
-    }
 
-    if (results.every(r => r.ok)) {
-      setStep('success');
-      fireToast('success', `${results.length} acreditación${results.length !== 1 ? 'es' : ''} enviada${results.length !== 1 ? 's' : ''} correctamente`);
-      onSuccess?.();
-    } else if (results.some(r => r.ok)) {
-      setMessage({ type: 'error', text: `${results.filter(r => !r.ok).length} acreditación(es) fallaron. Revisa los detalles.` });
-      fireToast('error', `${results.filter(r => !r.ok).length} acreditación(es) fallaron`);
-      setStep('success');
-    } else {
-      setMessage({ type: 'error', text: 'Ninguna acreditación pudo ser enviada. Intenta nuevamente.' });
-      fireToast('error', 'Error al enviar acreditaciones');
+      setSubmitResults(results);
+      setSubmitting(false);
+      setSubmitProgress(null);
+
+      // Persistencia inteligente
+      if (tenantId && results.some(r => r.ok)) {
+        try {
+          const successfulAcreditados = acreditados.filter((_, i) => results[i]?.ok);
+          if (successfulAcreditados.length > 0) {
+            const firstData = successfulAcreditados[0]?.dynamicData || {};
+            const formKeys = formFields.map(f => f.key);
+            await saveTenantData(tenantId, firstData, formKeys);
+          }
+        } catch {
+          console.warn('[useRegistrationForm] Error saving tenant profile data');
+        }
+      }
+
+      if (results.length > 0 && results.every(r => r.ok)) {
+        setStep('success');
+        fireToast('success', `${results.length} acreditaci${results.length !== 1 ? 'ones' : 'ón'} enviada${results.length !== 1 ? 's' : ''} correctamente`);
+        onSuccess?.();
+      } else {
+        // All-or-nothing: show results view with per-person errors
+        setStep('success');
+        const failCount = results.filter(r => !r.ok).length;
+        const uniqueErrors = [...new Set(results.filter(r => !r.ok).map(r => r.error).filter(Boolean))];
+        const toastMsg = uniqueErrors.length === 1
+          ? uniqueErrors[0]!
+          : `${failCount} acreditación(es) con errores`;
+        fireToast('error', toastMsg);
+      }
+    } catch {
+      setSubmitting(false);
+      setSubmitProgress(null);
+      setMessage({ type: 'error', text: 'Error de conexión. Intenta nuevamente.' });
+      fireToast('error', 'Error de conexión');
     }
   };
 

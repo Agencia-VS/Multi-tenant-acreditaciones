@@ -17,6 +17,8 @@ interface EventZonesTabProps {
   setEventZonas: React.Dispatch<React.SetStateAction<string[]>>;
   newEventZona: string;
   setNewEventZona: React.Dispatch<React.SetStateAction<string>>;
+  zonaEnFormulario: boolean;
+  setZonaEnFormulario: React.Dispatch<React.SetStateAction<boolean>>;
   isEditing: boolean;
   addZoneRule: () => void;
   updateZoneRule: (index: number, updates: Partial<{ match_field: ZoneMatchField; cargo: string; zona: string }>) => void;
@@ -30,6 +32,8 @@ export default function EventZonesTab({
   setEventZonas,
   newEventZona,
   setNewEventZona,
+  zonaEnFormulario,
+  setZonaEnFormulario,
   isEditing,
   addZoneRule,
   updateZoneRule,
@@ -96,6 +100,35 @@ export default function EventZonesTab({
           </button>
         </div>
       </div>
+
+      {/* ── 1b. Toggle: mostrar zona en formulario individual ── */}
+      {eventZonas.length > 0 && (
+        <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-900">
+                <i className="fas fa-clipboard-list mr-1" /> Zona en formulario individual
+              </h4>
+              <p className="text-xs text-indigo-700 mt-0.5">
+                Permite que el acreditado (o responsable) elija la zona al registrarse individualmente. Si está desactivado, solo el admin asigna zona.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={zonaEnFormulario}
+              onClick={() => setZonaEnFormulario(prev => !prev)}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                zonaEnFormulario ? 'bg-indigo-600' : 'bg-gray-300'
+              }`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                zonaEnFormulario ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
+          </label>
+        </div>
+      )}
 
       {/* ── 2. Reglas de auto-asignación ── */}
       <div>

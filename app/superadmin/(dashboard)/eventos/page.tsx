@@ -123,6 +123,8 @@ export default function EventosPage() {
   // Zonas configuradas para el evento (event.config.zonas)
   const [eventZonas, setEventZonas] = useState<string[]>([]);
   const [newEventZona, setNewEventZona] = useState('');
+  // Toggle: mostrar zona en formulario individual
+  const [zonaEnFormulario, setZonaEnFormulario] = useState(false);
   // Columnas del template de carga masiva
   const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
 
@@ -147,8 +149,11 @@ export default function EventosPage() {
   // Clone event: load all config from a source event
   const handleCloneFrom = async (sourceEventId: string) => {
     if (!sourceEventId) return;
-    const source = events.find(e => e.id === sourceEventId);
-    if (!source) return;
+    const rawSource = events.find(e => e.id === sourceEventId);
+    if (!rawSource) return;
+
+    // Deep clone to break ALL shared references with the events array
+    const source: SAEvent = JSON.parse(JSON.stringify(rawSource));
 
     // Populate form fields from source (keep tenant_id, clear name/date)
     setEventForm(prev => ({
@@ -244,36 +249,39 @@ export default function EventosPage() {
     setZoneRules([]);
     setEventZonas([]);
     setNewEventZona('');
+    setZonaEnFormulario(false);
     setBulkTemplateColumns([]);
     setActiveTab('general');
     setShowForm(true);
   };
 
   const handleEdit = async (event: SAEvent) => {
-    setEditing(event);
+    // Deep clone to avoid mutating the events array when editing config
+    const cloned: SAEvent = JSON.parse(JSON.stringify(event));
+    setEditing(cloned);
     setEventForm({
-      tenant_id: event.tenant_id,
-      nombre: event.nombre,
-      descripcion: event.descripcion || '',
-      fecha: event.fecha || '',
-      hora: event.hora || '',
-      venue: event.venue || '',
-      league: event.league || '',
-      opponent_name: event.opponent_name || '',
-      opponent_logo_url: event.opponent_logo_url || '',
-      qr_enabled: event.qr_enabled,
-      fecha_limite_acreditacion: isoToLocalDatetime(event.fecha_limite_acreditacion),
-      event_type: event.event_type || 'simple',
-      visibility: (event.visibility as EventVisibility) || 'public',
-      fecha_inicio: event.fecha_inicio || '',
-      fecha_fin: event.fecha_fin || '',
+      tenant_id: cloned.tenant_id,
+      nombre: cloned.nombre,
+      descripcion: cloned.descripcion || '',
+      fecha: cloned.fecha || '',
+      hora: cloned.hora || '',
+      venue: cloned.venue || '',
+      league: cloned.league || '',
+      opponent_name: cloned.opponent_name || '',
+      opponent_logo_url: cloned.opponent_logo_url || '',
+      qr_enabled: cloned.qr_enabled,
+      fecha_limite_acreditacion: isoToLocalDatetime(cloned.fecha_limite_acreditacion),
+      event_type: cloned.event_type || 'simple',
+      visibility: (cloned.visibility as EventVisibility) || 'public',
+      fecha_inicio: cloned.fecha_inicio || '',
+      fecha_fin: cloned.fecha_fin || '',
     });
-    setFormFields(event.form_fields?.length ? event.form_fields : DEFAULT_FORM_FIELDS);
+    setFormFields(cloned.form_fields?.length ? cloned.form_fields : DEFAULT_FORM_FIELDS);
 
     // Load event days for multidía events
-    if (event.event_type === 'multidia') {
+    if (cloned.event_type === 'multidia') {
       try {
-        const daysRes = await fetch(`/api/events/${event.id}/days`);
+        const daysRes = await fetch(`/api/events/${cloned.id}/days`);
         if (daysRes.ok) {
           const daysData = await daysRes.json();
           const daysArr = Array.isArray(daysData) ? daysData : [];
@@ -291,14 +299,15 @@ export default function EventosPage() {
     }
 
     // Load event zonas from config
-    const evConfig = event.config ?? {};
+    const evConfig = cloned.config ?? {};
     setEventZonas(evConfig.zonas || []);
     setNewEventZona('');
+    setZonaEnFormulario(!!evConfig.zona_en_formulario);
     setBulkTemplateColumns(evConfig.bulk_template_columns || []);
 
     // Load quota rules (API returns array directly, not { rules: [...] })
     try {
-      const res = await fetch(`/api/events/${event.id}/quotas`);
+      const res = await fetch(`/api/events/${cloned.id}/quotas`);
       if (res.ok) {
         const data = await res.json();
         // API returns array directly from getQuotaRulesWithUsage
@@ -316,7 +325,7 @@ export default function EventosPage() {
 
     // Load zone rules
     try {
-      const zRes = await fetch(`/api/events/${event.id}/zones`);
+      const zRes = await fetch(`/api/events/${cloned.id}/zones`);
       if (zRes.ok) {
         const zData = await zRes.json();
         const zArr = Array.isArray(zData) ? zData : [];
@@ -344,9 +353,11 @@ export default function EventosPage() {
       const eventConfig = {
         ...existingConfig,
         zonas: eventZonas.length > 0 ? eventZonas : undefined,
+        zona_en_formulario: zonaEnFormulario || undefined,
         bulk_template_columns: bulkTemplateColumns.length > 0 ? bulkTemplateColumns : undefined,
       };
       if (!eventConfig.zonas) delete eventConfig.zonas;
+      if (!eventConfig.zona_en_formulario) delete eventConfig.zona_en_formulario;
       if (!eventConfig.bulk_template_columns) delete eventConfig.bulk_template_columns;
 
       const body = {
@@ -806,6 +817,8 @@ export default function EventosPage() {
                   setEventZonas={setEventZonas}
                   newEventZona={newEventZona}
                   setNewEventZona={setNewEventZona}
+                  zonaEnFormulario={zonaEnFormulario}
+                  setZonaEnFormulario={setZonaEnFormulario}
                   isEditing={!!editing}
                   addZoneRule={addZoneRule}
                   updateZoneRule={updateZoneRule}

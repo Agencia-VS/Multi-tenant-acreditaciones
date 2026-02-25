@@ -622,6 +622,7 @@ export interface DisclaimerConfig {
 /** Typed event config */
 export interface EventConfig {
   zonas?: string[];              // zone options for this event
+  zona_en_formulario?: boolean;  // show zone selector in individual registration form
   acreditacion_abierta?: boolean; // manual override to keep accreditation open
   bulk_template_columns?: BulkTemplateColumn[]; // columnas dinámicas para carga masiva
   disclaimer?: DisclaimerConfig; // configurable disclaimer
