@@ -11,6 +11,19 @@ import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/services/auth';
 import { logAuditAction } from '@/lib/services/audit';
 
+function toDisplayName(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) return '';
+
+  return normalized
+    .split(' ')
+    .map(word => word
+      .split('-')
+      .map(part => part ? `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}` : part)
+      .join('-'))
+    .join(' ');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -29,7 +42,7 @@ export async function POST(request: NextRequest) {
       .select(`
         id, status, checked_in, checked_in_at, event_id,
         organizacion, cargo, tipo_medio,
-        profiles!registrations_profile_id_fkey (nombre, apellido, rut, foto_url),
+        profiles!registrations_profile_id_fkey (nombre, apellido, rut, foto_url, datos_base),
         events!registrations_event_id_fkey (nombre, event_type, qr_enabled)
       `)
       .eq('qr_token', qr_token)
@@ -43,9 +56,38 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const profile = reg.profiles as unknown as { nombre: string; apellido: string; rut: string; foto_url: string | null };
+    const profile = reg.profiles as unknown as {
+      nombre: string;
+      apellido: string;
+      rut: string;
+      foto_url: string | null;
+      datos_base?: Record<string, unknown> | null;
+    };
     const event = reg.events as unknown as { nombre: string; event_type: string; qr_enabled: boolean };
-    const nombre = `${profile.nombre} ${profile.apellido}`.trim();
+    const nombreRaw = `${profile.nombre} ${profile.apellido}`.trim();
+    const nombre = toDisplayName(nombreRaw);
+    const datosBase = profile.datos_base && typeof profile.datos_base === 'object'
+      ? profile.datos_base
+      : null;
+    const docFromBase =
+      (typeof datosBase?.document_number === 'string' && datosBase.document_number.trim())
+      || (typeof datosBase?.numero_documento === 'string' && datosBase.numero_documento.trim())
+      || (typeof datosBase?.dni === 'string' && datosBase.dni.trim())
+      || null;
+    const documentNumber = docFromBase || profile.rut || null;
+
+    const successMessage = (() => {
+      const person = nombre || 'Acreditado';
+      const org = reg.organizacion ? ` · ${reg.organizacion}` : '';
+      const role = reg.cargo ? ` (${reg.cargo})` : '';
+      return `Ingreso registrado: ${person}${org}${role}`;
+    })();
+    const alreadyCheckedInMessage = (() => {
+      const person = nombre || 'Acreditado';
+      const org = reg.organizacion ? ` · ${reg.organizacion}` : '';
+      const role = reg.cargo ? ` (${reg.cargo})` : '';
+      return `Ya registró ingreso: ${person}${org}${role}`;
+    })();
 
     // 2. Verificar que esté aprobado
     if (reg.status !== 'aprobado') {
@@ -55,6 +97,7 @@ export async function POST(request: NextRequest) {
         message: `Acreditación no aprobada (${reg.status})`,
         nombre,
         rut: profile.rut,
+        document_number: documentNumber,
       });
     }
 
@@ -74,6 +117,7 @@ export async function POST(request: NextRequest) {
           message: 'No inscrito para esta jornada',
           nombre,
           rut: profile.rut,
+          document_number: documentNumber,
         });
       }
 
@@ -81,9 +125,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           valid: false,
           status: 'already_checked_in',
-          message: 'Ya registró ingreso para esta jornada',
+          message: `${alreadyCheckedInMessage} (jornada actual)`,
           nombre,
           rut: profile.rut,
+          document_number: documentNumber,
           foto_url: profile.foto_url,
           registration_id: reg.id,
         });
@@ -102,10 +147,11 @@ export async function POST(request: NextRequest) {
       const result = {
         valid: true,
         status: 'checked_in',
-        message: 'Ingreso registrado',
+        message: successMessage,
         registration_id: reg.id,
         nombre,
         rut: profile.rut,
+        document_number: documentNumber,
         foto_url: profile.foto_url,
         organizacion: reg.organizacion,
         cargo: reg.cargo,
@@ -130,9 +176,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         valid: false,
         status: 'already_checked_in',
-        message: 'Ya registró ingreso',
+        message: alreadyCheckedInMessage,
         nombre,
         rut: profile.rut,
+        document_number: documentNumber,
         foto_url: profile.foto_url,
         registration_id: reg.id,
       });
@@ -151,10 +198,11 @@ export async function POST(request: NextRequest) {
     const result = {
       valid: true,
       status: 'checked_in',
-      message: 'Ingreso registrado',
+      message: successMessage,
       registration_id: reg.id,
       nombre,
       rut: profile.rut,
+      document_number: documentNumber,
       foto_url: profile.foto_url,
       organizacion: reg.organizacion,
       cargo: reg.cargo,

@@ -295,6 +295,8 @@ export interface QRValidationResult {
   registration_id?: string;
   nombre?: string;
   rut?: string;
+  document_number?: string;
+  document_type?: 'rut' | 'dni_extranjero' | string;
   foto_url?: string;
   organizacion?: string;
   tipo_medio?: string;

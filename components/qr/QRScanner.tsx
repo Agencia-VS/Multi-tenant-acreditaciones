@@ -211,6 +211,8 @@ export default function QRScanner({
     const isValid = result.valid && result.status === 'checked_in';
     const bgColor = isValid ? 'bg-green-500' : 'bg-red-500';
     const icon = isValid ? 'fa-check-circle' : result.status === 'already_checked_in' ? 'fa-exclamation-triangle' : 'fa-times-circle';
+    const documentValue = result.document_number || result.rut;
+    const hasDetailInfo = Boolean(result.nombre || result.foto_url || documentValue || result.organizacion || result.cargo || result.event_nombre);
 
     return (
       <div className={`min-h-screen ${bgColor} flex flex-col items-center justify-center p-8 text-white transition-all duration-300`}>
@@ -219,17 +221,17 @@ export default function QRScanner({
           
           <h1 className="text-4xl font-bold mb-2">{result.message}</h1>
           
-          {result.nombre && (
+          {hasDetailInfo && (
             <div className="mt-6">
               {result.foto_url && (
                 <img
                   src={result.foto_url}
-                  alt={result.nombre}
+                  alt={result.nombre || 'Acreditado'}
                   className="w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-white shadow-lg"
                 />
               )}
-              <p className="text-3xl font-bold">{result.nombre}</p>
-              {result.rut && <p className="text-xl opacity-80 mt-1">{result.rut}</p>}
+              {result.nombre && <p className="text-3xl font-bold">{result.nombre}</p>}
+              {documentValue && <p className="text-xl opacity-80 mt-1">Documento: {documentValue}</p>}
               {result.organizacion && <p className="text-lg opacity-80 mt-1">{result.organizacion}</p>}
               {result.cargo && <p className="text-lg opacity-80">{result.cargo} — {result.tipo_medio}</p>}
               {result.event_nombre && <p className="text-lg opacity-60 mt-2">{result.event_nombre}</p>}
