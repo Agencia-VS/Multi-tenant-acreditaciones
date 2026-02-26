@@ -389,7 +389,7 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                 >
                   <p className="text-xs uppercase tracking-widest font-semibold mb-3 text-center" style={{ color: `${p.bright}80` }}>
                     <i className="fas fa-calendar-week mr-1.5" />
-                    Evento multidía
+                    Evento de varias jornadas
                   </p>
                   {formattedDateRange && (
                     <p className="text-lg font-bold text-white text-center mb-2">
@@ -398,7 +398,7 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                     </p>
                   )}
                   <p className="text-sm text-white/60 text-center">
-                    Las jornadas disponibles se mostrarán al momento de inscribirse.
+                    Los días disponibles se mostrarán al momento de inscribirse.
                   </p>
                 </div>
               </div>

@@ -66,6 +66,10 @@ function hsl(h: number, s: number, l: number): string {
   return hslToHex(h, Math.max(0, Math.min(100, s)), Math.max(0, Math.min(100, l)));
 }
 
+function isAchromatic(color: HSL): boolean {
+  return color.s < 8;
+}
+
 // ─── Relative luminance (for WCAG contrast) ─────────────────────────────────
 
 function relativeLuminance(hex: string): number {
@@ -166,22 +170,32 @@ export function generateTenantPalette(
   colorDark: string
 ): TenantPalette {
   const primary = hexToHSL(colorPrimario);
+  const secondary = hexToHSL(colorSecundario);
+  const light = hexToHSL(colorLight);
   const dark = hexToHSL(colorDark);
+
+  const brightSource = !isAchromatic(primary)
+    ? primary
+    : (!isAchromatic(secondary) ? secondary : light);
+  const brandHue = brightSource.h;
+  const forestHue = dark.h;
+  const forestSat = isAchromatic(dark) ? 0 : Math.max(dark.s, 40);
+  const tintSat = isAchromatic(dark) ? 0 : Math.max(dark.s * 0.3, 8);
 
   // ── Core ──────────────────────────────────────────────────────────────────
   // Bright: ensure the primary is vivid (saturation ≥ 60%, lightness 50-65%)
-  const bright = hsl(primary.h, Math.max(primary.s, 60), Math.min(Math.max(primary.l, 45), 65));
+  const bright = hsl(brandHue, Math.max(brightSource.s, 60), Math.min(Math.max(brightSource.l, 45), 65));
 
   // Forest: very dark, high saturation — the "anchor" color
-  const forest = hsl(dark.h, Math.max(dark.s, 40), Math.min(dark.l, 18));
+  const forest = hsl(forestHue, forestSat, Math.min(dark.l, 18));
 
   // Tint: 8% of forest on white (simulated as very light version)
-  const tint = hsl(dark.h, Math.max(dark.s * 0.3, 8), 96);
+  const tint = hsl(forestHue, tintSat, 96);
 
   // ── Content (brand-tinted greys) ──────────────────────────────────────────
-  const contentPrimary = hsl(primary.h, 5, 6);      // Near-black with brand hue
-  const contentSecondary = hsl(primary.h, 3, 28);    // Dark grey
-  const contentTertiary = hsl(primary.h, 2, 42);     // Medium grey
+  const contentPrimary = hsl(brandHue, 5, 6);      // Near-black with brand hue
+  const contentSecondary = hsl(brandHue, 3, 28);    // Dark grey
+  const contentTertiary = hsl(brandHue, 2, 42);     // Medium grey
 
   // ── Interactive ───────────────────────────────────────────────────────────
   const interactivePrimary = forest;
@@ -205,7 +219,7 @@ export function generateTenantPalette(
   const borderSubtle = `${contentPrimary}12`;   // 7% opacity
 
   // ── Sentiment ─────────────────────────────────────────────────────────────
-  const sentimentPositive = hsl(primary.h, 65, 30);
+  const sentimentPositive = hsl(brandHue, 65, 30);
   const sentimentWarning = '#EDC843';
   const sentimentNegative = '#A8200D';
 

@@ -30,6 +30,20 @@ describe('generateTenantPalette', () => {
     expect(blue.bright).not.toBe(green.bright);
     expect(blue.forest).not.toBe(green.forest);
   });
+
+  it('uses a chromatic fallback for accents when primary is achromatic', () => {
+    const palette = generateTenantPalette('#000000', '#d9f72b', '#d9f72b', '#000000');
+    expect(palette.bright.toLowerCase()).not.toBe('#b82e2e');
+    expect(palette.forest.toLowerCase()).toBe('#000000');
+  });
+
+  it('fallback hue changes with tenant secondary color (not hardcoded)', () => {
+    const limeTenant = generateTenantPalette('#000000', '#d9f72b', '#d9f72b', '#000000');
+    const blueTenant = generateTenantPalette('#000000', '#60a5fa', '#bfdbfe', '#000000');
+
+    expect(limeTenant.bright).not.toBe(blueTenant.bright);
+    expect(limeTenant.forest).toBe(blueTenant.forest);
+  });
 });
 
 describe('generateCorporatePalette', () => {
