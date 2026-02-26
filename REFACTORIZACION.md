@@ -20,6 +20,19 @@ Google OAuth** que reduce la fricción de entrada de 5 campos a 2 clics, y el **
 (P7, P8, P11, P12, T4) completado el mismo día.
 El codebase está estable, seguro y testeado.
 
+### Actualización técnica (26 feb 2026)
+
+- Se agregaron **tests de regresión** para blindar el flujo de clonado de eventos y plantilla bulk:
+  - `tests/api/events.test.ts`: valida herencia de `bulk_template_columns` al clonar.
+  - `tests/api/bulk-parse.test.ts`: valida orden/contenido exacto del template custom y error explícito cuando la configuración custom es inválida.
+- Se optimizó `app/api/bulk/parse/route.ts` para evitar doble consulta de evento en `GET` (ahora usa una sola lectura y reutiliza ese contexto para columnas + zona).
+- Se eliminó duplicación de normalización de templates bulk extrayendo utilidad compartida en `lib/bulkTemplate.ts`, reutilizada en:
+  - `app/api/bulk/parse/route.ts`
+  - `app/api/events/route.ts`
+  - `components/admin-dashboard/useEventForm.ts`
+  - `app/superadmin/(dashboard)/eventos/page.tsx`
+- Validación post-cambio: suite completa en verde (**394 tests passing**).
+
 ---
 
 ## Refactorización Completada (20/20 milestones)

@@ -13,6 +13,7 @@ const mockListEventsByTenant = vi.fn();
 const mockListAllEvents = vi.fn();
 const mockGetActiveEvent = vi.fn();
 const mockGetEventTenantId = vi.fn();
+const mockGetEventById = vi.fn();
 const mockLogAuditAction = vi.fn();
 const mockRequireAuth = vi.fn();
 
@@ -25,6 +26,7 @@ vi.mock('@/lib/services', () => ({
   listAllEvents: (...args: unknown[]) => mockListAllEvents(...args),
   getActiveEvent: (...args: unknown[]) => mockGetActiveEvent(...args),
   getEventTenantId: (...args: unknown[]) => mockGetEventTenantId(...args),
+  getEventById: (...args: unknown[]) => mockGetEventById(...args),
   logAuditAction: (...args: unknown[]) => mockLogAuditAction(...args),
 }));
 
@@ -122,6 +124,46 @@ describe('POST /api/events', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
+  });
+
+  it('inherits source bulk template when cloning and incoming config has no template', async () => {
+    authOk();
+    mockGetEventById.mockResolvedValue({
+      id: 'source-1',
+      tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      config: {
+        bulk_template_columns: [
+          { key: 'nombre', header: 'Nombre', required: true },
+          { key: 'email', header: 'Email', required: true },
+        ],
+      },
+    });
+    mockCreateEvent.mockResolvedValue({ id: 'e-2', nombre: 'Clonado', tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' });
+    mockLogAuditAction.mockResolvedValue(undefined);
+
+    const req = new NextRequest('http://localhost/api/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        nombre: 'Clonado',
+        tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        clone_from_event_id: 'source-1',
+        config: { zonas: ['Prensa'] },
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(mockCreateEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          zonas: ['Prensa'],
+          bulk_template_columns: [
+            { key: 'nombre', header: 'Nombre', required: true },
+            { key: 'email', header: 'Email', required: true },
+          ],
+        }),
+      })
+    );
   });
 });
 

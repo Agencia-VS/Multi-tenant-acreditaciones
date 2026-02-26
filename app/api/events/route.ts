@@ -8,13 +8,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent, getEventTenantId } from '@/lib/services';
+import { createEvent, updateEvent, deactivateEvent, deleteEvent, listEventsByTenant, listAllEvents, getActiveEvent, getEventTenantId, getEventById } from '@/lib/services';
 import { logAuditAction } from '@/lib/services';
 import { checkLimit } from '@/lib/services/billing';
 import { generateQrTokenForRegistration } from '@/lib/services/registrations';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/services/requireAuth';
 import { eventCreateSchema, eventUpdateSchema, safeParse } from '@/lib/schemas';
+import { extractRawBulkTemplateFromConfig, hasBulkTemplateSignalInConfig } from '@/lib/bulkTemplate';
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,7 +73,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: limitCheck.message }, { status: 403 });
     }
 
-    const event = await createEvent(parsed.data);
+    const cloneFromEventId = typeof (body as Record<string, unknown>).clone_from_event_id === 'string'
+      ? String((body as Record<string, unknown>).clone_from_event_id)
+      : undefined;
+
+    let payload = parsed.data;
+
+    if (cloneFromEventId) {
+      const sourceEvent = await getEventById(cloneFromEventId);
+      if (sourceEvent && sourceEvent.tenant_id === parsed.data.tenant_id) {
+        const sourceConfig = (sourceEvent.config || {}) as Record<string, unknown>;
+        const incomingConfig = ((parsed.data as Record<string, unknown>).config || {}) as Record<string, unknown>;
+
+        const hasIncomingBulkTemplate = hasBulkTemplateSignalInConfig(incomingConfig);
+
+        if (!hasIncomingBulkTemplate) {
+          const sourceBulkTemplate = extractRawBulkTemplateFromConfig(sourceConfig);
+
+          if (sourceBulkTemplate) {
+            payload = {
+              ...parsed.data,
+              config: {
+                ...incomingConfig,
+                bulk_template_columns: sourceBulkTemplate,
+              },
+            };
+          }
+        }
+      }
+    }
+
+    const event = await createEvent(payload);
 
     await logAuditAction(user.id, 'event.created', 'event', event.id, {
       nombre: event.nombre,

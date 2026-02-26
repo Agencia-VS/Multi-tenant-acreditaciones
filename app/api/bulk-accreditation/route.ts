@@ -46,6 +46,17 @@ interface BulkRow {
 const BASE_FIELDS = ['rut', 'document_type', 'document_number', 'nombre', 'apellido', 'email', 'telefono', 'cargo', 'organizacion', 'tipo_medio'];
 const CHUNK_SIZE = 50; // supabase batch limit
 
+function toFriendlyProfileUpsertError(errorMessage: string): string {
+  const msg = (errorMessage || '').toLowerCase();
+  if (msg.includes('no unique') && msg.includes('on conflict')) {
+    return 'La base no tiene el constraint UNIQUE esperado para documento (document_type, document_normalized).';
+  }
+  if (msg.includes('null value') && msg.includes('rut')) {
+    return 'La base sigue exigiendo RUT obligatorio para perfiles; falta migración para documento extranjero.';
+  }
+  return errorMessage;
+}
+
 /** Split array into chunks */
 function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -71,6 +82,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createSupabaseAdminClient();
+
+    // Fail-fast: validar esquema requerido para identidad documental
+    const { error: schemaError } = await (supabase as any)
+      .from('profiles')
+      .select('id, document_type, document_normalized')
+      .limit(1);
+    if (schemaError) {
+      return NextResponse.json(
+        {
+          error: 'Base de datos desactualizada para carga masiva documental. Ejecuta la migración de perfiles (document_type/document_number/document_normalized + UNIQUE).',
+          detail: schemaError.message,
+        },
+        { status: 500 }
+      );
+    }
 
     // ── 1. Verificar evento + deadline ──
     const event = await getEventById(event_id);
@@ -197,7 +223,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 4. Batch lookup/upsert de profiles ──
-    const docKey = (type: DocumentType, normalized: string) => `${type}:${normalized}`;
+    const canonicalDoc = (type: DocumentType, value: string) => normalizeDocumentByType(type, value);
+    const docKey = (type: DocumentType, normalized: string) => `${type}:${canonicalDoc(type, normalized)}`;
     const allDocNormalized = [...new Set(validRows.map(v => v.formData.document_normalized))];
     const existingProfiles = new Map<string, { id: string; user_id: string | null }>();
     const newlyCreatedProfileIds = new Set<string>();
@@ -288,6 +315,7 @@ export async function POST(request: NextRequest) {
 
     // Batch insert new profiles
     if (profilesToCreate.length > 0) {
+      let profileUpsertError: string | null = null;
       for (const profileChunk of chunk(profilesToCreate, CHUNK_SIZE)) {
         const chunkDocKeys = new Set(
           profileChunk
@@ -304,6 +332,8 @@ export async function POST(request: NextRequest) {
           .select('id, user_id, document_type, document_normalized');
         if (error) {
           console.error('[BulkAccreditation] Error upserting profiles:', error.message);
+          profileUpsertError = toFriendlyProfileUpsertError(error.message);
+          break;
         }
         if (created) {
           for (const p of created) {
@@ -316,6 +346,19 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+      }
+
+      if (profileUpsertError) {
+        await cleanupTransientProfiles();
+        const failedRows = validRows.map(({ index, formData }) => ({
+          row: index + 1,
+          rut: formData.rut,
+          nombre: `${formData.nombre} ${formData.apellido}`,
+          ok: false,
+          error: `No se pudo crear/actualizar perfiles: ${profileUpsertError}`,
+        }));
+        failedRows.sort((a, b) => a.row - b.row);
+        return NextResponse.json({ total: rows.length, success: 0, errors: failedRows.length, results: failedRows });
       }
     }
 
@@ -373,16 +416,20 @@ export async function POST(request: NextRequest) {
     }[] = [];
 
     const skippedResults: typeof results = [];
+    const attemptedProfileUpsert = profilesToCreate.length > 0;
 
     for (const { index, formData } of validRows) {
       const profile = existingProfiles.get(docKey(formData.document_type, formData.document_normalized));
       if (!profile?.id) {
+        const unresolvedProfileMsg = attemptedProfileUpsert
+          ? `Perfil no encontrado para documento ${formData.document_number}. No se pudo resolver el perfil tras upsert (revisar migración/columnas document_type + document_normalized en profiles).`
+          : `Perfil no encontrado para documento ${formData.document_number}`;
         skippedResults.push({
           row: index + 1,
           rut: formData.rut,
           nombre: `${formData.nombre} ${formData.apellido}`,
           ok: false,
-          error: `Perfil no encontrado para documento ${formData.document_number}`,
+          error: unresolvedProfileMsg,
         });
         errorCount++;
         continue;

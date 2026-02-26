@@ -13,7 +13,7 @@ import type { Event, EventConfig } from '@/types';
 export default function AdminConfigTab() {
   const { tenant, events, fetchData, refreshEvents, showSuccess, showError } = useAdmin();
   const eventForm = useEventForm();
-  const { form, formFields, quotaRules, zoneRules, zonas, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
+  const { form, formFields, quotaRules, zoneRules, zonas, bulkTemplateColumns, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
 
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -31,6 +31,7 @@ export default function AdminConfigTab() {
     try {
       const eventConfig: EventConfig = {};
       if (zonas.length > 0) eventConfig.zonas = zonas;
+      if (bulkTemplateColumns.length > 0) eventConfig.bulk_template_columns = bulkTemplateColumns;
       eventConfig.disclaimer = {
         enabled: form.disclaimer_enabled,
         sections: form.disclaimer_sections,
@@ -44,6 +45,7 @@ export default function AdminConfigTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData, tenant_id: tenant.id, config: eventConfig, form_fields: formFields,
+          clone_from_event_id: cloneSourceId || undefined,
           event_type: form.event_type,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
@@ -145,6 +147,7 @@ export default function AdminConfigTab() {
                 {quotaRules.length > 0 && <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-200"><i className="fas fa-check-circle mr-1" />{quotaRules.length} cupos</span>}
                 {zoneRules.length > 0 && <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-200"><i className="fas fa-check-circle mr-1" />{zoneRules.length} reglas zona</span>}
                 {zonas.length > 0 && <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200"><i className="fas fa-check-circle mr-1" />{zonas.length} zonas</span>}
+                {bulkTemplateColumns.length > 0 && <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200"><i className="fas fa-check-circle mr-1" />{bulkTemplateColumns.length} columnas bulk</span>}
               </div>
             )}
           </div>

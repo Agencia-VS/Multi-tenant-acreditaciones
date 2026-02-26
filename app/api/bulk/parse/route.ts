@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { getEventById } from '@/lib/services';
 import type { BulkTemplateColumn, EventConfig } from '@/types';
+import { getBulkTemplateColumnsFromConfig, hasBulkTemplateSignalInConfig } from '@/lib/bulkTemplate';
 
 /* ── Default bulk template (fallback cuando evento no configura columnas) ─── */
 
@@ -21,6 +22,14 @@ const DEFAULT_BULK_COLUMNS: BulkTemplateColumn[] = [
   { key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 },
   { key: 'patente', header: 'Patente', required: false, example: 'ABCD-12', width: 20 },
 ];
+
+function safeWorksheetName(input: string): string {
+  const sanitized = input
+    .replace(/[\\/*?:\[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return (sanitized || 'Acreditados').substring(0, 31);
+}
 
 /* ── Header mapping (same as client-side) ─── */
 
@@ -154,30 +163,30 @@ export async function GET(request: NextRequest) {
     // Resolver columnas: dinámicas desde evento o fallback
     let columns = DEFAULT_BULK_COLUMNS;
     let eventName = '';
+    let hasCustomBulkTemplate = false;
+    let event: Awaited<ReturnType<typeof getEventById>> | null = null;
 
     if (eventId) {
       try {
-        const event = await getEventById(eventId);
+        event = await getEventById(eventId);
         if (event) {
           eventName = event.nombre || '';
           const evConfig = (event.config || {}) as EventConfig;
-          if (evConfig.bulk_template_columns && evConfig.bulk_template_columns.length > 0) {
-            columns = evConfig.bulk_template_columns;
-            const hasDocumentType = columns.some(c => c.key === 'document_type');
-            const hasDocumentNumber = columns.some(c => c.key === 'document_number' || c.key === 'rut');
-            if (!hasDocumentType) {
-              columns = [
-                { key: 'document_type', header: 'Tipo Documento', required: true, example: 'rut', width: 20, options: ['rut', 'dni_extranjero'] },
-                ...columns,
-              ];
-            }
-            if (!hasDocumentNumber) {
-              columns = [
-                ...columns,
-                { key: 'document_number', header: 'Documento', required: true, example: '12.345.678-9', width: 20 },
-              ];
-            }
-          } else if (event.form_fields && event.form_fields.length > 0) {
+          const normalizedBulkTemplate = getBulkTemplateColumnsFromConfig(evConfig);
+          const hasTemplateSignal = hasBulkTemplateSignalInConfig(evConfig);
+          if (normalizedBulkTemplate.length > 0) {
+            hasCustomBulkTemplate = true;
+            columns = normalizedBulkTemplate.map((col) => ({ ...col }));
+          } else if (hasTemplateSignal) {
+            return NextResponse.json(
+              {
+                error: 'El template bulk personalizado del evento tiene un formato inválido. Corrígelo en Super Admin antes de descargar.',
+              },
+              { status: 400 }
+            );
+          }
+
+          if (!hasCustomBulkTemplate && event.form_fields && event.form_fields.length > 0) {
             // Fallback: generar columnas a partir de form_fields (excluyendo 'file' y 'foto')
             columns = event.form_fields
               .filter(f => f.type !== 'file' && f.key !== 'foto_url')
@@ -220,33 +229,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Auto-inyectar columna Zona si el evento tiene zonas configuradas ──
-    if (eventId) {
+    // ── Auto-inyectar columna Zona solo en fallback (no tocar template custom) ──
+    if (event && !hasCustomBulkTemplate) {
       try {
-        const ev = await getEventById(eventId);
-        if (ev) {
-          const cfg = (ev.config || {}) as EventConfig;
-          const zonas = cfg.zonas || [];
-          const hasZonaCol = columns.some(c => c.key === 'zona');
-          if (zonas.length > 0 && !hasZonaCol) {
-            columns = [
-              ...columns,
-              {
-                key: 'zona',
-                header: 'Zona',
-                required: false,
-                example: zonas[0] || '',
-                width: 22,
-                options: zonas,
-              },
-            ];
-          }
+        const cfg = (event.config || {}) as EventConfig;
+        const zonas = cfg.zonas || [];
+        const hasZonaCol = columns.some(c => c.key === 'zona');
+        if (zonas.length > 0 && !hasZonaCol) {
+          columns = [
+            ...columns,
+            {
+              key: 'zona',
+              header: 'Zona',
+              required: false,
+              example: zonas[0] || '',
+              width: 22,
+              options: zonas,
+            },
+          ];
         }
       } catch { /* ignore */ }
     }
 
     const wb = new ExcelJS.Workbook();
-    const wsName = eventName ? eventName.substring(0, 31) : 'Acreditados';
+    const wsName = safeWorksheetName(eventName || 'Acreditados');
     const ws = wb.addWorksheet(wsName);
 
     // Configurar columnas
@@ -273,6 +279,12 @@ export async function GET(request: NextRequest) {
     // Aplicar data validation (lista desplegable) para columnas con options
     columns.forEach((col, colIdx) => {
       if (col.options && col.options.length > 0) {
+        const escapedOptions = col.options
+          .map(opt => String(opt).replace(/"/g, '""'))
+          .join(',');
+        // Excel tiene límite práctico para listas inline; evitar archivos corruptos
+        if (!escapedOptions || escapedOptions.length > 250) return;
+
         const colNumber = colIdx + 1;
         // Aplicar validación a filas 2..1000 (excluyendo header)
         for (let rowNum = 2; rowNum <= 1000; rowNum++) {
@@ -280,7 +292,7 @@ export async function GET(request: NextRequest) {
           cell.dataValidation = {
             type: 'list',
             allowBlank: !col.required,
-            formulae: [`"${col.options.join(',')}"`],
+            formulae: [`"${escapedOptions}"`],
             showErrorMessage: true,
             errorTitle: 'Valor no válido',
             error: `Selecciona una opción: ${col.options.join(', ')}`,

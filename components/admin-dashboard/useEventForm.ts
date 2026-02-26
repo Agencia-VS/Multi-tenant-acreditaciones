@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { isoToLocalDatetime } from '@/lib/dates';
-import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig } from '@/types';
+import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig, BulkTemplateColumn } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
+import { getBulkTemplateColumnsFromConfig } from '@/lib/bulkTemplate';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export function useEventForm() {
   const [newZona, setNewZona] = useState('');
   const [cloneSourceId, setCloneSourceId] = useState('');
   const [cloning, setCloning] = useState(false);
+  const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
 
   const addZona = () => {
     const trimmed = newZona.trim();
@@ -99,6 +101,7 @@ export function useEventForm() {
     setZonas([]);
     setNewZona('');
     setCloneSourceId('');
+    setBulkTemplateColumns([]);
   };
 
   /** Sincronizas el formulario con un evento existente (para edición) */
@@ -122,6 +125,7 @@ export function useEventForm() {
       disclaimer_sections: dc?.sections ?? [],
     });
     setZonas(eventConfig.zonas || []);
+    setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(eventConfig));
   };
 
   /** Clonar configuración desde un evento anterior del mismo tenant */
@@ -132,6 +136,7 @@ export function useEventForm() {
       setQuotaRules([]);
       setZoneRules([]);
       setZonas([]);
+      setBulkTemplateColumns([]);
       setForm(f => ({ ...f, descripcion: '', venue: '', league: '', opponent_name: '', opponent_logo_url: '', qr_enabled: false }));
       return;
     }
@@ -158,6 +163,7 @@ export function useEventForm() {
 
       const evConfig = source.config ?? {};
       setZonas(evConfig.zonas || []);
+      setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
 
       // Clone disclaimer config
       const dc = evConfig.disclaimer as DisclaimerConfig | undefined;
@@ -206,6 +212,7 @@ export function useEventForm() {
     zonas, setZonas,
     newZona, setNewZona,
     addZona, removeZona,
+    bulkTemplateColumns,
     cloneSourceId, cloning,
     resetForm, syncFromEvent, handleCloneFrom,
   };

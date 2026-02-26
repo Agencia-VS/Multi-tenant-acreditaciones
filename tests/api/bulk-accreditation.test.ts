@@ -54,6 +54,7 @@ function createFromMock() {
     if (table === 'profiles') {
       return {
         select: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: profileStore.slice(0, 1), error: null }),
           in: vi.fn().mockResolvedValue({ data: [...profileStore] }),
         }),
         upsert: vi.fn().mockImplementation((rows: Array<{ rut?: string | null; nombre: string; document_type?: string; document_normalized?: string }>) => {

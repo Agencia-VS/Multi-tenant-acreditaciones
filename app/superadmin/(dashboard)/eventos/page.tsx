@@ -17,6 +17,7 @@ import EventZonesTab from './EventZonesTab';
 import EventDaysTab from './EventDaysTab';
 import EventBulkTemplateTab from './EventBulkTemplateTab';
 import EventInvitationsTab from './EventInvitationsTab';
+import { getBulkTemplateColumnsFromConfig } from '@/lib/bulkTemplate';
 
 type SAEvent = EventFull;
 
@@ -127,6 +128,9 @@ export default function EventosPage() {
   const [zonaEnFormulario, setZonaEnFormulario] = useState(false);
   // Columnas del template de carga masiva
   const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
+  // Config base copiada desde evento origen (solo en creación por clonación)
+  const [clonedBaseConfig, setClonedBaseConfig] = useState<Record<string, unknown> | null>(null);
+  const [cloneFromEventId, setCloneFromEventId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const [tenantsRes, eventsRes] = await Promise.all([
@@ -149,6 +153,7 @@ export default function EventosPage() {
   // Clone event: load all config from a source event
   const handleCloneFrom = async (sourceEventId: string) => {
     if (!sourceEventId) return;
+    setCloneFromEventId(sourceEventId);
     const rawSource = events.find(e => e.id === sourceEventId);
     if (!rawSource) return;
 
@@ -172,8 +177,14 @@ export default function EventosPage() {
 
     // Load event config zonas & bulk template columns
     const evConfig = source.config ?? {};
+    setClonedBaseConfig(
+      evConfig && typeof evConfig === 'object'
+        ? JSON.parse(JSON.stringify(evConfig)) as Record<string, unknown>
+        : {}
+    );
     setEventZonas(evConfig.zonas || []);
-    setBulkTemplateColumns(evConfig.bulk_template_columns || []);
+    setZonaEnFormulario(!!evConfig.zona_en_formulario);
+    setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
 
     // Load event days structure (without dates)
     if (source.event_type === 'multidia') {
@@ -251,6 +262,8 @@ export default function EventosPage() {
     setNewEventZona('');
     setZonaEnFormulario(false);
     setBulkTemplateColumns([]);
+    setClonedBaseConfig(null);
+    setCloneFromEventId(null);
     setActiveTab('general');
     setShowForm(true);
   };
@@ -259,6 +272,8 @@ export default function EventosPage() {
     // Deep clone to avoid mutating the events array when editing config
     const cloned: SAEvent = JSON.parse(JSON.stringify(event));
     setEditing(cloned);
+    setClonedBaseConfig(null);
+    setCloneFromEventId(null);
     setEventForm({
       tenant_id: cloned.tenant_id,
       nombre: cloned.nombre,
@@ -303,7 +318,7 @@ export default function EventosPage() {
     setEventZonas(evConfig.zonas || []);
     setNewEventZona('');
     setZonaEnFormulario(!!evConfig.zona_en_formulario);
-    setBulkTemplateColumns(evConfig.bulk_template_columns || []);
+    setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
 
     // Load quota rules (API returns array directly, not { rules: [...] })
     try {
@@ -349,7 +364,12 @@ export default function EventosPage() {
     setSaving(true);
     try {
       // Merge zonas into existing event config (preserving other config keys like acreditacion_abierta)
-      const existingConfig: Record<string, unknown> = editing?.config && typeof editing.config === 'object' ? { ...(editing.config as Record<string, unknown>) } : {};
+      const existingConfig: Record<string, unknown> = editing?.config && typeof editing.config === 'object'
+        ? { ...(editing.config as Record<string, unknown>) }
+        : clonedBaseConfig && typeof clonedBaseConfig === 'object'
+          ? { ...clonedBaseConfig }
+          : {};
+      const hadExistingBulkTemplate = getBulkTemplateColumnsFromConfig(existingConfig).length > 0;
       const eventConfig = {
         ...existingConfig,
         zonas: eventZonas.length > 0 ? eventZonas : undefined,
@@ -358,12 +378,25 @@ export default function EventosPage() {
       };
       if (!eventConfig.zonas) delete eventConfig.zonas;
       if (!eventConfig.zona_en_formulario) delete eventConfig.zona_en_formulario;
-      if (!eventConfig.bulk_template_columns) delete eventConfig.bulk_template_columns;
+      if (bulkTemplateColumns.length > 0) {
+        // Canonicalizar a snake_case cuando el usuario sí definió columnas en UI
+        delete (eventConfig as Record<string, unknown>).bulkTemplateColumns;
+        delete (eventConfig as Record<string, unknown>).template_columns;
+        if ((eventConfig as Record<string, unknown>).bulk && typeof (eventConfig as Record<string, unknown>).bulk === 'object') {
+          const bulkCfg = { ...((eventConfig as Record<string, unknown>).bulk as Record<string, unknown>) };
+          delete bulkCfg.columns;
+          delete bulkCfg.template_columns;
+          (eventConfig as Record<string, unknown>).bulk = bulkCfg;
+        }
+      } else if (!hadExistingBulkTemplate) {
+        delete (eventConfig as Record<string, unknown>).bulk_template_columns;
+      }
 
       const body = {
         ...eventForm,
         form_fields: formFields,
         config: eventConfig,
+        ...(editing ? {} : { clone_from_event_id: cloneFromEventId || undefined }),
         event_type: eventForm.event_type,
         fecha_inicio: eventForm.event_type === 'multidia' ? eventForm.fecha_inicio || null : null,
         fecha_fin: eventForm.event_type === 'multidia' ? eventForm.fecha_fin || null : null,
