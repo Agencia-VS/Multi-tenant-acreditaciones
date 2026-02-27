@@ -19,6 +19,9 @@ interface StepTipoMedioProps {
   tenantColors: { primario: string; secundario: string };
   /** Dynamic label for this step (default: "Tipo de medio") */
   fieldLabel?: string;
+  isTipoMedioLocked?: boolean;
+  tipoMedioLockMessage?: string;
+  tipoMedioAdjustedMessage?: string;
 }
 
 export default function StepTipoMedio({
@@ -31,9 +34,26 @@ export default function StepTipoMedio({
   goBack,
   tenantColors,
   fieldLabel,
+  isTipoMedioLocked = false,
+  tipoMedioLockMessage,
+  tipoMedioAdjustedMessage,
 }: StepTipoMedioProps) {
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      {tipoMedioAdjustedMessage && (
+        <div className="rounded-xl border border-info/30 bg-info-light px-4 py-3 text-sm text-info-dark">
+          <i className="fas fa-info-circle mr-2" />
+          {tipoMedioAdjustedMessage}
+        </div>
+      )}
+
+      {isTipoMedioLocked && tipoMedioLockMessage && (
+        <div className="rounded-xl border border-warning/30 bg-warning-light px-4 py-3 text-sm text-warning-dark">
+          <i className="fas fa-lock mr-2" />
+          {tipoMedioLockMessage}
+        </div>
+      )}
+
       {/* Section Card */}
       <div className="rounded-2xl border border-edge bg-surface/30 overflow-hidden">
         {/* Section Header */}
@@ -63,11 +83,13 @@ export default function StepTipoMedio({
                   key={tipo}
                   type="button"
                   onClick={() => handleMedioSelect(tipo)}
+                  disabled={isTipoMedioLocked}
                   className={`
                     group relative flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-xl border-2 transition-snappy cursor-pointer
                     ${selected
                       ? 'border-brand bg-brand/10 shadow-md'
                       : 'border-edge bg-surface/40 hover:border-brand/40 hover:bg-surface/80'}
+                    ${isTipoMedioLocked ? 'opacity-90 cursor-not-allowed' : ''}
                   `}
                 >
                   <i className={`fas ${icon} text-xl ${selected ? 'text-brand' : 'text-muted group-hover:text-brand/60'} transition-snappy`} />
@@ -76,7 +98,7 @@ export default function StepTipoMedio({
                   </span>
                   {selected && (
                     <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-brand flex items-center justify-center">
-                      <i className="fas fa-check text-white text-[0.6rem]" />
+                      <i className={`fas ${isTipoMedioLocked ? 'fa-lock' : 'fa-check'} text-white text-[0.6rem]`} />
                     </div>
                   )}
                 </button>

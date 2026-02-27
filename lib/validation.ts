@@ -7,6 +7,7 @@
  * Limpia un RUT: quita puntos y espacios, deja solo dígitos + guión + dígito verificador
  */
 export function cleanRut(raw: string): string {
+  if (typeof raw !== 'string') return '';
   // Quitar puntos y espacios
   let rut = raw.replace(/\./g, '').replace(/\s/g, '').trim();
   // Si no tiene guión, insertar antes del último carácter

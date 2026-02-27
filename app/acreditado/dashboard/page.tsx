@@ -18,6 +18,7 @@ import Image from 'next/image';
 import { LoadingSpinner } from '@/components/shared/ui';
 import type { TenantProfileStatus } from '@/types';
 import { STATUS_MAP, type RegistrationStatus } from '@/types';
+import { cleanRut, formatRut } from '@/lib/validation';
 
 // ─── Registration type (from API) ──────────────────────────────────────────
 
@@ -34,6 +35,8 @@ interface Registration {
   submitted_by: string | null;
   profile_nombre: string;
   profile_apellido: string;
+  document_type?: 'rut' | 'dni_extranjero' | null;
+  document_number?: string | null;
   rut: string;
   event: { nombre: string; fecha: string | null; venue: string | null };
   tenant: { nombre: string; slug: string; color_primario: string };
@@ -54,6 +57,8 @@ const mapReg = (r: any, isSelf: boolean): Registration => ({
   submitted_by: r.submitted_by ?? null,
   profile_nombre: r.profile_nombre,
   profile_apellido: r.profile_apellido,
+  document_type: r.document_type ?? null,
+  document_number: r.document_number ?? r.rut ?? null,
   rut: r.rut,
   event: {
     nombre: r.event_nombre,
@@ -515,7 +520,11 @@ function RegistrationHistoryView({
                     {!reg.isSelf && (
                       <p className="text-sm text-purple-600 mt-0.5">
                         <i className="fas fa-user mr-1" />
-                        {reg.profile_nombre} {reg.profile_apellido} — {reg.rut}
+                        {reg.profile_nombre} {reg.profile_apellido} — {
+                          (reg.document_type || 'rut') === 'rut'
+                            ? formatRut(cleanRut(reg.document_number || reg.rut || ''))
+                            : (reg.document_number || reg.rut || '—')
+                        }
                       </p>
                     )}
                     <div className="flex items-center gap-4 text-sm text-body mt-1">

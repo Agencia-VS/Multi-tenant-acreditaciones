@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { FormFieldDefinition, TeamMember } from '@/types';
 import AcreditadoRow from '@/components/forms/AcreditadoRow';
 import type { AcreditadoData } from '@/components/forms/AcreditadoRow';
-import { validateDocumentByType, cleanRut } from '@/lib/validation';
+import { validateDocumentByType, cleanRut, normalizeDocumentByType, type DocumentType } from '@/lib/validation';
 import { TIPO_MEDIO_ICONS, type ResponsableData, type BulkImportRow } from './types';
 
 interface QuotaResult {
@@ -424,7 +424,18 @@ export default function StepAcreditados({
             {teamMembers.map((m) => {
               const p = m.member_profile;
               if (!p) return null;
-              const alreadyAdded = acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut));
+              const profileDocumentType = (p.document_type || (p.rut ? 'rut' : 'rut')) as DocumentType;
+              const profileDocumentNumber = (p.document_number || p.rut || '').trim();
+              const normalizedProfileDocument = profileDocumentNumber
+                ? normalizeDocumentByType(profileDocumentType, profileDocumentNumber)
+                : '';
+              const alreadyAdded = Boolean(normalizedProfileDocument) && acreditados.some((a) => {
+                const acreditadoDocumentType = (a.document_type || 'rut') as DocumentType;
+                const acreditadoDocumentNumber = (a.rut || '').trim();
+                if (!acreditadoDocumentNumber) return false;
+                return acreditadoDocumentType === profileDocumentType
+                  && normalizeDocumentByType(acreditadoDocumentType, acreditadoDocumentNumber) === normalizedProfileDocument;
+              });
               return (
                 <div key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-surface/60 transition-snappy">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand/10 text-brand text-xs font-bold shrink-0">
@@ -436,7 +447,10 @@ export default function StepAcreditados({
                       {m.alias && <span className="text-muted font-normal ml-1">({m.alias})</span>}
                     </p>
                     <p className="text-xs text-muted truncate">
-                      {p.rut}{p.cargo ? ` · ${p.cargo}` : ''}
+                      {profileDocumentType === 'rut'
+                        ? cleanRut(profileDocumentNumber)
+                        : (profileDocumentNumber || '—')}
+                      {p.cargo ? ` · ${p.cargo}` : ''}
                     </p>
                   </div>
                   <button

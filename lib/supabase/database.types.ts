@@ -97,11 +97,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_logs_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_event_enriched"
+            referencedColumns: ["registration_id"]
+          },
+          {
             foreignKeyName: "email_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "email_logs_tenant_id_fkey"
@@ -150,6 +164,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "email_templates_tenant_id_fkey"
@@ -209,7 +230,110 @@ export type Database = {
             foreignKeyName: "email_zone_content_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "email_zone_content_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_days: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          fecha: string
+          id: string
+          is_active: boolean
+          label: string
+          orden: number
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          fecha: string
+          id?: string
+          is_active?: boolean
+          label: string
+          orden?: number
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          fecha?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          orden?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_days_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_days_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          event_id: string
+          id: string
+          nombre: string | null
+          sent_at: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          event_id: string
+          id?: string
+          nombre?: string | null
+          sent_at?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          event_id?: string
+          id?: string
+          nombre?: string | null
+          sent_at?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_full"
             referencedColumns: ["id"]
           },
         ]
@@ -298,44 +422,6 @@ export type Database = {
           },
         ]
       }
-      event_days: {
-        Row: {
-          id: string
-          event_id: string
-          fecha: string
-          label: string
-          orden: number
-          is_active: boolean
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          event_id: string
-          fecha: string
-          label: string
-          orden?: number
-          is_active?: boolean
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          event_id?: string
-          fecha?: string
-          label?: string
-          orden?: number
-          is_active?: boolean
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_days_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       events: {
         Row: {
           config: Json | null
@@ -349,6 +435,7 @@ export type Database = {
           form_fields: Json | null
           hora: string | null
           id: string
+          invite_token: string | null
           is_active: boolean | null
           league: string | null
           nombre: string
@@ -359,7 +446,6 @@ export type Database = {
           updated_at: string | null
           venue: string | null
           visibility: string
-          invite_token: string | null
         }
         Insert: {
           config?: Json | null
@@ -373,6 +459,7 @@ export type Database = {
           form_fields?: Json | null
           hora?: string | null
           id?: string
+          invite_token?: string | null
           is_active?: boolean | null
           league?: string | null
           nombre: string
@@ -383,7 +470,6 @@ export type Database = {
           updated_at?: string | null
           venue?: string | null
           visibility?: string
-          invite_token?: string | null
         }
         Update: {
           config?: Json | null
@@ -397,6 +483,7 @@ export type Database = {
           form_fields?: Json | null
           hora?: string | null
           id?: string
+          invite_token?: string | null
           is_active?: boolean | null
           league?: string | null
           nombre?: string
@@ -407,7 +494,6 @@ export type Database = {
           updated_at?: string | null
           venue?: string | null
           visibility?: string
-          invite_token?: string | null
         }
         Relationships: [
           {
@@ -421,96 +507,90 @@ export type Database = {
             foreignKeyName: "events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_stats"
             referencedColumns: ["id"]
           },
         ]
       }
-      event_invitations: {
+      invoices: {
         Row: {
+          amount: number
+          created_at: string
+          currency: string
+          hosted_invoice_url: string | null
           id: string
-          event_id: string
-          email: string
-          nombre: string | null
-          token: string
+          invoice_pdf_url: string | null
+          metadata: Json | null
+          paid_at: string | null
+          period_end: string | null
+          period_start: string | null
           status: string
-          sent_at: string | null
-          accepted_at: string | null
-          created_at: string | null
+          stripe_event_id: string | null
+          stripe_invoice_id: string | null
+          tenant_id: string
+          updated_at: string
         }
         Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          hosted_invoice_url?: string | null
           id?: string
-          event_id: string
-          email: string
-          nombre?: string | null
-          token?: string
+          invoice_pdf_url?: string | null
+          metadata?: Json | null
+          paid_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
           status?: string
-          sent_at?: string | null
-          accepted_at?: string | null
-          created_at?: string | null
+          stripe_event_id?: string | null
+          stripe_invoice_id?: string | null
+          tenant_id: string
+          updated_at?: string
         }
         Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          hosted_invoice_url?: string | null
           id?: string
-          event_id?: string
-          email?: string
-          nombre?: string | null
-          token?: string
+          invoice_pdf_url?: string | null
+          metadata?: Json | null
+          paid_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
           status?: string
-          sent_at?: string | null
-          accepted_at?: string | null
-          created_at?: string | null
+          stripe_event_id?: string | null
+          stripe_invoice_id?: string | null
+          tenant_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "event_invitations_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registration_days: {
-        Row: {
-          id: string
-          registration_id: string
-          event_day_id: string
-          checked_in: boolean
-          checked_in_at: string | null
-          checked_in_by: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          registration_id: string
-          event_day_id: string
-          checked_in?: boolean
-          checked_in_at?: string | null
-          checked_in_by?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          registration_id?: string
-          event_day_id?: string
-          checked_in?: boolean
-          checked_in_at?: string | null
-          checked_in_by?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registration_days_registration_id_fkey"
-            columns: ["registration_id"]
-            isOneToOne: false
-            referencedRelation: "registrations"
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "registration_days_event_day_id_fkey"
-            columns: ["event_day_id"]
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "event_days"
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_stats"
             referencedColumns: ["id"]
           },
         ]
@@ -557,59 +637,187 @@ export type Database = {
         }
         Relationships: []
       }
+      plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean
+          is_free: boolean
+          limits: Json
+          name: string
+          price_monthly_brl: number
+          price_monthly_clp: number
+          price_monthly_usd: number
+          slug: string
+          sort_order: number
+          stripe_price_id_brl: string | null
+          stripe_price_id_clp: string | null
+          stripe_price_id_usd: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          limits?: Json
+          name: string
+          price_monthly_brl?: number
+          price_monthly_clp?: number
+          price_monthly_usd?: number
+          slug: string
+          sort_order?: number
+          stripe_price_id_brl?: string | null
+          stripe_price_id_clp?: string | null
+          stripe_price_id_usd?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          limits?: Json
+          name?: string
+          price_monthly_brl?: number
+          price_monthly_clp?: number
+          price_monthly_usd?: number
+          slug?: string
+          sort_order?: number
+          stripe_price_id_brl?: string | null
+          stripe_price_id_clp?: string | null
+          stripe_price_id_usd?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
-          apellido: string
+          apellido: string | null
           cargo: string | null
           created_at: string | null
           datos_base: Json | null
+          document_normalized: string
+          document_number: string
+          document_type: string
           email: string | null
           foto_url: string | null
           id: string
           medio: string | null
           nacionalidad: string | null
-          nombre: string
-          rut: string
+          nombre: string | null
+          rut: string | null
           telefono: string | null
           tipo_medio: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
-          apellido: string
+          apellido?: string | null
           cargo?: string | null
           created_at?: string | null
           datos_base?: Json | null
+          document_normalized: string
+          document_number: string
+          document_type: string
           email?: string | null
           foto_url?: string | null
           id?: string
           medio?: string | null
           nacionalidad?: string | null
-          nombre: string
-          rut: string
+          nombre?: string | null
+          rut?: string | null
           telefono?: string | null
           tipo_medio?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
-          apellido?: string
+          apellido?: string | null
           cargo?: string | null
           created_at?: string | null
           datos_base?: Json | null
+          document_normalized?: string
+          document_number?: string
+          document_type?: string
           email?: string | null
           foto_url?: string | null
           id?: string
           medio?: string | null
           nacionalidad?: string | null
-          nombre?: string
-          rut?: string
+          nombre?: string | null
+          rut?: string | null
           telefono?: string | null
           tipo_medio?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
+      }
+      registration_days: {
+        Row: {
+          checked_in: boolean
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string | null
+          event_day_id: string
+          id: string
+          registration_id: string
+        }
+        Insert: {
+          checked_in?: boolean
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string | null
+          event_day_id: string
+          id?: string
+          registration_id: string
+        }
+        Update: {
+          checked_in?: boolean
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string | null
+          event_day_id?: string
+          id?: string
+          registration_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registration_days_event_day_id_fkey"
+            columns: ["event_day_id"]
+            isOneToOne: false
+            referencedRelation: "event_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_days_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_days_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "v_registration_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_days_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_event_enriched"
+            referencedColumns: ["registration_id"]
+          },
+        ]
       }
       registrations: {
         Row: {
@@ -619,6 +827,7 @@ export type Database = {
           checked_in_by: string | null
           created_at: string | null
           datos_extra: Json | null
+          email_snapshot: string | null
           event_id: string
           id: string
           motivo_rechazo: string | null
@@ -640,6 +849,7 @@ export type Database = {
           checked_in_by?: string | null
           created_at?: string | null
           datos_extra?: Json | null
+          email_snapshot?: string | null
           event_id: string
           id?: string
           motivo_rechazo?: string | null
@@ -661,6 +871,7 @@ export type Database = {
           checked_in_by?: string | null
           created_at?: string | null
           datos_extra?: Json | null
+          email_snapshot?: string | null
           event_id?: string
           id?: string
           motivo_rechazo?: string | null
@@ -702,6 +913,83 @@ export type Database = {
             columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          canceled_at: string | null
+          created_at: string
+          currency: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          metadata: Json | null
+          plan_id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          metadata?: Json | null
+          plan_id: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          metadata?: Json | null
+          plan_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_stats"
             referencedColumns: ["id"]
           },
         ]
@@ -812,6 +1100,13 @@ export type Database = {
             foreignKeyName: "tenant_admins_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_admins_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_stats"
             referencedColumns: ["id"]
           },
@@ -868,14 +1163,88 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_records: {
+        Row: {
+          current_value: number
+          id: string
+          metric: string
+          period_end: string
+          period_start: string
+          recorded_at: string
+          tenant_id: string
+        }
+        Insert: {
+          current_value?: number
+          id?: string
+          metric: string
+          period_end?: string
+          period_start?: string
+          recorded_at?: string
+          tenant_id: string
+        }
+        Update: {
+          current_value?: number
+          id?: string
+          metric?: string
+          period_end?: string
+          period_start?: string
+          recorded_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "usage_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
+      v_billing_summary: {
+        Row: {
+          currency: string | null
+          current_admins: number | null
+          current_events: number | null
+          current_period_end: string | null
+          last_payment_amount: number | null
+          last_payment_at: string | null
+          plan_limits: Json | null
+          plan_name: string | null
+          plan_slug: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_created_at: string | null
+          subscription_status: string | null
+          tenant_activo: boolean | null
+          tenant_id: string | null
+          tenant_nombre: string | null
+          tenant_slug: string | null
+        }
+        Relationships: []
+      }
       v_event_full: {
         Row: {
           config: Json | null
           created_at: string | null
           descripcion: string | null
-          event_type: string
+          event_type: string | null
           fecha: string | null
           fecha_fin: string | null
           fecha_inicio: string | null
@@ -883,27 +1252,29 @@ export type Database = {
           form_fields: Json | null
           hora: string | null
           id: string | null
+          invite_token: string | null
           is_active: boolean | null
           league: string | null
           nombre: string | null
           opponent_logo_url: string | null
           opponent_name: string | null
           qr_enabled: boolean | null
-          tenant_background: string | null
           tenant_color_dark: string | null
           tenant_color_light: string | null
           tenant_color_primario: string | null
           tenant_color_secundario: string | null
           tenant_config: Json | null
           tenant_id: string | null
-          tenant_logo: string | null
+          tenant_logo_url: string | null
           tenant_nombre: string | null
-          tenant_shield: string | null
+          tenant_shield_url: string | null
           tenant_slug: string | null
+          total_aprobados: number | null
+          total_pendientes: number | null
+          total_registrations: number | null
           updated_at: string | null
           venue: string | null
           visibility: string | null
-          invite_token: string | null
         }
         Relationships: [
           {
@@ -912,6 +1283,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "events_tenant_id_fkey"
@@ -973,6 +1351,13 @@ export type Database = {
             foreignKeyName: "events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_stats"
             referencedColumns: ["id"]
           },
@@ -1006,6 +1391,80 @@ export type Database = {
           },
         ]
       }
+      v_team_event_enriched: {
+        Row: {
+          alias: string | null
+          apellido: string | null
+          datos_base: Json | null
+          email: string | null
+          event_id: string | null
+          manager_id: string | null
+          member_profile_id: string | null
+          nombre: string | null
+          profile_cargo: string | null
+          profile_medio: string | null
+          profile_tipo_medio: string | null
+          registration_datos_extra: Json | null
+          registration_id: string | null
+          registration_status: string | null
+          rut: string | null
+          team_member_created_at: string | null
+          team_member_id: string | null
+          telefono: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_billing_summary"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_member_profile_id_fkey"
+            columns: ["member_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_tenant_stats: {
         Row: {
           activo: boolean | null
@@ -1030,24 +1489,20 @@ export type Database = {
       }
     }
     Functions: {
-      can_edit_tenant: { Args: { p_tenant_id: string }; Returns: boolean }
       bulk_check_and_create_registrations: {
-        Args: {
-          p_event_id: string
-          p_submitted_by?: string
-          p_rows: Json
-        }
+        Args: { p_event_id: string; p_rows?: Json; p_submitted_by?: string }
         Returns: Json
       }
+      can_edit_tenant: { Args: { p_tenant_id: string }; Returns: boolean }
       check_and_create_registration: {
         Args: {
-          p_event_id: string
-          p_profile_id: string
-          p_organizacion?: string
-          p_tipo_medio?: string
           p_cargo?: string
-          p_submitted_by?: string
           p_datos_extra?: Json
+          p_event_id: string
+          p_organizacion?: string
+          p_profile_id: string
+          p_submitted_by?: string
+          p_tipo_medio?: string
         }
         Returns: string
       }
@@ -1071,6 +1526,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_current_event_day: { Args: { p_event_id: string }; Returns: string }
       get_or_create_perfil: {
         Args: {
           p_apellido: string
@@ -1096,6 +1552,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_tenant_plan_limits: { Args: { p_tenant_id: string }; Returns: Json }
       get_tenant_role: { Args: { p_tenant_id: string }; Returns: string }
       has_tenant_access: { Args: { p_tenant_id: string }; Returns: boolean }
       is_admin_of_tenant: { Args: { tenant_uuid: string }; Returns: boolean }
@@ -1105,16 +1562,16 @@ export type Database = {
         Returns: Json
       }
       validate_qr_checkin_day: {
-        Args: { p_qr_token: string; p_scanner_user_id?: string; p_event_day_id?: string | null }
+        Args: {
+          p_event_day_id?: string
+          p_qr_token: string
+          p_scanner_user_id?: string
+        }
         Returns: Json
-      }
-      get_current_event_day: {
-        Args: { p_event_id: string }
-        Returns: string | null
       }
     }
     Enums: {
-      [_ in never]: never
+      event_type: "simple" | "deportivo" | "multidia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1241,6 +1698,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      event_type: ["simple", "deportivo", "multidia"],
+    },
   },
 } as const

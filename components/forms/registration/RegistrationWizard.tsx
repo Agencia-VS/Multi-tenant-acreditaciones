@@ -337,6 +337,9 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
           goBack={() => form.goBack('responsable')}
           tenantColors={tenantColors}
           fieldLabel={tipoMedioLabel}
+          isTipoMedioLocked={form.isTipoMedioLocked}
+          tipoMedioLockMessage={form.tipoMedioLockMessage}
+          tipoMedioAdjustedMessage={form.tipoMedioAdjustedMessage}
         />
       )}
 

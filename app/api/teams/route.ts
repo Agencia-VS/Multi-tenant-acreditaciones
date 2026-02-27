@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTeamMembers, getTeamMembersForEvent, addTeamMember, removeTeamMember } from '@/lib/services';
+import { getTeamMembers, getTeamMembersForEvent, addTeamMember, removeTeamMember, updateTeamMemberProfile } from '@/lib/services';
 import { getProfileByUserId, getCurrentUser } from '@/lib/services';
 import { teamMemberCreateSchema, safeParse } from '@/lib/schemas';
 
@@ -93,5 +93,38 @@ export async function DELETE(request: NextRequest) {
       { error: error instanceof Error ? error.message : 'Error interno' },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const profile = await getProfileByUserId(user.id);
+    if (!profile) {
+      return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const memberId = searchParams.get('member_id');
+    if (!memberId) {
+      return NextResponse.json({ error: 'member_id es requerido' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const parsed = safeParse(teamMemberCreateSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const updated = await updateTeamMemberProfile(profile.id, memberId, parsed.data);
+    return NextResponse.json(updated);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error interno';
+    const status = message.includes('no encontrado') ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -37,7 +37,7 @@ export async function GET() {
     // Obtener todos los tenants activos con sus eventos activos
     const { data: events } = await supabase
       .from('v_event_full')
-      .select('id, nombre, fecha, form_fields, tenant_id, tenant_nombre, tenant_slug, tenant_logo, tenant_color_primario, tenant_shield')
+      .select('id, nombre, fecha, form_fields, tenant_id, tenant_nombre, tenant_slug, tenant_logo_url, tenant_color_primario, tenant_shield_url')
       .eq('is_active', true)
       .order('fecha', { ascending: true });
 
@@ -64,7 +64,7 @@ export async function GET() {
           tenantId,
           tenantSlug: event.tenant_slug ?? '',
           tenantNombre: event.tenant_nombre ?? '',
-          tenantShield: event.tenant_shield,
+          tenantShield: event.tenant_shield_url,
           tenantColor: event.tenant_color_primario || '#00C48C',
           eventId: event.id ?? undefined,
           eventNombre: event.nombre ?? undefined,
@@ -91,7 +91,7 @@ export async function GET() {
         tenantId,
         tenantSlug: event.tenant_slug ?? '',
         tenantNombre: event.tenant_nombre ?? '',
-        tenantShield: event.tenant_shield,
+        tenantShield: event.tenant_shield_url,
         tenantColor: event.tenant_color_primario || '#00C48C',
         eventId: event.id ?? undefined,
         eventNombre: event.nombre ?? undefined,

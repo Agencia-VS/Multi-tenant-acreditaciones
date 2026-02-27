@@ -11,17 +11,19 @@ const mockGetTeamMembers = vi.fn();
 const mockGetTeamMembersForEvent = vi.fn();
 const mockAddTeamMember = vi.fn();
 const mockRemoveTeamMember = vi.fn();
+const mockUpdateTeamMemberProfile = vi.fn();
 
 vi.mock('@/lib/services', () => ({
   getTeamMembers: (...args: unknown[]) => mockGetTeamMembers(...args),
   getTeamMembersForEvent: (...args: unknown[]) => mockGetTeamMembersForEvent(...args),
   addTeamMember: (...args: unknown[]) => mockAddTeamMember(...args),
   removeTeamMember: (...args: unknown[]) => mockRemoveTeamMember(...args),
+  updateTeamMemberProfile: (...args: unknown[]) => mockUpdateTeamMemberProfile(...args),
   getProfileByUserId: (...args: unknown[]) => mockGetProfileByUserId(...args),
   getCurrentUser: () => mockGetCurrentUser(),
 }));
 
-import { GET, POST, DELETE } from '@/app/api/teams/route';
+import { GET, POST, DELETE, PATCH } from '@/app/api/teams/route';
 
 describe('GET /api/teams', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -162,5 +164,46 @@ describe('DELETE /api/teams', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
+  });
+});
+
+describe('PATCH /api/teams', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns 401 when not authenticated', async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    const req = new NextRequest('http://localhost/api/teams?member_id=m-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ rut: '12345678-9', nombre: 'Ana', apellido: 'Test' }),
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when member_id is missing', async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    mockGetProfileByUserId.mockResolvedValue({ id: 'prof-1' });
+
+    const req = new NextRequest('http://localhost/api/teams', {
+      method: 'PATCH',
+      body: JSON.stringify({ rut: '12345678-9', nombre: 'Ana', apellido: 'Test' }),
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 200 on successful member update', async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+    mockGetProfileByUserId.mockResolvedValue({ id: 'prof-1' });
+    mockUpdateTeamMemberProfile.mockResolvedValue({ id: 'm-1', alias: 'Editado' });
+
+    const req = new NextRequest('http://localhost/api/teams?member_id=m-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ rut: '12345678-9', nombre: 'Ana', apellido: 'Test' }),
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe('m-1');
   });
 });

@@ -1,21 +1,15 @@
 -- =============================================================
--- Bulk Registration RPC — Optimized batch accreditation
--- =============================================================
--- Replaces N individual check_and_create_registration() calls
--- with a single RPC that processes the entire batch in one
--- transaction. Same checks (duplicate, quota per org, quota
--- global) but ~50x faster for large batches.
+-- Fix: bulk_check_and_create_registrations quota double-count
+-- Fecha: 2026-02-27
 --
--- Input:  JSONB array of registrations to create
--- Output: JSONB array of results per row (ok/error)
+-- Problema:
+-- La función sumaba conteos de DB + conteos acumulados del mismo lote.
+-- En una transacción, los INSERT previos del lote ya son visibles en DB,
+-- por lo que el acumulado adicional provoca doble conteo y rechazos falsos.
 --
--- Each element in p_rows must have:
---   profile_id   UUID   (required)
---   organizacion TEXT   (optional)
---   tipo_medio   TEXT   (optional)
---   cargo        TEXT   (optional)
---   datos_extra  JSONB  (optional)
---   row_index    INT    (original row position for result mapping)
+-- Síntoma típico:
+-- max_per_organization = 2, lote de 2 filas válidas => falla la segunda
+-- con "Se alcanzó el límite..." aun sin registros previos.
 -- =============================================================
 
 CREATE OR REPLACE FUNCTION bulk_check_and_create_registrations(
@@ -40,13 +34,11 @@ DECLARE
   v_reg_id        UUID;
   v_results       JSONB := '[]'::jsonb;
 BEGIN
-  -- Lock all quota rules for this event upfront (prevents race conditions
-  -- with concurrent requests while we process the batch)
+  -- Lock quota rules for this event (prevents race with concurrent requests)
   PERFORM 1 FROM event_quota_rules
   WHERE event_id = p_event_id
   FOR UPDATE;
 
-  -- Process each row sequentially within this single transaction
   FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
   LOOP
     v_profile_id   := (v_row->>'profile_id')::UUID;
@@ -56,7 +48,7 @@ BEGIN
     v_datos_extra  := COALESCE(v_row->'datos_extra', 'null'::jsonb);
     v_row_index    := COALESCE((v_row->>'row_index')::INT, 0);
 
-    -- ── 1. Check duplicate (existing in DB + already inserted in this batch) ──
+    -- 1) Duplicado por profile/event
     IF EXISTS (
       SELECT 1 FROM registrations
       WHERE event_id = p_event_id AND profile_id = v_profile_id
@@ -69,7 +61,7 @@ BEGIN
       CONTINUE;
     END IF;
 
-    -- ── 2. Check quotas (only if tipo_medio is provided) ──
+    -- 2) Cupos (si hay tipo_medio)
     IF v_tipo_medio IS NOT NULL THEN
       SELECT * INTO v_rule
       FROM event_quota_rules
@@ -77,9 +69,10 @@ BEGIN
         AND tipo_medio = v_tipo_medio;
 
       IF FOUND THEN
-        -- 2a. Per-organization limit
+        -- 2a) Límite por organización
         IF v_rule.max_per_organization > 0 AND v_organizacion IS NOT NULL THEN
-          -- Count existing in DB
+          -- IMPORTANTE: este COUNT ya incluye filas insertadas previamente
+          -- en esta misma transacción/lote.
           SELECT COUNT(*) INTO v_count_org
           FROM registrations
           WHERE event_id    = p_event_id
@@ -98,13 +91,15 @@ BEGIN
           END IF;
         END IF;
 
-        -- 2b. Global limit per tipo_medio
+        -- 2b) Límite global por tipo_medio
         IF COALESCE(v_rule.max_global, 0) > 0 THEN
+          -- IMPORTANTE: este COUNT ya incluye filas insertadas previamente
+          -- en esta misma transacción/lote.
           SELECT COUNT(*) INTO v_count_global
           FROM registrations
-          WHERE event_id  = p_event_id
+          WHERE event_id   = p_event_id
             AND tipo_medio = v_tipo_medio
-            AND status     != 'rechazado';
+            AND status    != 'rechazado';
 
           IF v_count_global >= v_rule.max_global THEN
             v_results := v_results || jsonb_build_object(
@@ -119,7 +114,7 @@ BEGIN
       END IF;
     END IF;
 
-    -- ── 3. Insert registration ──
+    -- 3) Insert
     BEGIN
       INSERT INTO registrations (
         event_id, profile_id, organizacion, tipo_medio,
@@ -139,7 +134,6 @@ BEGIN
       );
 
     EXCEPTION WHEN unique_violation THEN
-      -- Safety net: unique index caught a duplicate we missed
       v_results := v_results || jsonb_build_object(
         'row_index', v_row_index,
         'ok', false,
@@ -152,8 +146,5 @@ BEGIN
 END;
 $$;
 
--- ── Permissions ──
 GRANT EXECUTE ON FUNCTION bulk_check_and_create_registrations TO service_role;
-
--- ── Security: fix search_path ──
 ALTER FUNCTION bulk_check_and_create_registrations SET search_path = public;

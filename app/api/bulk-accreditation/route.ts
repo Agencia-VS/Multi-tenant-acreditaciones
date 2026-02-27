@@ -43,6 +43,14 @@ interface BulkRow {
   [key: string]: string | undefined;
 }
 
+interface BulkResultRow {
+  row: number;
+  rut: string;
+  nombre: string;
+  ok: boolean;
+  error?: string;
+}
+
 const BASE_FIELDS = ['rut', 'document_type', 'document_number', 'nombre', 'apellido', 'email', 'telefono', 'cargo', 'organizacion', 'tipo_medio'];
 const CHUNK_SIZE = 50; // supabase batch limit
 
@@ -66,8 +74,25 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
+function buildBlockingSummary(rows: BulkResultRow[]): string {
+  if (!rows.length) return '';
+  const sample = rows
+    .slice(0, 3)
+    .map((r) => `fila ${r.row} (${r.nombre}): ${r.error || 'error'}`)
+    .join(' | ');
+  const more = rows.length > 3 ? ` (+${rows.length - 3} más)` : '';
+  return `${sample}${more}`;
+}
+
+function allOrNothingError(summary: string): string {
+  return summary
+    ? `No se procesó: se encontraron errores en otras personas del lote. ${summary}`
+    : 'No se procesó: se encontraron errores en otras personas del lote';
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const traceId = crypto.randomUUID();
     const body = await request.json();
     const { event_id, rows } = body as { event_id: string; rows: BulkRow[] };
 
@@ -131,7 +156,7 @@ export async function POST(request: NextRequest) {
     } catch { /* no bloquear */ }
 
     // ── 3. Validar filas y separar válidas/inválidas ──
-    const results: { row: number; rut: string; nombre: string; ok: boolean; error?: string }[] = [];
+    const results: BulkResultRow[] = [];
     const validRows: { index: number; row: BulkRow; formData: { rut: string; document_type: DocumentType; document_number: string; document_normalized: string; nombre: string; apellido: string; email: string; telefono: string; cargo: string; organizacion: string; tipo_medio: string; datos_extra: Record<string, string> } }[] = [];
     let errorCount = 0;
 
@@ -209,17 +234,26 @@ export async function POST(request: NextRequest) {
 
     // ── All-or-nothing: if ANY row failed basic validation, stop everything ──
     if (errorCount > 0) {
+      const blockingErrors = results.filter((r) => !r.ok);
+      const summary = buildBlockingSummary(blockingErrors);
       for (const { index, formData } of validRows) {
         results.push({
           row: index + 1,
           rut: formData.rut,
           nombre: `${formData.nombre} ${formData.apellido}`,
           ok: false,
-          error: 'No se procesó: se encontraron errores en otras personas del lote',
+          error: allOrNothingError(summary),
         });
       }
       results.sort((a, b) => a.row - b.row);
-      return NextResponse.json({ total: rows.length, success: 0, errors: rows.length, results });
+      return NextResponse.json({
+        total: rows.length,
+        success: 0,
+        errors: rows.length,
+        trace_id: traceId,
+        blocking_errors: blockingErrors,
+        results,
+      });
     }
 
     // ── 4. Batch lookup/upsert de profiles ──
@@ -458,6 +492,7 @@ export async function POST(request: NextRequest) {
     // ── All-or-nothing: if ANY profile couldn't be resolved, stop everything ──
     if (skippedResults.length > 0) {
       await cleanupTransientProfiles();
+      const summary = buildBlockingSummary(skippedResults);
       for (const rpcRow of rpcRows) {
         const vr = validRows.find(v => v.index === rpcRow.row_index)!;
         results.push({
@@ -465,12 +500,19 @@ export async function POST(request: NextRequest) {
           rut: vr.formData.rut,
           nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
           ok: false,
-          error: 'No se procesó: se encontraron errores en otras personas del lote',
+          error: allOrNothingError(summary),
         });
         errorCount++;
       }
       results.sort((a, b) => a.row - b.row);
-      return NextResponse.json({ total: rows.length, success: 0, errors: errorCount, results });
+      return NextResponse.json({
+        total: rows.length,
+        success: 0,
+        errors: errorCount,
+        trace_id: traceId,
+        blocking_errors: skippedResults,
+        results,
+      });
     }
 
     // ★ Pre-validate + Single RPC call for ALL registrations
@@ -526,33 +568,66 @@ export async function POST(request: NextRequest) {
         [...docCounts.entries()].filter(([, count]) => count > 1).map(([key]) => key)
       );
 
-      if (duplicateProfileIds.size > 0 || batchDuplicateDocs.size > 0 || batchDuplicateEmails.size > 0 || existingEventEmailSet.size > 0) {
+      const ownErrorsByRow = new Map<number, string>();
+      for (const rpcRow of rpcRows) {
+        const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+        const key = docKey(vr.formData.document_type, vr.formData.document_normalized);
+        const normalizedEmail = vr.formData.email?.trim().toLowerCase() || '';
+
+        if (duplicateProfileIds.has(rpcRow.profile_id)) {
+          ownErrorsByRow.set(rpcRow.row_index, 'Esta persona ya está registrada en este evento');
+        } else if (normalizedEmail && batchDuplicateEmails.has(normalizedEmail)) {
+          ownErrorsByRow.set(rpcRow.row_index, 'Email duplicado en el mismo lote');
+        } else if (normalizedEmail && existingEventEmailSet.has(normalizedEmail)) {
+          ownErrorsByRow.set(rpcRow.row_index, 'Este email ya está registrado en este evento');
+        } else if (batchDuplicateDocs.has(key)) {
+          ownErrorsByRow.set(
+            rpcRow.row_index,
+            vr.formData.document_type === 'rut' ? 'RUT duplicado en el mismo lote' : 'Documento duplicado en el mismo lote'
+          );
+        }
+      }
+
+      if (ownErrorsByRow.size > 0) {
         await cleanupTransientProfiles();
+
+        const blockingErrors = rpcRows
+          .filter((r) => ownErrorsByRow.has(r.row_index))
+          .map((r) => {
+            const vr = validRows.find(v => v.index === r.row_index)!;
+            return {
+              row: r.row_index + 1,
+              rut: vr.formData.rut,
+              nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+              ok: false,
+              error: ownErrorsByRow.get(r.row_index),
+            } as BulkResultRow;
+          });
+
+        const summary = buildBlockingSummary(blockingErrors);
+
         for (const rpcRow of rpcRows) {
           const vr = validRows.find(v => v.index === rpcRow.row_index)!;
           const nombre = `${vr.formData.nombre} ${vr.formData.apellido}`;
-          const key = docKey(vr.formData.document_type, vr.formData.document_normalized);
-          const normalizedEmail = vr.formData.email?.trim().toLowerCase() || '';
-          if (duplicateProfileIds.has(rpcRow.profile_id)) {
-            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
-              error: 'Esta persona ya está registrada en este evento' });
-          } else if (normalizedEmail && batchDuplicateEmails.has(normalizedEmail)) {
-            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
-              error: 'Email duplicado en el mismo lote' });
-          } else if (normalizedEmail && existingEventEmailSet.has(normalizedEmail)) {
-            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
-              error: 'Este email ya está registrado en este evento' });
-          } else if (batchDuplicateDocs.has(key)) {
-            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
-              error: vr.formData.document_type === 'rut' ? 'RUT duplicado en el mismo lote' : 'Documento duplicado en el mismo lote' });
-          } else {
-            results.push({ row: rpcRow.row_index + 1, rut: vr.formData.rut, nombre, ok: false,
-              error: 'No se procesó: se encontraron errores en otras personas del lote' });
-          }
+          const ownError = ownErrorsByRow.get(rpcRow.row_index);
+          results.push({
+            row: rpcRow.row_index + 1,
+            rut: vr.formData.rut,
+            nombre,
+            ok: false,
+            error: ownError || allOrNothingError(summary),
+          });
           errorCount++;
         }
         results.sort((a, b) => a.row - b.row);
-        return NextResponse.json({ total: rows.length, success: 0, errors: errorCount, results });
+        return NextResponse.json({
+          total: rows.length,
+          success: 0,
+          errors: errorCount,
+          trace_id: traceId,
+          blocking_errors: blockingErrors,
+          results,
+        });
       }
 
       // ── All clear → Single RPC call ──
@@ -567,6 +642,16 @@ export async function POST(request: NextRequest) {
 
       if (rpcError) {
         await cleanupTransientProfiles();
+        const blockingErrors = rpcRows.map((rpcRow) => {
+          const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+          return {
+            row: rpcRow.row_index + 1,
+            rut: vr.formData.rut,
+            nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+            ok: false,
+            error: rpcError.message || 'Error interno en acreditación masiva',
+          } as BulkResultRow;
+        });
         // RPC-level failure: mark all rows as failed
         for (const rpcRow of rpcRows) {
           const vr = validRows.find(v => v.index === rpcRow.row_index)!;
@@ -581,7 +666,14 @@ export async function POST(request: NextRequest) {
         }
 
         results.sort((a, b) => a.row - b.row);
-        return NextResponse.json({ total: rows.length, success: 0, errors: rows.length, results });
+        return NextResponse.json({
+          total: rows.length,
+          success: 0,
+          errors: rows.length,
+          trace_id: traceId,
+          blocking_errors: blockingErrors,
+          results,
+        });
       } else {
         // Parse individual results from the RPC response
         const rowResults = (rpcResults || []) as Array<{
@@ -612,6 +704,31 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          const blockingErrors = rpcRows
+            .map((rpcRow) => {
+              const rr = rowResults.find(r => r.row_index === rpcRow.row_index);
+              const vr = validRows.find(v => v.index === rpcRow.row_index)!;
+              if (!rr) {
+                return {
+                  row: rpcRow.row_index + 1,
+                  rut: vr.formData.rut,
+                  nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+                  ok: false,
+                  error: 'La validación masiva no devolvió detalle para esta fila (RPC sin detalle).',
+                } as BulkResultRow;
+              }
+              if (rr.ok) return null;
+              return {
+                row: rpcRow.row_index + 1,
+                rut: vr.formData.rut,
+                nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
+                ok: false,
+                error: rr.error || 'Error desconocido',
+              } as BulkResultRow;
+            })
+            .filter(Boolean) as BulkResultRow[];
+          const summary = buildBlockingSummary(blockingErrors);
+
           for (const rpcRow of rpcRows) {
             const vr = validRows.find(v => v.index === rpcRow.row_index)!;
             const rr = rowResults.find(r => r.row_index === rpcRow.row_index);
@@ -623,13 +740,20 @@ export async function POST(request: NextRequest) {
               ok: false,
               error: hasRowError
                 ? (rr?.error || 'Error desconocido')
-                : 'No se procesó: se encontraron errores en otras personas del lote',
+                : allOrNothingError(summary),
             });
             errorCount++;
           }
 
           results.sort((a, b) => a.row - b.row);
-          return NextResponse.json({ total: rows.length, success: 0, errors: rows.length, results });
+          return NextResponse.json({
+            total: rows.length,
+            success: 0,
+            errors: rows.length,
+            trace_id: traceId,
+            blocking_errors: blockingErrors,
+            results,
+          });
         } else {
           // Build a map for quick lookup
           const resultMap = new Map(rowResults.map(r => [r.row_index, r]));

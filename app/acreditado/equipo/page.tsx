@@ -8,47 +8,47 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { TIPOS_MEDIO, CARGOS } from '@/types';
+import { CARGOS } from '@/types';
 import type { TeamMember } from '@/types';
-import { validateRut, cleanRut, formatRut } from '@/lib/validation';
+import { validateDocumentByType, cleanRut, formatRut } from '@/lib/validation';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile';
 import { useToast, ConfirmDialog, ButtonSpinner, LoadingSpinner } from '@/components/shared/ui';
 import { useConfirmation } from '@/hooks';
 
 interface MemberForm {
-  rut: string;
+  document_type: 'rut' | 'dni_extranjero';
+  document_number: string;
   nombre: string;
   apellido: string;
   email: string;
   telefono: string;
   cargo: string;
   medio: string;
-  tipo_medio: string;
   alias: string;
 }
 
 const emptyForm: MemberForm = {
-  rut: '', nombre: '', apellido: '', email: '',
-  telefono: '', cargo: '', medio: '', tipo_medio: '', alias: '',
+  document_type: 'rut', document_number: '', nombre: '', apellido: '', email: '',
+  telefono: '', cargo: '', medio: '', alias: '',
 };
 
 export default function EquipoPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [form, setForm] = useState<MemberForm>({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
   const { confirmation, confirm, cancel, execute } = useConfirmation();
-  const [rutError, setRutError] = useState('');
+  const [documentError, setDocumentError] = useState('');
   const [cargoOtroMode, setCargoOtroMode] = useState(false);
   const [profileMedio, setProfileMedio] = useState('');
-  const [profileTipoMedio, setProfileTipoMedio] = useState('');
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<Array<{ key: string; label: string }>>([]);
 
-  // Cargar medio y tipo_medio del perfil del manager — se fuerzan en todos los miembros
+  // Cargar medio del perfil del manager — se fuerza en todos los miembros
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -56,7 +56,6 @@ export default function EquipoPage() {
         const data = await res.json();
         if (data.found && data.profile) {
           if (data.profile.medio) setProfileMedio(data.profile.medio);
-          if (data.profile.tipo_medio) setProfileTipoMedio(data.profile.tipo_medio);
 
           // Gate: verificar si el perfil está completo
           if (!isProfileComplete(data.profile)) {
@@ -91,20 +90,24 @@ export default function EquipoPage() {
     loadMembers();
   }, [loadMembers]);
 
-  const handleRutBlur = () => {
-    if (!form.rut.trim()) {
-      setRutError('');
+  const handleDocumentBlur = () => {
+    if (!form.document_number.trim()) {
+      setDocumentError('');
       return;
     }
-    const result = validateRut(form.rut);
-    if (result.valid && result.formatted) {
-      setForm(prev => ({ ...prev, rut: result.formatted! }));
-      setRutError('');
+    const result = validateDocumentByType(form.document_type, form.document_number);
+    if (result.valid) {
+      if (form.document_type === 'rut') {
+        const cleaned = cleanRut(form.document_number);
+        setForm(prev => ({ ...prev, document_number: formatRut(cleaned) }));
+      }
+      setDocumentError('');
     } else {
-      // Intentar formatear de todas formas
-      const cleaned = cleanRut(form.rut);
-      setForm(prev => ({ ...prev, rut: formatRut(cleaned) }));
-      setRutError(result.error || 'RUT inválido');
+      if (form.document_type === 'rut') {
+        const cleaned = cleanRut(form.document_number);
+        setForm(prev => ({ ...prev, document_number: formatRut(cleaned) }));
+      }
+      setDocumentError(result.error || 'Documento inválido');
     }
   };
 
@@ -112,10 +115,10 @@ export default function EquipoPage() {
     e.preventDefault();
     setSaving(true);
 
-    // Validar RUT antes de enviar
-    const rutResult = validateRut(form.rut);
-    if (!rutResult.valid) {
-      setRutError(rutResult.error || 'RUT inválido');
+    // Validar documento antes de enviar
+    const documentResult = validateDocumentByType(form.document_type, form.document_number);
+    if (!documentResult.valid) {
+      setDocumentError(documentResult.error || 'Documento inválido');
       setSaving(false);
       return;
     }
@@ -123,12 +126,19 @@ export default function EquipoPage() {
     try {
       const cleanedForm = {
         ...form,
-        rut: rutResult.formatted || form.rut,
+        document_number: form.document_type === 'rut'
+          ? cleanRut(form.document_number)
+          : form.document_number.trim(),
+        rut: form.document_type === 'rut' ? cleanRut(form.document_number) : undefined,
         medio: profileMedio || form.medio,
-        tipo_medio: profileTipoMedio || form.tipo_medio,
       };
-      const res = await fetch('/api/teams', {
-        method: 'POST',
+      const isEditing = Boolean(editingMemberId);
+      const endpoint = isEditing
+        ? `/api/teams?member_id=${editingMemberId}`
+        : '/api/teams';
+
+      const res = await fetch(endpoint, {
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cleanedForm),
       });
@@ -141,10 +151,14 @@ export default function EquipoPage() {
         return;
       }
 
-      showSuccess(`${form.nombre} ${form.apellido} agregado al equipo`);
-      setForm({ ...emptyForm, medio: profileMedio, tipo_medio: profileTipoMedio });
+      showSuccess(isEditing
+        ? `${form.nombre} ${form.apellido} actualizado en tu equipo`
+        : `${form.nombre} ${form.apellido} agregado al equipo`
+      );
+      setForm({ ...emptyForm, medio: profileMedio });
       setShowForm(false);
-      setRutError('');
+      setEditingMemberId(null);
+      setDocumentError('');
       setCargoOtroMode(false);
       await loadMembers();
     } catch {
@@ -178,6 +192,27 @@ export default function EquipoPage() {
         }
       },
     });
+  };
+
+  const handleEdit = (member: TeamMember) => {
+    const mp = member.member_profile;
+    if (!mp) return;
+
+    setEditingMemberId(member.id);
+    setForm({
+      document_type: (mp.document_type || (mp.rut ? 'rut' : 'dni_extranjero')) as 'rut' | 'dni_extranjero',
+      document_number: mp.document_number || mp.rut || '',
+      nombre: mp.nombre || '',
+      apellido: mp.apellido || '',
+      email: mp.email || '',
+      telefono: mp.telefono || '',
+      cargo: mp.cargo || '',
+      medio: profileMedio || mp.medio || '',
+      alias: member.alias || '',
+    });
+    setCargoOtroMode(Boolean(mp.cargo && !CARGOS.includes(mp.cargo as typeof CARGOS[number])));
+    setDocumentError('');
+    setShowForm(true);
   };
 
   const inputClass = 'w-full px-4 py-3 rounded-lg border border-field-border text-heading transition';
@@ -234,10 +269,10 @@ export default function EquipoPage() {
               setForm(prev => ({
                 ...prev,
                 medio: profileMedio || prev.medio,
-                tipo_medio: profileTipoMedio || prev.tipo_medio,
               }));
+              setEditingMemberId(null);
             }
-            setShowForm(!showForm); setRutError('');
+            setShowForm(!showForm); setDocumentError('');
           }}
           className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
             showForm
@@ -260,23 +295,50 @@ export default function EquipoPage() {
       {showForm && (
         <div className="bg-white rounded-xl border shadow-sm p-4 sm:p-6 mb-6">
           <h3 className="text-lg font-bold text-heading mb-4">
-            <i className="fas fa-user-plus mr-2 text-brand" />Nuevo Miembro
+            <i className={`fas ${editingMemberId ? 'fa-user-pen' : 'fa-user-plus'} mr-2 text-brand`} />
+            {editingMemberId ? 'Editar Miembro' : 'Nuevo Miembro'}
           </h3>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className={labelClass}>RUT *</label>
+                <label className={labelClass}>Tipo de documento *</label>
+                <select
+                  value={form.document_type}
+                  onChange={(e) => {
+                    const newType = e.target.value as 'rut' | 'dni_extranjero';
+                    setForm({ ...form, document_type: newType, document_number: '' });
+                    setDocumentError('');
+                  }}
+                  className={inputClass}
+                >
+                  <option value="rut">RUT (Chile)</option>
+                  <option value="dni_extranjero">DNI / Pasaporte (Extranjero)</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Documento *</label>
                 <input
                   type="text"
                   required
-                  placeholder="12.345.678-9"
-                  value={form.rut}
-                  onChange={(e) => { setForm({ ...form, rut: e.target.value }); if (rutError) setRutError(''); }}
-                  onBlur={handleRutBlur}
-                  className={`${inputClass} ${rutError ? 'border-danger ring-1 ring-danger' : ''}`}
+                  placeholder={form.document_type === 'rut' ? '12.345.678-9' : 'Ej: AB1234567'}
+                  value={form.document_number}
+                  onChange={(e) => {
+                    const rawValue = e.target.value;
+                    const value = form.document_type === 'rut'
+                      ? rawValue
+                        .replace(/[^0-9kK.-]/g, '')
+                        .replace(/\./g, '')
+                        .toUpperCase()
+                      : rawValue;
+                    setForm({ ...form, document_number: value });
+                    if (documentError) setDocumentError('');
+                  }}
+                  onBlur={handleDocumentBlur}
+                  className={`${inputClass} ${documentError ? 'border-danger ring-1 ring-danger' : ''}`}
+                  maxLength={form.document_type === 'rut' ? 12 : 32}
                 />
-                {rutError && (
-                  <p className="text-danger text-xs mt-1"><i className="fas fa-exclamation-circle mr-1" />{rutError}</p>
+                {documentError && (
+                  <p className="text-danger text-xs mt-1"><i className="fas fa-exclamation-circle mr-1" />{documentError}</p>
                 )}
               </div>
               <div>
@@ -332,7 +394,7 @@ export default function EquipoPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>
                   Medio / Organización
@@ -350,28 +412,6 @@ export default function EquipoPage() {
                     onChange={(e) => setForm({ ...form, medio: e.target.value })}
                     className={inputClass}
                   />
-                )}
-              </div>
-              <div>
-                <label className={labelClass}>
-                  Tipo de Medio
-                  {profileTipoMedio && <i className="fas fa-lock text-xs text-brand ml-2" title="Heredado de tu perfil" />}
-                </label>
-                {profileTipoMedio ? (
-                  <div className={`${inputClass} bg-canvas text-body cursor-not-allowed`}>
-                    {profileTipoMedio}
-                  </div>
-                ) : (
-                  <select
-                    value={form.tipo_medio}
-                    onChange={(e) => setForm({ ...form, tipo_medio: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="">Selecciona...</option>
-                    {TIPOS_MEDIO.map((tm) => (
-                      <option key={tm} value={tm}>{tm}</option>
-                    ))}
-                  </select>
                 )}
               </div>
               <div>
@@ -421,7 +461,13 @@ export default function EquipoPage() {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setForm({ ...emptyForm, medio: profileMedio, tipo_medio: profileTipoMedio }); setRutError(''); setCargoOtroMode(false); }}
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingMemberId(null);
+                  setForm({ ...emptyForm, medio: profileMedio });
+                  setDocumentError('');
+                  setCargoOtroMode(false);
+                }}
                 className="px-4 py-2 text-body hover:text-heading transition"
               >
                 Cancelar
@@ -431,7 +477,7 @@ export default function EquipoPage() {
                 disabled={saving}
                 className="px-6 py-2 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover disabled:opacity-50 transition"
               >
-                {saving ? 'Guardando...' : 'Agregar al Equipo'}
+                {saving ? 'Guardando...' : editingMemberId ? 'Guardar Cambios' : 'Agregar al Equipo'}
               </button>
             </div>
           </form>
@@ -485,33 +531,39 @@ export default function EquipoPage() {
                       )}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-body mt-1">
-                      <span><i className="fas fa-id-card mr-1 text-muted" />{mp?.rut}</span>
+                      <span>
+                        <i className="fas fa-id-card mr-1 text-muted" />
+                        {(mp?.document_type || 'rut') === 'rut'
+                          ? formatRut(cleanRut(mp?.document_number || mp?.rut || ''))
+                          : (mp?.document_number || mp?.rut || '—')}
+                      </span>
                       {mp?.email && <span><i className="fas fa-envelope mr-1 text-muted" />{mp.email}</span>}
                       {mp?.medio && <span><i className="fas fa-building mr-1 text-muted" />{mp.medio}</span>}
                       {mp?.cargo && <span><i className="fas fa-briefcase mr-1 text-muted" />{mp.cargo}</span>}
                     </div>
                   </div>
-
-                  {/* Tags */}
-                  {mp?.tipo_medio && (
-                    <span className="px-3 py-1 bg-accent-light text-brand text-xs font-medium rounded-full flex-shrink-0">
-                      {mp.tipo_medio}
-                    </span>
-                  )}
-
                   {/* Delete */}
-                  <button
-                    onClick={() => handleDelete(member.id, `${mp?.nombre} ${mp?.apellido}`)}
-                    disabled={deletingId === member.id}
-                    className="text-muted hover:text-danger transition flex-shrink-0 p-2"
-                    title="Eliminar del equipo"
-                  >
-                    {deletingId === member.id ? (
-                      <ButtonSpinner />
-                    ) : (
-                      <i className="fas fa-trash-alt" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleEdit(member)}
+                      className="text-muted hover:text-brand transition flex-shrink-0 p-2"
+                      title="Editar miembro"
+                    >
+                      <i className="fas fa-pen" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(member.id, `${mp?.nombre} ${mp?.apellido}`)}
+                      disabled={deletingId === member.id}
+                      className="text-muted hover:text-danger transition flex-shrink-0 p-2"
+                      title="Eliminar del equipo"
+                    >
+                      {deletingId === member.id ? (
+                        <ButtonSpinner />
+                      ) : (
+                        <i className="fas fa-trash-alt" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             );

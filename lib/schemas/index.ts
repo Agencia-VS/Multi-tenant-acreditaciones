@@ -189,7 +189,9 @@ export const bulkActionSchema = z.object({
 /* ─── Team Members ───────────────────────────────────────────────── */
 
 export const teamMemberCreateSchema = z.object({
-  rut: rutSchema,
+  document_type: z.enum(['rut', 'dni_extranjero']).optional().default('rut'),
+  document_number: safeString.optional(),
+  rut: rutSchema.optional(),
   nombre: safeString.pipe(z.string().min(1, 'Nombre es requerido')),
   apellido: safeString.pipe(z.string().min(1, 'Apellido es requerido')),
   email: emailSchema.optional().default(''),
@@ -198,6 +200,30 @@ export const teamMemberCreateSchema = z.object({
   medio: safeString.optional(),
   tipo_medio: safeString.optional(),
   alias: safeString.optional(),
+}).superRefine((data, ctx) => {
+  const documentType = data.document_type || 'rut';
+  const documentNumber = (data.document_number || data.rut || '').trim();
+
+  if (!documentNumber) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['document_number'],
+      message: 'Documento es requerido',
+    });
+    return;
+  }
+
+  if (documentType === 'rut') {
+    const rutToValidate = data.rut || documentNumber;
+    const result = rutSchema.safeParse(rutToValidate);
+    if (!result.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['document_number'],
+        message: 'Formato de RUT inválido. Ej: 12345678-9',
+      });
+    }
+  }
 });
 
 /* ─── Tenant Profile Data ────────────────────────────────────────── */

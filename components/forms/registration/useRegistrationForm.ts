@@ -5,7 +5,7 @@ import type { FormFieldDefinition, TeamMember, ProfileDatosBase } from '@/types'
 import { TIPOS_MEDIO } from '@/types';
 import { useQuotaCheck } from '@/hooks/useQuotaCheck';
 import { useTenantProfile } from '@/hooks/useTenantProfile';
-import { validateEmail, validateDocumentByType, cleanRut, formatRut, sanitize } from '@/lib/validation';
+import { validateEmail, validateDocumentByType, cleanRut, formatRut, sanitize, normalizeDocumentByType } from '@/lib/validation';
 import { createEmptyAcreditado, validateAcreditado } from '@/components/forms/AcreditadoRow';
 import type { AcreditadoData } from '@/components/forms/AcreditadoRow';
 import type {
@@ -119,6 +119,10 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   // ─── Tipo de medio ───
   const [tipoMedio, setTipoMedio] = useState('');
+  const [hasQuotaRulesByTipo, setHasQuotaRulesByTipo] = useState(false);
+  const [requiresManualTipoMedioChoice, setRequiresManualTipoMedioChoice] = useState(false);
+  const [tipoMedioLockMessage, setTipoMedioLockMessage] = useState('');
+  const [tipoMedioAdjustedMessage, setTipoMedioAdjustedMessage] = useState('');
 
   const organizationMode = responsableConfig?.organization_mode === 'select' ? 'select' : 'text';
   const organizationOptions = useMemo(
@@ -162,6 +166,51 @@ export function useRegistrationForm(props: RegistrationFormProps) {
      ═══════════════════════════════════════════════════════ */
 
   useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/events/${eventId}/quotas`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: unknown) => {
+        if (cancelled) return;
+        setHasQuotaRulesByTipo(Array.isArray(data) && data.length > 0);
+      })
+      .catch(() => {
+        if (!cancelled) setHasQuotaRulesByTipo(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!hasQuotaRulesByTipo || tiposMedioOptions.length === 0) {
+      setRequiresManualTipoMedioChoice(false);
+      setTipoMedioLockMessage('');
+      setTipoMedioAdjustedMessage('');
+      return;
+    }
+
+    const profileTipo = (userProfile?.tipo_medio || '').trim();
+    if (profileTipo && tiposMedioOptions.includes(profileTipo)) {
+      setRequiresManualTipoMedioChoice(false);
+      if (tipoMedio !== profileTipo) setTipoMedio(profileTipo);
+      setTipoMedioAdjustedMessage('');
+      setTipoMedioLockMessage(`Este evento usa cupos por tipo de medio. Tu categoría quedó fijada en “${profileTipo}”.`);
+      return;
+    }
+
+    setRequiresManualTipoMedioChoice(true);
+    if (tipoMedio && !tiposMedioOptions.includes(tipoMedio)) {
+      setTipoMedio('');
+    }
+    setTipoMedioLockMessage('Este evento usa cupos por tipo de medio. Debes seleccionar una categoría de las opciones disponibles.');
+    if (profileTipo && !tiposMedioOptions.includes(profileTipo)) {
+      setTipoMedioAdjustedMessage('Tu categoría original no está disponible en este evento. Escoge una que represente a tu medio/organización; esta quedará en tu registro.');
+    } else {
+      setTipoMedioAdjustedMessage('Selecciona la categoría de medio que mejor represente esta solicitud.');
+    }
+  }, [hasQuotaRulesByTipo, tiposMedioOptions, userProfile?.tipo_medio, tipoMedio]);
+
+  useEffect(() => {
     if (userProfile) {
       const profileOrg = userProfile.medio?.trim() || '';
       const matchedOption = organizationMode === 'select' && profileOrg
@@ -187,9 +236,9 @@ export function useRegistrationForm(props: RegistrationFormProps) {
         else if (shouldUseOther) setSelectedOrganization(RESPONSABLE_OTHER_VALUE);
       }
 
-      if (userProfile.tipo_medio) setTipoMedio(userProfile.tipo_medio);
+      if (userProfile.tipo_medio && !hasQuotaRulesByTipo) setTipoMedio(userProfile.tipo_medio);
     }
-  }, [userProfile, organizationMode, organizationOptions]);
+  }, [userProfile, organizationMode, organizationOptions, hasQuotaRulesByTipo]);
 
   useEffect(() => {
     if (organizationMode === 'text') {
@@ -303,7 +352,12 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     setStep('medio');
   };
 
-  const handleMedioSelect = (tipo: string) => setTipoMedio(tipo);
+  const isTipoMedioLocked = hasQuotaRulesByTipo && !requiresManualTipoMedioChoice;
+
+  const handleMedioSelect = (tipo: string) => {
+    if (isTipoMedioLocked) return;
+    setTipoMedio(tipo);
+  };
 
   const handleMedioSubmit = () => {
     if (!tipoMedio) return;
@@ -343,6 +397,16 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   // Check if cargo is configured in this event's form_fields
   const eventHasCargo = formFields.some(f => f.key === 'cargo');
 
+  const getMemberDocument = (member: TeamMember) => {
+    const p = member.member_profile;
+    if (!p) return null;
+
+    const docType = (p.document_type || (p.rut ? 'rut' : 'dni_extranjero')) as 'rut' | 'dni_extranjero';
+    const docNumber = p.document_number || p.rut || '';
+
+    return { p, docType, docNumber };
+  };
+
   const handleIncluirme = () => {
     if (incluirmeDone) return;
     const me: AcreditadoData = {
@@ -362,9 +426,13 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   };
 
   const handleAddFromTeam = (member: TeamMember) => {
-    const p = member.member_profile;
-    if (!p) return;
-    if (acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut))) {
+    const memberDoc = getMemberDocument(member);
+    if (!memberDoc) return;
+    const { p, docType: pDocType, docNumber: pDocNumber } = memberDoc;
+    if (acreditados.some(a =>
+      (a.document_type || 'rut') === pDocType
+      && normalizeDocumentByType((a.document_type || 'rut') as 'rut' | 'dni_extranjero', a.rut || '') === normalizeDocumentByType(pDocType, pDocNumber)
+    )) {
       setMessage({ type: 'error', text: `${p.nombre} ${p.apellido} ya está en la lista` });
       return;
     }
@@ -377,8 +445,8 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     const dynamicData = buildDynamicData(p.datos_base);
     const newA: AcreditadoData = {
       id: crypto.randomUUID(),
-      document_type: 'rut',
-      rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
+      document_type: pDocType,
+      rut: pDocNumber, nombre: p.nombre || '', apellido: p.apellido || '',
       email: p.email || '', telefono: p.telefono || '',
       cargo: eventHasCargo ? (dynamicData['cargo'] || p.cargo || '') : '',
       dynamicData,
@@ -391,9 +459,13 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const handleAddAllTeam = () => {
     let added = 0;
     for (const m of teamMembers) {
-      const p = m.member_profile;
-      if (!p) continue;
-      const alreadyAdded = acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut));
+      const memberDoc = getMemberDocument(m);
+      if (!memberDoc) continue;
+      const { docType: pDocType, docNumber: pDocNumber } = memberDoc;
+      const alreadyAdded = acreditados.some(a =>
+        (a.document_type || 'rut') === pDocType
+        && normalizeDocumentByType((a.document_type || 'rut') as 'rut' | 'dni_extranjero', a.rut || '') === normalizeDocumentByType(pDocType, pDocNumber)
+      );
       if (alreadyAdded) continue;
       if (acreditados.length + added >= maxCupos) break;
       added++;
@@ -404,17 +476,21 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     }
     const newAcreditados: AcreditadoData[] = [];
     for (const m of teamMembers) {
-      const p = m.member_profile;
-      if (!p) continue;
-      const alreadyAdded = acreditados.some(a => (a.document_type || 'rut') === 'rut' && a.rut && cleanRut(a.rut) === cleanRut(p.rut));
+      const memberDoc = getMemberDocument(m);
+      if (!memberDoc) continue;
+      const { p, docType: pDocType, docNumber: pDocNumber } = memberDoc;
+      const alreadyAdded = acreditados.some(a =>
+        (a.document_type || 'rut') === pDocType
+        && normalizeDocumentByType((a.document_type || 'rut') as 'rut' | 'dni_extranjero', a.rut || '') === normalizeDocumentByType(pDocType, pDocNumber)
+      );
       if (alreadyAdded) continue;
       if (acreditados.length + newAcreditados.length >= maxCupos) break;
       // M12: Usar dynamicData.cargo (tenant-scoped) en vez de p.cargo (global)
       const dynamicData = buildDynamicData(p.datos_base);
       newAcreditados.push({
         id: crypto.randomUUID(),
-        document_type: 'rut',
-        rut: p.rut || '', nombre: p.nombre || '', apellido: p.apellido || '',
+        document_type: pDocType,
+        rut: pDocNumber, nombre: p.nombre || '', apellido: p.apellido || '',
         email: p.email || '', telefono: p.telefono || '',
         cargo: eventHasCargo ? (dynamicData['cargo'] || p.cargo || '') : '',
         dynamicData,
@@ -602,6 +678,9 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       for (const a of acreditados) {
         const documentType = a.document_type || 'rut';
         const documentNumber = sanitize(a.rut);
+        const dynamicEntries = Object.entries(a.dynamicData || {})
+          .filter(([k]) => !['tipo_medio', 'organizacion', 'empresa', 'cargo', 'email', 'telefono'].includes(k))
+          .map(([k, v]) => [k, sanitize(v)]);
         allRows.push({
           document_type: documentType,
           document_number: documentNumber,
@@ -616,9 +695,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
             ? { organizacion_link: sanitize(`${RESPONSABLE_LINK_PREFIX}${responsable.organizacion_link_domain.trim()}`) }
             : {}),
           tipo_medio: tipoMedio,
-          ...Object.fromEntries(
-            Object.entries(a.dynamicData || {}).map(([k, v]) => [k, sanitize(v)])
-          ),
+          ...Object.fromEntries(dynamicEntries),
           responsable_rut: sanitize(responsable.rut),
           responsable_nombre: sanitize(responsable.nombre),
           responsable_apellido: sanitize(responsable.apellido),
@@ -667,6 +744,14 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
       const data = await res.json();
       const results: SubmitResult[] = [];
+
+      if (!res.ok || (data?.errors && data?.success === 0)) {
+        console.warn('[BulkAccreditation] submit failed', {
+          trace_id: data?.trace_id,
+          blocking_errors: data?.blocking_errors,
+          response: data,
+        });
+      }
 
       if (data.results) {
         for (const r of data.results) {
@@ -760,6 +845,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     organizationMode, organizationOptions, selectedOrganization, organizationLinkPrefix: RESPONSABLE_LINK_PREFIX,
     // Tipo de medio
     tipoMedio, tiposMedioOptions, handleMedioSelect, handleMedioSubmit,
+    isTipoMedioLocked, tipoMedioLockMessage, tipoMedioAdjustedMessage,
     // Quota
     quotaResult,
     // Acreditados
