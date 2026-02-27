@@ -623,6 +623,13 @@ export interface DisclaimerConfig {
   sections: DisclaimerSection[];    // custom sections (empty = use defaults)
 }
 
+/** Configuración del paso Responsable en el formulario de acreditación */
+export interface ResponsableConfig {
+  organization_mode?: 'text' | 'select';
+  organization_options?: string[];
+  other_link_prefix?: string;
+}
+
 /** Typed event config */
 export interface EventConfig {
   zonas?: string[];              // zone options for this event
@@ -630,6 +637,8 @@ export interface EventConfig {
   acreditacion_abierta?: boolean; // manual override to keep accreditation open
   bulk_template_columns?: BulkTemplateColumn[]; // columnas dinámicas para carga masiva
   disclaimer?: DisclaimerConfig; // configurable disclaimer
+  responsable?: ResponsableConfig; // configuración del bloque responsable
+  email_variables?: Record<string, string>; // variables custom por evento para plantillas de email
   [key: string]: unknown;
 }
 

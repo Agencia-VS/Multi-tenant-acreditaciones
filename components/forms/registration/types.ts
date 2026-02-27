@@ -21,6 +21,7 @@ export interface ResponsableData {
   email: string;
   telefono: string;
   organizacion: string;
+  organizacion_link_domain?: string;
 }
 
 export interface BulkImportRow {
@@ -56,6 +57,8 @@ export interface RegistrationFormProps {
   disclaimerConfig?: import('@/types').DisclaimerConfig;
   /** Zonas available for this event (from event.config.zonas) */
   eventZonas?: string[];
+  /** Configuración del paso Responsable (event.config.responsable) */
+  responsableConfig?: import('@/types').ResponsableConfig;
 }
 
 export const STEP_LABELS = ['Responsable', 'Tipo de medio', 'Acreditados'];

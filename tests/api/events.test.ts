@@ -136,6 +136,11 @@ describe('POST /api/events', () => {
           { key: 'nombre', header: 'Nombre', required: true },
           { key: 'email', header: 'Email', required: true },
         ],
+        responsable: {
+          organization_mode: 'select',
+          organization_options: ['Canal 13', 'Radio ADN'],
+          other_link_prefix: 'https://www.',
+        },
       },
     });
     mockCreateEvent.mockResolvedValue({ id: 'e-2', nombre: 'Clonado', tenant_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' });
@@ -161,6 +166,11 @@ describe('POST /api/events', () => {
             { key: 'nombre', header: 'Nombre', required: true },
             { key: 'email', header: 'Email', required: true },
           ],
+          responsable: {
+            organization_mode: 'select',
+            organization_options: ['Canal 13', 'Radio ADN'],
+            other_link_prefix: 'https://www.',
+          },
         }),
       })
     );

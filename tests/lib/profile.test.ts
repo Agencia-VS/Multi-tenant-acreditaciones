@@ -25,6 +25,24 @@ describe('isProfileComplete', () => {
     expect(isProfileComplete({ rut: '12345678-9' })).toBe(false);
   });
 
+  it('retorna false si falta tipo de documento', () => {
+    expect(isProfileComplete({
+      document_number: '12345678-9',
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      medio: 'Canal 13',
+    })).toBe(false);
+  });
+
+  it('retorna false si falta documento', () => {
+    expect(isProfileComplete({
+      document_type: 'rut',
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      medio: 'Canal 13',
+    })).toBe(false);
+  });
+
   it('retorna false si falta medio', () => {
     expect(isProfileComplete({
       nombre: 'Juan',
@@ -51,6 +69,8 @@ describe('isProfileComplete', () => {
 
   it('retorna true si todos los campos requeridos están completos', () => {
     expect(isProfileComplete({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: 'Juan',
       apellido: 'Pérez',
       medio: 'Canal 13',
@@ -59,6 +79,8 @@ describe('isProfileComplete', () => {
 
   it('retorna true con campos extra presentes', () => {
     expect(isProfileComplete({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: 'Juan',
       apellido: 'Pérez',
       medio: 'ESPN Chile',
@@ -70,6 +92,8 @@ describe('isProfileComplete', () => {
 
   it('retorna true sin tipo_medio (ya no es requerido)', () => {
     expect(isProfileComplete({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: 'Juan',
       apellido: 'Pérez',
       medio: 'Canal 13',
@@ -82,11 +106,13 @@ describe('getMissingProfileFields', () => {
   it('retorna todos los campos para null', () => {
     const missing = getMissingProfileFields(null);
     expect(missing).toHaveLength(REQUIRED_PROFILE_FIELDS.length);
-    expect(missing.map(f => f.key)).toEqual(['nombre', 'apellido', 'medio']);
+    expect(missing.map(f => f.key)).toEqual(['document_type', 'document_number', 'nombre', 'apellido', 'medio']);
   });
 
   it('retorna campos faltantes', () => {
     const missing = getMissingProfileFields({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: 'Ana',
       apellido: 'López',
       medio: null,
@@ -97,6 +123,8 @@ describe('getMissingProfileFields', () => {
 
   it('retorna array vacío si perfil completo', () => {
     const missing = getMissingProfileFields({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: 'Ana',
       apellido: 'López',
       medio: 'Radio ADN',
@@ -106,6 +134,8 @@ describe('getMissingProfileFields', () => {
 
   it('identifica solo nombre faltante', () => {
     const missing = getMissingProfileFields({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: '',
       apellido: 'López',
       medio: 'Diario X',
@@ -116,8 +146,8 @@ describe('getMissingProfileFields', () => {
 });
 
 describe('REQUIRED_PROFILE_FIELDS', () => {
-  it('contiene exactamente 3 campos', () => {
-    expect(REQUIRED_PROFILE_FIELDS).toHaveLength(3);
+  it('contiene exactamente 5 campos', () => {
+    expect(REQUIRED_PROFILE_FIELDS).toHaveLength(5);
   });
 
   it('cada campo tiene key y label', () => {
@@ -131,10 +161,12 @@ describe('REQUIRED_PROFILE_FIELDS', () => {
 });
 
 // ──────────────────────────────────────────────────────────
-// isReadyToAccredit — perfil completo + RUT
+// isReadyToAccredit — identidad + datos base
 // ──────────────────────────────────────────────────────────
 
 const fullAccreditProfile = {
+  document_type: 'rut',
+  document_number: '12345678-9',
   nombre: 'Juan',
   apellido: 'Pérez',
   medio: 'Canal 13',
@@ -152,6 +184,8 @@ describe('isReadyToAccredit', () => {
 
   it('retorna false si falta rut pero perfil completo', () => {
     expect(isReadyToAccredit({
+      document_type: 'rut',
+      document_number: null,
       nombre: 'Juan',
       apellido: 'Pérez',
       medio: 'Canal 13',
@@ -159,10 +193,10 @@ describe('isReadyToAccredit', () => {
     })).toBe(false);
   });
 
-  it('retorna false si rut es string vacío', () => {
+  it('retorna false si documento es string vacío', () => {
     expect(isReadyToAccredit({
       ...fullAccreditProfile,
-      rut: '',
+      document_number: '',
     })).toBe(false);
   });
 
@@ -194,11 +228,13 @@ describe('isReadyToAccredit', () => {
 
   it('isProfileComplete true pero isReadyToAccredit false sin rut', () => {
     const profileSinRut = {
+      document_type: 'rut',
+      document_number: '',
       nombre: 'Ana',
       apellido: 'López',
       medio: 'Radio ADN',
     };
-    expect(isProfileComplete(profileSinRut)).toBe(true);
+    expect(isProfileComplete(profileSinRut)).toBe(false);
     expect(isReadyToAccredit(profileSinRut)).toBe(false);
   });
 });
@@ -207,17 +243,19 @@ describe('getMissingAccreditationFields', () => {
   it('retorna todos los campos para null', () => {
     const missing = getMissingAccreditationFields(null);
     expect(missing).toHaveLength(ACCREDITATION_REQUIRED_FIELDS.length);
-    expect(missing.map(f => f.key)).toEqual(['nombre', 'apellido', 'medio', 'rut']);
+    expect(missing.map(f => f.key)).toEqual(['document_type', 'document_number', 'nombre', 'apellido', 'medio']);
   });
 
   it('retorna solo rut si perfil completo sin rut', () => {
     const missing = getMissingAccreditationFields({
+      document_type: 'rut',
+      document_number: '',
       nombre: 'Ana',
       apellido: 'López',
       medio: 'Radio ADN',
     });
     expect(missing).toHaveLength(1);
-    expect(missing[0]).toEqual({ key: 'rut', label: 'RUT' });
+    expect(missing[0]).toEqual({ key: 'document_number', label: 'Documento' });
   });
 
   it('retorna array vacío si todo completo', () => {
@@ -227,6 +265,8 @@ describe('getMissingAccreditationFields', () => {
 
   it('retorna múltiples campos faltantes', () => {
     const missing = getMissingAccreditationFields({
+      document_type: 'rut',
+      document_number: '12345678-9',
       nombre: 'Ana',
       apellido: '',
       medio: null,
@@ -238,17 +278,16 @@ describe('getMissingAccreditationFields', () => {
 });
 
 describe('ACCREDITATION_REQUIRED_FIELDS', () => {
-  it('contiene exactamente 4 campos', () => {
-    expect(ACCREDITATION_REQUIRED_FIELDS).toHaveLength(4);
+  it('contiene exactamente 5 campos', () => {
+    expect(ACCREDITATION_REQUIRED_FIELDS).toHaveLength(5);
   });
 
-  it('incluye todos los campos de REQUIRED_PROFILE_FIELDS más rut', () => {
+  it('incluye todos los campos de REQUIRED_PROFILE_FIELDS', () => {
     const profileKeys = REQUIRED_PROFILE_FIELDS.map(f => f.key);
     const accreditKeys = ACCREDITATION_REQUIRED_FIELDS.map(f => f.key);
     profileKeys.forEach(k => {
       expect(accreditKeys).toContain(k);
     });
-    expect(accreditKeys).toContain('rut');
   });
 
   it('cada campo tiene key y label', () => {

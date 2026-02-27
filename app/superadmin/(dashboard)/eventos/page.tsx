@@ -6,7 +6,7 @@
  * Incluye filtros por tenant, estado, búsqueda y agrupación visual.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { FormFieldDefinition, Tenant, EventFull, ZoneMatchField, EventType, EventVisibility, EventDayFormData, BulkTemplateColumn } from '@/types';
+import type { FormFieldDefinition, Tenant, EventFull, ZoneMatchField, EventType, EventVisibility, EventDayFormData, BulkTemplateColumn, ResponsableConfig } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { useToast, PageHeader, Modal, LoadingSpinner, EmptyState, FormActions } from '@/components/shared/ui';
 import { isoToLocalDatetime, localToChileISO } from '@/lib/dates';
@@ -18,6 +18,8 @@ import EventDaysTab from './EventDaysTab';
 import EventBulkTemplateTab from './EventBulkTemplateTab';
 import EventInvitationsTab from './EventInvitationsTab';
 import { getBulkTemplateColumnsFromConfig } from '@/lib/bulkTemplate';
+import EventResponsableTab from './EventResponsableTab';
+import { getResponsableConfigFromEventConfig, normalizeResponsableConfig } from '@/lib/responsableConfig';
 
 type SAEvent = EventFull;
 
@@ -47,7 +49,7 @@ export default function EventosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SAEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'form' | 'bulk' | 'cupos' | 'zonas' | 'dias' | 'invitaciones'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'responsable' | 'form' | 'bulk' | 'cupos' | 'zonas' | 'dias' | 'invitaciones'>('general');
   const [saving, setSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
@@ -123,11 +125,14 @@ export default function EventosPage() {
   const [zoneRules, setZoneRules] = useState<{ id?: string; match_field: ZoneMatchField; cargo: string; zona: string }[]>([]);
   // Zonas configuradas para el evento (event.config.zonas)
   const [eventZonas, setEventZonas] = useState<string[]>([]);
-  const [newEventZona, setNewEventZona] = useState('');
   // Toggle: mostrar zona en formulario individual
   const [zonaEnFormulario, setZonaEnFormulario] = useState(false);
   // Columnas del template de carga masiva
   const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
+  const [responsableConfig, setResponsableConfig] = useState<ResponsableConfig>({
+    organization_mode: 'text',
+    organization_options: [],
+  });
   // Config base copiada desde evento origen (solo en creación por clonación)
   const [clonedBaseConfig, setClonedBaseConfig] = useState<Record<string, unknown> | null>(null);
   const [cloneFromEventId, setCloneFromEventId] = useState<string | null>(null);
@@ -185,6 +190,7 @@ export default function EventosPage() {
     setEventZonas(evConfig.zonas || []);
     setZonaEnFormulario(!!evConfig.zona_en_formulario);
     setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
+    setResponsableConfig(getResponsableConfigFromEventConfig(evConfig));
 
     // Load event days structure (without dates)
     if (source.event_type === 'multidia') {
@@ -259,9 +265,9 @@ export default function EventosPage() {
     setQuotaRules([]);
     setZoneRules([]);
     setEventZonas([]);
-    setNewEventZona('');
     setZonaEnFormulario(false);
     setBulkTemplateColumns([]);
+    setResponsableConfig({ organization_mode: 'text', organization_options: [] });
     setClonedBaseConfig(null);
     setCloneFromEventId(null);
     setActiveTab('general');
@@ -316,9 +322,9 @@ export default function EventosPage() {
     // Load event zonas from config
     const evConfig = cloned.config ?? {};
     setEventZonas(evConfig.zonas || []);
-    setNewEventZona('');
     setZonaEnFormulario(!!evConfig.zona_en_formulario);
     setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
+    setResponsableConfig(getResponsableConfigFromEventConfig(evConfig));
 
     // Load quota rules (API returns array directly, not { rules: [...] })
     try {
@@ -375,6 +381,7 @@ export default function EventosPage() {
         zonas: eventZonas.length > 0 ? eventZonas : undefined,
         zona_en_formulario: zonaEnFormulario || undefined,
         bulk_template_columns: bulkTemplateColumns.length > 0 ? bulkTemplateColumns : undefined,
+        responsable: normalizeResponsableConfig(responsableConfig),
       };
       if (!eventConfig.zonas) delete eventConfig.zonas;
       if (!eventConfig.zona_en_formulario) delete eventConfig.zona_en_formulario;
@@ -562,7 +569,7 @@ export default function EventosPage() {
 
             {/* Tabs */}
             <div className="pt-3 flex gap-1 border-b overflow-x-auto">
-              {(['general', 'form', 'bulk', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : []), ...(editing && eventForm.visibility === 'invite_only' ? ['invitaciones' as const] : [])] as const).map((tab) => (
+              {(['general', 'responsable', 'form', 'bulk', 'cupos', 'zonas', ...(eventForm.event_type === 'multidia' ? ['dias' as const] : []), ...(editing && eventForm.visibility === 'invite_only' ? ['invitaciones' as const] : [])] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as typeof activeTab)}
@@ -573,6 +580,7 @@ export default function EventosPage() {
                   }`}
                 >
                   {tab === 'general' && <><i className="fas fa-info-circle mr-2" />General</>}
+                  {tab === 'responsable' && <><i className="fas fa-user-tie mr-2" />Responsable</>}
                   {tab === 'form' && <><i className="fas fa-list-alt mr-2" />Formulario ({formFields.length})</>}
                   {tab === 'bulk' && <><i className="fas fa-file-excel mr-2" />Template Masivo ({bulkTemplateColumns.length})</>}
                   {tab === 'cupos' && <><i className="fas fa-chart-pie mr-2" />Cupos ({quotaRules.length})</>}
@@ -809,6 +817,14 @@ export default function EventosPage() {
                 </div>
               )}
 
+              {/* Responsable Config Tab */}
+              {activeTab === 'responsable' && (
+                <EventResponsableTab
+                  responsableConfig={responsableConfig}
+                  setResponsableConfig={setResponsableConfig}
+                />
+              )}
+
               {/* Form Builder Tab */}
               {activeTab === 'form' && (
                 <EventFormFieldsTab
@@ -848,8 +864,6 @@ export default function EventosPage() {
                   formFields={formFields}
                   eventZonas={eventZonas}
                   setEventZonas={setEventZonas}
-                  newEventZona={newEventZona}
-                  setNewEventZona={setNewEventZona}
                   zonaEnFormulario={zonaEnFormulario}
                   setZonaEnFormulario={setZonaEnFormulario}
                   isEditing={!!editing}

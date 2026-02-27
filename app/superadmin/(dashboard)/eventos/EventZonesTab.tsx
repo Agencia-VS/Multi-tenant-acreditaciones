@@ -2,6 +2,7 @@
 
 import type { FormFieldDefinition, ZoneMatchField } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
+import TagInput from '@/components/shared/TagInput';
 
 interface ZoneRule {
   id?: string;
@@ -15,8 +16,6 @@ interface EventZonesTabProps {
   formFields: FormFieldDefinition[];
   eventZonas: string[];
   setEventZonas: React.Dispatch<React.SetStateAction<string[]>>;
-  newEventZona: string;
-  setNewEventZona: React.Dispatch<React.SetStateAction<string>>;
   zonaEnFormulario: boolean;
   setZonaEnFormulario: React.Dispatch<React.SetStateAction<boolean>>;
   isEditing: boolean;
@@ -30,8 +29,6 @@ export default function EventZonesTab({
   formFields,
   eventZonas,
   setEventZonas,
-  newEventZona,
-  setNewEventZona,
   zonaEnFormulario,
   setZonaEnFormulario,
   isEditing,
@@ -55,50 +52,16 @@ export default function EventZonesTab({
         <p className="text-xs text-purple-700 mb-3">
           Define las zonas disponibles. El admin del tenant podrá asignar estas zonas manualmente, y las reglas de abajo las usarán para asignación automática.
         </p>
-        {eventZonas.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {eventZonas.map(z => (
-              <span key={z} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-sm font-medium text-purple-700 border border-purple-200 shadow-sm">
-                {z}
-                <button type="button" onClick={() => setEventZonas(prev => prev.filter(item => item !== z))} className="text-purple-400 hover:text-purple-700 transition">
-                  <i className="fas fa-times text-xs" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input
-            value={newEventZona}
-            onChange={e => setNewEventZona(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                const trimmed = newEventZona.trim();
-                if (trimmed && !eventZonas.includes(trimmed)) {
-                  setEventZonas(prev => [...prev, trimmed]);
-                  setNewEventZona('');
-                }
-              }
-            }}
-            placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
-            className="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm text-heading bg-white"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              const trimmed = newEventZona.trim();
-              if (trimmed && !eventZonas.includes(trimmed)) {
-                setEventZonas(prev => [...prev, trimmed]);
-                setNewEventZona('');
-              }
-            }}
-            disabled={!newEventZona.trim()}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition"
-          >
-            <i className="fas fa-plus text-xs mr-1" /> Agregar
-          </button>
-        </div>
+        <TagInput
+          tags={eventZonas}
+          onChange={(next) => setEventZonas(next)}
+          placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
+          addLabel="Agregar"
+          inputClassName="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm text-heading bg-white"
+          addButtonClassName="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
+          chipClassName="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-sm font-medium text-purple-700 border border-purple-200 shadow-sm"
+          removeButtonClassName="text-purple-400 hover:text-purple-700 transition"
+        />
       </div>
 
       {/* ── 1b. Toggle: mostrar zona en formulario individual ── */}

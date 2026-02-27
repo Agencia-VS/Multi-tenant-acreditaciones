@@ -16,6 +16,7 @@ import type {
   RegistrationFormProps,
 } from './types';
 import { STEP_KEYS } from './types';
+import { normalizeOrganizationOptions, RESPONSABLE_LINK_PREFIX, RESPONSABLE_OTHER_VALUE } from '@/lib/responsableConfig';
 
 /* ── Sileo toast helper (fire-and-forget, no React state needed) ── */
 const fireToast = (type: 'success' | 'error', text: string) => {
@@ -94,6 +95,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     userProfile,
     onSuccess,
     disclaimerConfig,
+    responsableConfig,
   } = props;
 
   const disclaimerEnabled = disclaimerConfig?.enabled !== false; // default true
@@ -110,12 +112,20 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     document_type: 'rut',
     rut: '', nombre: '', apellido: '', segundo_apellido: '',
     email: '', telefono: '', organizacion: '',
+    organizacion_link_domain: '',
   });
   const [respErrors, setRespErrors] = useState<Record<string, string>>({});
   const [respTouched, setRespTouched] = useState<Set<string>>(new Set());
 
   // ─── Tipo de medio ───
   const [tipoMedio, setTipoMedio] = useState('');
+
+  const organizationMode = responsableConfig?.organization_mode === 'select' ? 'select' : 'text';
+  const organizationOptions = useMemo(
+    () => normalizeOrganizationOptions(responsableConfig?.organization_options),
+    [responsableConfig?.organization_options]
+  );
+  const [selectedOrganization, setSelectedOrganization] = useState<string>('');
 
   const tiposMedioOptions = useMemo(() => {
     const tipoMedioField = formFields.find(f => f.key === 'tipo_medio');
@@ -153,6 +163,12 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   useEffect(() => {
     if (userProfile) {
+      const profileOrg = userProfile.medio?.trim() || '';
+      const matchedOption = organizationMode === 'select' && profileOrg
+        ? organizationOptions.find(option => option.toLowerCase() === profileOrg.toLowerCase())
+        : undefined;
+      const shouldUseOther = organizationMode === 'select' && profileOrg && !matchedOption;
+
       setResponsable(prev => ({
         document_type: ((userProfile as Partial<Record<string, unknown>>)?.document_type as 'rut' | 'dni_extranjero') || prev.document_type || 'rut',
         rut: userProfile.rut || prev.rut,
@@ -161,11 +177,25 @@ export function useRegistrationForm(props: RegistrationFormProps) {
         segundo_apellido: (userProfile.datos_base as Record<string, string> | undefined)?.segundo_apellido || prev.segundo_apellido,
         email: userProfile.email || prev.email,
         telefono: userProfile.telefono || prev.telefono,
-        organizacion: userProfile.medio || prev.organizacion,
+        organizacion: organizationMode === 'select'
+          ? (matchedOption || (shouldUseOther ? profileOrg : prev.organizacion))
+          : (profileOrg || prev.organizacion),
       }));
+
+      if (organizationMode === 'select') {
+        if (matchedOption) setSelectedOrganization(matchedOption);
+        else if (shouldUseOther) setSelectedOrganization(RESPONSABLE_OTHER_VALUE);
+      }
+
       if (userProfile.tipo_medio) setTipoMedio(userProfile.tipo_medio);
     }
-  }, [userProfile]);
+  }, [userProfile, organizationMode, organizationOptions]);
+
+  useEffect(() => {
+    if (organizationMode === 'text') {
+      setSelectedOrganization('');
+    }
+  }, [organizationMode]);
 
   useEffect(() => {
     if (!userProfile?.id) return;
@@ -192,6 +222,19 @@ export function useRegistrationForm(props: RegistrationFormProps) {
      ═══════════════════════════════════════════════════════ */
 
   const handleRespChange = (field: string, value: string) => {
+    if (field === 'organizacion_select') {
+      setSelectedOrganization(value);
+      if (value === RESPONSABLE_OTHER_VALUE) {
+        setResponsable(prev => ({ ...prev, organizacion: '' }));
+      } else {
+        setResponsable(prev => ({ ...prev, organizacion: value, organizacion_link_domain: '' }));
+      }
+      if (respErrors.organizacion) {
+        setRespErrors(prev => { const n = { ...prev }; delete n.organizacion; return n; });
+      }
+      return;
+    }
+
     setResponsable(prev => ({ ...prev, [field]: value }));
     if (field === 'document_type' && respErrors.rut) {
       setRespErrors(prev => { const n = { ...prev }; delete n.rut; return n; });
@@ -222,7 +265,13 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       case 'nombre': return !v ? 'Nombre es requerido' : null;
       case 'apellido': return !v ? 'Apellido es requerido' : null;
       case 'email': return !v ? 'Email es requerido' : !validateEmail(v).valid ? 'Email inválido' : null;
-      case 'organizacion': return !v ? 'Organización es requerida' : null;
+      case 'organizacion':
+        if (organizationMode !== 'select') return !v ? 'Organización es requerida' : null;
+        if (!selectedOrganization) return 'Selecciona una organización';
+        if (selectedOrganization === RESPONSABLE_OTHER_VALUE && !responsable.organizacion.trim()) {
+          return 'Nombre de organización es requerido';
+        }
+        return null;
       default: return null;
     }
   };
@@ -563,6 +612,9 @@ export function useRegistrationForm(props: RegistrationFormProps) {
           telefono: sanitize(a.telefono),
           cargo: sanitize(a.cargo),
           organizacion: sanitize(responsable.organizacion),
+          ...(responsable.organizacion_link_domain?.trim()
+            ? { organizacion_link: sanitize(`${RESPONSABLE_LINK_PREFIX}${responsable.organizacion_link_domain.trim()}`) }
+            : {}),
           tipo_medio: tipoMedio,
           ...Object.fromEntries(
             Object.entries(a.dynamicData || {}).map(([k, v]) => [k, sanitize(v)])
@@ -673,7 +725,8 @@ export function useRegistrationForm(props: RegistrationFormProps) {
   const resetForm = () => {
     setStep(disclaimerEnabled ? 'disclaimer' : 'responsable');
     setDisclaimerAccepted(!disclaimerEnabled);
-    setResponsable({ document_type: 'rut', rut: '', nombre: '', apellido: '', segundo_apellido: '', email: '', telefono: '', organizacion: '' });
+    setResponsable({ document_type: 'rut', rut: '', nombre: '', apellido: '', segundo_apellido: '', email: '', telefono: '', organizacion: '', organizacion_link_domain: '' });
+    setSelectedOrganization('');
     setRespErrors({});
     setRespTouched(new Set());
     setTipoMedio('');
@@ -704,6 +757,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
     // Responsable
     responsable, respErrors, respTouched, getRespInputClass,
     handleRespChange, handleRespBlur, handleResponsableSubmit,
+    organizationMode, organizationOptions, selectedOrganization, organizationLinkPrefix: RESPONSABLE_LINK_PREFIX,
     // Tipo de medio
     tipoMedio, tiposMedioOptions, handleMedioSelect, handleMedioSubmit,
     // Quota

@@ -492,9 +492,9 @@ function RegistrationHistoryView({
           <p className="text-muted text-lg">
             {filter === 'all' ? 'No tienes acreditaciones aún' : `No hay acreditaciones de ${filter === 'self' ? 'tipo propio' : 'equipo'}`}
           </p>
-          <a href="/acreditado" className="text-brand hover:underline text-sm mt-2 inline-block">
+          <Link href="/acreditado" className="text-brand hover:underline text-sm mt-2 inline-block">
             Ver eventos disponibles
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="space-y-4">

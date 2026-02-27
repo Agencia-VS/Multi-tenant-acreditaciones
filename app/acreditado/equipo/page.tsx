@@ -187,14 +187,14 @@ export default function EquipoPage() {
     <div>
       {/* Gate: perfil incompleto → banner bloqueante */}
       {profileIncomplete && (
-        <div className="max-w-2xl mx-auto mt-8">
-          <div className="bg-warning-light border border-warning rounded-xl p-6 text-center space-y-4">
+        <div className="min-h-[65vh] flex items-center justify-center px-4">
+          <div className="w-full max-w-2xl bg-warning-light border border-warning rounded-xl p-6 text-center space-y-4">
             <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto">
               <i className="fas fa-exclamation-triangle text-warning text-2xl" />
             </div>
-            <h2 className="text-xl font-bold text-heading">Completa tu perfil</h2>
+            <h2 className="text-xl font-bold text-heading">Completa tu identidad y datos base</h2>
             <p className="text-body">
-              Para gestionar tu equipo necesitas completar los siguientes datos en tu perfil:
+              Para usar Mi Equipo, primero completa estos datos en tu perfil de acreditado:
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {missingFields.map(({ key, label }) => (

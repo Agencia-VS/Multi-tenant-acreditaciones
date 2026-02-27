@@ -1,6 +1,7 @@
 'use client';
 
 import ImageUploadField from '@/components/shared/ImageUploadField';
+import TagInput from '@/components/shared/TagInput';
 import DisclaimerEditor from './DisclaimerEditor';
 import type { DisclaimerSection, EventType } from '@/types';
 import type { EventForm } from './useEventForm';
@@ -9,14 +10,11 @@ interface EventFormFieldsProps {
   form: EventForm;
   setForm: React.Dispatch<React.SetStateAction<EventForm>>;
   zonas: string[];
-  newZona: string;
-  setNewZona: (v: string) => void;
-  addZona: () => void;
-  removeZona: (z: string) => void;
+  setZonas: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export default function EventFormFields({
-  form, setForm, zonas, newZona, setNewZona, addZona, removeZona,
+  form, setForm, zonas, setZonas,
 }: EventFormFieldsProps) {
   return (
     <div className="space-y-4">
@@ -203,42 +201,17 @@ export default function EventFormFields({
         </label>
         <p className="text-xs text-muted mb-2">Define las zonas disponibles para este evento. El admin podrá asignar zona manualmente a cada acreditado.</p>
 
-        {zonas.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {zonas.map(z => (
-              <span key={z} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 text-sm font-medium text-purple-700 border border-purple-200">
-                {z}
-                <button
-                  type="button"
-                  onClick={() => removeZona(z)}
-                  className="text-purple-400 hover:text-purple-700 transition"
-                  aria-label={`Eliminar zona ${z}`}
-                >
-                  <i className="fas fa-times text-xs" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            value={newZona}
-            onChange={e => setNewZona(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addZona(); } }}
-            placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
-            className="flex-1 px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
-            aria-label="Nombre de nueva zona"
-          />
-          <button
-            type="button"
-            onClick={addZona}
-            disabled={!newZona.trim()}
-            className="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition flex items-center gap-1"
-          >
-            <i className="fas fa-plus text-xs" /> Agregar
-          </button>
-        </div>
+        <TagInput
+          tags={zonas}
+          onChange={(next) => setZonas(next)}
+          placeholder="Ej: Tribuna, Cancha, Mixta, Conferencia..."
+          addLabel="Agregar"
+          inputClassName="flex-1 px-4 py-2.5 border border-edge rounded-xl text-sm text-heading"
+          addButtonClassName="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition flex items-center gap-1"
+          chipsContainerClassName="flex flex-wrap gap-2"
+          chipClassName="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 text-sm font-medium text-purple-700 border border-purple-200"
+          removeButtonClassName="text-purple-400 hover:text-purple-700 transition"
+        />
       </div>
 
       {/* Disclaimer configurable */}

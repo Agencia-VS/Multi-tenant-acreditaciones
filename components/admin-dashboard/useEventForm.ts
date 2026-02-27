@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { isoToLocalDatetime } from '@/lib/dates';
-import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig, BulkTemplateColumn } from '@/types';
+import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig, BulkTemplateColumn, ResponsableConfig } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { getBulkTemplateColumnsFromConfig } from '@/lib/bulkTemplate';
+import { getResponsableConfigFromEventConfig } from '@/lib/responsableConfig';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -76,22 +77,10 @@ export function useEventForm() {
   const [quotaRules, setQuotaRules] = useState<QuotaRule[]>([]);
   const [zoneRules, setZoneRules] = useState<ZoneRule[]>([]);
   const [zonas, setZonas] = useState<string[]>([]);
-  const [newZona, setNewZona] = useState('');
   const [cloneSourceId, setCloneSourceId] = useState('');
   const [cloning, setCloning] = useState(false);
   const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
-
-  const addZona = () => {
-    const trimmed = newZona.trim();
-    if (trimmed && !zonas.includes(trimmed)) {
-      setZonas(prev => [...prev, trimmed]);
-      setNewZona('');
-    }
-  };
-
-  const removeZona = (z: string) => {
-    setZonas(prev => prev.filter(item => item !== z));
-  };
+  const [responsableConfig, setResponsableConfig] = useState<ResponsableConfig>({ organization_mode: 'text', organization_options: [] });
 
   const resetForm = () => {
     setForm(INITIAL_FORM);
@@ -99,9 +88,9 @@ export function useEventForm() {
     setQuotaRules([]);
     setZoneRules([]);
     setZonas([]);
-    setNewZona('');
     setCloneSourceId('');
     setBulkTemplateColumns([]);
+    setResponsableConfig({ organization_mode: 'text', organization_options: [] });
   };
 
   /** Sincronizas el formulario con un evento existente (para edición) */
@@ -126,6 +115,7 @@ export function useEventForm() {
     });
     setZonas(eventConfig.zonas || []);
     setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(eventConfig));
+    setResponsableConfig(getResponsableConfigFromEventConfig(eventConfig));
   };
 
   /** Clonar configuración desde un evento anterior del mismo tenant */
@@ -164,6 +154,7 @@ export function useEventForm() {
       const evConfig = source.config ?? {};
       setZonas(evConfig.zonas || []);
       setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
+      setResponsableConfig(getResponsableConfigFromEventConfig(evConfig));
 
       // Clone disclaimer config
       const dc = evConfig.disclaimer as DisclaimerConfig | undefined;
@@ -210,9 +201,9 @@ export function useEventForm() {
     formFields, setFormFields,
     quotaRules, zoneRules,
     zonas, setZonas,
-    newZona, setNewZona,
-    addZona, removeZona,
     bulkTemplateColumns,
+    responsableConfig,
+    setResponsableConfig,
     cloneSourceId, cloning,
     resetForm, syncFromEvent, handleCloneFrom,
   };

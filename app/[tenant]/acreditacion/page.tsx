@@ -13,11 +13,13 @@ import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { isSuperAdmin, isTenantAdmin } from '@/lib/services/auth';
 import { listEventDays } from '@/lib/services/eventDays';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getResponsableConfigFromEventConfig } from '@/lib/responsableConfig';
 import { RegistrationWizard as DynamicRegistrationForm } from '@/components/forms/registration';
 import Link from 'next/link';
 import Image from 'next/image';
 import { isAccreditationClosed } from '@/lib/dates';
+import { isReadyToAccredit } from '@/lib/profile';
 import { BackButton } from '@/components/shared/ui';
 
 export default async function AcreditacionPage({
@@ -44,6 +46,11 @@ export default async function AcreditacionPage({
     // Solo pre-llenar si NO es admin ni superadmin (es un acreditado real)
     if (!isSuper && !isAdmin) {
       userProfile = await getProfileByUserId(user.id);
+
+      const returnTo = `/${slug}/acreditacion${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`;
+      if (!userProfile || !isReadyToAccredit(userProfile)) {
+        redirect(`/acreditado/perfil?from=acreditacion&returnTo=${encodeURIComponent(returnTo)}`);
+      }
     }
   }
 
@@ -95,6 +102,7 @@ export default async function AcreditacionPage({
   const disclaimerConfig = eventConfig.disclaimer as import('@/types').DisclaimerConfig | undefined;
   const eventZonas: string[] = (eventConfig as import('@/types').EventConfig).zonas || [];
   const zonaEnFormulario = !!(eventConfig as import('@/types').EventConfig).zona_en_formulario;
+  const responsableConfig = getResponsableConfigFromEventConfig(eventConfig as import('@/types').EventConfig);
   const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
     eventConfig,
     event.fecha_limite_acreditacion
@@ -161,6 +169,7 @@ export default async function AcreditacionPage({
             eventDays={eventDays}
             disclaimerConfig={disclaimerConfig}
             eventZonas={zonaEnFormulario ? eventZonas : []}
+            responsableConfig={responsableConfig}
             userProfile={userProfile ? {
               id: userProfile.id,
               rut: userProfile.rut,

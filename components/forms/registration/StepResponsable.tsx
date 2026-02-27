@@ -2,6 +2,9 @@
 
 import type { Profile } from '@/types';
 import type { ResponsableData } from './types';
+import { RESPONSABLE_OTHER_VALUE } from '@/lib/responsableConfig';
+import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 interface StepResponsableProps {
   responsable: ResponsableData;
@@ -15,6 +18,10 @@ interface StepResponsableProps {
   tenantColors: { primario: string; secundario: string };
   eventName: string;
   userProfile: Partial<Profile> | null;
+  organizationMode: 'text' | 'select';
+  organizationOptions: string[];
+  selectedOrganization: string;
+  organizationLinkPrefix: string;
 }
 
 export default function StepResponsable({
@@ -29,7 +36,17 @@ export default function StepResponsable({
   tenantColors,
   eventName,
   userProfile,
+  organizationMode,
+  organizationOptions,
+  selectedOrganization,
+  organizationLinkPrefix,
 }: StepResponsableProps) {
+  const isOtherSelected = organizationMode === 'select' && selectedOrganization === RESPONSABLE_OTHER_VALUE;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+  const accountHref = `/auth/acreditado?returnTo=${encodeURIComponent(returnTo)}`;
+
   return (
     <form onSubmit={handleResponsableSubmit} className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Section Card */}
@@ -177,16 +194,61 @@ export default function StepResponsable({
             {/* Organización */}
             <div>
               <label className="field-label">Organización / Medio *</label>
-              <input
-                type="text"
-                value={responsable.organizacion}
-                onChange={(e) => handleRespChange('organizacion', e.target.value)}
-                onBlur={() => handleRespBlur('organizacion')}
-                placeholder="Ej: Canal 13, Radio ADN"
-                className={getRespInputClass('organizacion')}
-              />
+              {organizationMode === 'select' ? (
+                <select
+                  value={selectedOrganization}
+                  onChange={(e) => handleRespChange('organizacion_select', e.target.value)}
+                  onBlur={() => handleRespBlur('organizacion')}
+                  className={getRespInputClass('organizacion')}
+                >
+                  <option value="">Selecciona una opción...</option>
+                  {organizationOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                  <option value={RESPONSABLE_OTHER_VALUE}>Otros</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={responsable.organizacion}
+                  onChange={(e) => handleRespChange('organizacion', e.target.value)}
+                  onBlur={() => handleRespBlur('organizacion')}
+                  placeholder="Ej: Canal 13, Radio ADN"
+                  className={getRespInputClass('organizacion')}
+                />
+              )}
               {respErrors.organizacion && <p className="mt-1 text-xs text-danger flex items-center gap-1"><i className="fas fa-exclamation-circle" /> {respErrors.organizacion}</p>}
             </div>
+
+            {isOtherSelected && (
+              <>
+                <div>
+                  <label className="field-label">Nombre de organización *</label>
+                  <input
+                    type="text"
+                    value={responsable.organizacion}
+                    onChange={(e) => handleRespChange('organizacion', e.target.value)}
+                    onBlur={() => handleRespBlur('organizacion')}
+                    placeholder="Ej: Mi Medio Digital"
+                    className={getRespInputClass('organizacion')}
+                  />
+                </div>
+
+                <div>
+                  <label className="field-label">Link (opcional)</label>
+                  <div className="flex rounded-lg border border-field-border bg-white overflow-hidden">
+                    <span className="px-3 py-2 text-sm text-muted bg-subtle border-r border-field-border">{organizationLinkPrefix}</span>
+                    <input
+                      type="text"
+                      value={responsable.organizacion_link_domain || ''}
+                      onChange={(e) => handleRespChange('organizacion_link_domain', e.target.value.replace(/^https?:\/\/(www\.)?/i, ''))}
+                      placeholder="midominio.cl"
+                      className="flex-1 px-3 py-2 text-sm text-heading outline-none"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>{/* close section card */}
@@ -212,7 +274,12 @@ export default function StepResponsable({
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-heading">¿Acreditas frecuentemente?</p>
             <p className="text-xs text-muted mt-0.5">
-              <a href="/auth/acreditado" className="text-brand font-semibold hover:underline">Crea una cuenta</a> para guardar tu equipo, reutilizar datos y hacer seguimiento de tus solicitudes.
+              <Link
+                href={accountHref}
+                className="text-brand font-semibold hover:underline"
+              >
+                Crea una cuenta
+              </Link> para guardar tu equipo, reutilizar datos y hacer seguimiento de tus solicitudes.
             </p>
           </div>
         </div>

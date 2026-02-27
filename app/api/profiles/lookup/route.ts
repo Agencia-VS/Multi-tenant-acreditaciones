@@ -8,6 +8,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getProfileByUserId, getProfileByEmail, getOrCreateProfile } from '@/lib/services';
 import { getCurrentUser } from '@/lib/services';
 import { profileCreateSchema, profileSignupSchema, profileUpdateSchema, safeParse } from '@/lib/schemas';
+import { cleanRut, normalizeDocumentByType, sanitize } from '@/lib/validation';
+import type { Profile } from '@/types';
+
+async function createMinimalProfileForUser(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }): Promise<Profile> {
+  const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
+  const supabase = createSupabaseAdminClient();
+
+  const meta = user.user_metadata || {};
+  const fullName = typeof meta.full_name === 'string' ? meta.full_name : typeof meta.name === 'string' ? meta.name : '';
+  const firstName = typeof meta.nombre === 'string' ? meta.nombre : (fullName ? fullName.split(' ')[0] : null);
+  const lastName = typeof meta.apellido === 'string' ? meta.apellido : (fullName ? fullName.split(' ').slice(1).join(' ') : null);
+
+  const tempDocumentNumber = `TEMP-${user.id}`;
+
+  const insertData: Record<string, unknown> = {
+    user_id: user.id,
+    nombre: firstName || null,
+    apellido: lastName || null,
+    email: user.email || null,
+    document_type: 'dni_extranjero',
+    document_number: tempDocumentNumber,
+    document_normalized: normalizeDocumentByType('dni_extranjero', tempDocumentNumber),
+    rut: null,
+  };
+
+  const { data: createdProfile, error } = await supabase
+    .from('profiles')
+    .insert(insertData as never)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return createdProfile as unknown as Profile;
+}
 
 /**
  * GET — Retorna el perfil del usuario autenticado.
@@ -42,6 +79,21 @@ export async function GET() {
     }
 
     if (!profile) {
+      // Garantiza perfil para cualquier usuario autenticado
+      try {
+        profile = await createMinimalProfileForUser(user as { id: string; email?: string | null; user_metadata?: Record<string, unknown> });
+        console.info(`[profiles/lookup] Perfil mínimo creado automáticamente para user_id ${user.id}`);
+      } catch (createError) {
+        // Condición de carrera: si otro proceso lo creó, volver a consultar
+        profile = await getProfileByUserId(user.id);
+        if (!profile) {
+          console.error('[profiles/lookup] Error autocreando perfil mínimo:', createError);
+          return NextResponse.json({ found: false, profile: null });
+        }
+      }
+    }
+
+    if (!profile) {
       return NextResponse.json({ found: false, profile: null });
     }
 
@@ -49,6 +101,8 @@ export async function GET() {
       found: true,
       profile: {
         id: profile.id,
+        document_type: (profile as unknown as Record<string, unknown>).document_type || null,
+        document_number: (profile as unknown as Record<string, unknown>).document_number || null,
         rut: profile.rut,
         nombre: profile.nombre,
         apellido: profile.apellido,
@@ -120,11 +174,15 @@ export async function POST(request: NextRequest) {
       // Create minimal profile — nombre/apellido/rut nullable after P0 migration
       const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
       const supabase = createSupabaseAdminClient();
+      const tempDocumentNumber = `TEMP-${user.id}`;
       const insertData: Record<string, unknown> = {
         user_id: user.id,
         nombre: body.nombre || null,
         apellido: body.apellido || null,
         email: body.email || user.email || null,
+        document_type: 'dni_extranjero',
+        document_number: tempDocumentNumber,
+        document_normalized: normalizeDocumentByType('dni_extranjero', tempDocumentNumber),
         rut: null,
       };
       const { data: newProfile, error: insertError } = await supabase
@@ -169,7 +227,29 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const updates = parsed.data;
+    const updates = { ...parsed.data } as Record<string, unknown>;
+
+    const existingRecord = profile as unknown as Record<string, unknown>;
+    const incomingDocType = typeof updates.document_type === 'string' ? updates.document_type : undefined;
+    const incomingDocNumber = typeof updates.document_number === 'string' ? sanitize(updates.document_number) : undefined;
+    const incomingRut = typeof updates.rut === 'string' ? sanitize(updates.rut) : undefined;
+
+    const resolvedDocType = (incomingDocType || (typeof existingRecord.document_type === 'string' ? existingRecord.document_type : 'rut')) === 'dni_extranjero'
+      ? 'dni_extranjero'
+      : 'rut';
+    const resolvedDocNumber = incomingDocNumber || incomingRut;
+
+    if (resolvedDocNumber) {
+      updates.document_type = resolvedDocType;
+      updates.document_number = resolvedDocNumber;
+      updates.document_normalized = normalizeDocumentByType(resolvedDocType, resolvedDocNumber);
+      updates.rut = resolvedDocType === 'rut' ? cleanRut(resolvedDocNumber) : null;
+    }
+
+    // Limpieza defensiva: no aceptar document_type sin documento
+    if (incomingDocType && !resolvedDocNumber) {
+      return NextResponse.json({ error: 'document_number es requerido cuando se informa document_type' }, { status: 400 });
+    }
 
     const { createSupabaseAdminClient } = await import('@/lib/supabase/server');
     const supabase = createSupabaseAdminClient();

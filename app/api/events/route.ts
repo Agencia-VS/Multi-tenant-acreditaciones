@@ -86,20 +86,26 @@ export async function POST(request: NextRequest) {
         const incomingConfig = ((parsed.data as Record<string, unknown>).config || {}) as Record<string, unknown>;
 
         const hasIncomingBulkTemplate = hasBulkTemplateSignalInConfig(incomingConfig);
+        const hasIncomingResponsable = Object.prototype.hasOwnProperty.call(incomingConfig, 'responsable');
+
+        const clonedConfig: Record<string, unknown> = { ...incomingConfig };
 
         if (!hasIncomingBulkTemplate) {
           const sourceBulkTemplate = extractRawBulkTemplateFromConfig(sourceConfig);
 
           if (sourceBulkTemplate) {
-            payload = {
-              ...parsed.data,
-              config: {
-                ...incomingConfig,
-                bulk_template_columns: sourceBulkTemplate,
-              },
-            };
+            clonedConfig.bulk_template_columns = sourceBulkTemplate;
           }
         }
+
+        if (!hasIncomingResponsable && sourceConfig.responsable && typeof sourceConfig.responsable === 'object') {
+          clonedConfig.responsable = sourceConfig.responsable;
+        }
+
+        payload = {
+          ...parsed.data,
+          config: clonedConfig,
+        };
       }
     }
 

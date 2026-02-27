@@ -13,7 +13,7 @@ import type { Event, EventConfig } from '@/types';
 export default function AdminConfigTab() {
   const { tenant, events, fetchData, refreshEvents, showSuccess, showError } = useAdmin();
   const eventForm = useEventForm();
-  const { form, formFields, quotaRules, zoneRules, zonas, bulkTemplateColumns, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
+  const { form, formFields, quotaRules, zoneRules, zonas, bulkTemplateColumns, responsableConfig, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
 
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -32,6 +32,7 @@ export default function AdminConfigTab() {
       const eventConfig: EventConfig = {};
       if (zonas.length > 0) eventConfig.zonas = zonas;
       if (bulkTemplateColumns.length > 0) eventConfig.bulk_template_columns = bulkTemplateColumns;
+      eventConfig.responsable = responsableConfig;
       eventConfig.disclaimer = {
         enabled: form.disclaimer_enabled,
         sections: form.disclaimer_sections,
@@ -90,6 +91,7 @@ export default function AdminConfigTab() {
       const updatedConfig: EventConfig = {
         ...existingConfig,
         zonas: zonas.length > 0 ? zonas : undefined,
+        responsable: responsableConfig,
         disclaimer: {
           enabled: form.disclaimer_enabled,
           sections: form.disclaimer_sections,

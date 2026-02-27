@@ -318,6 +318,10 @@ export default function RegistrationWizard(props: RegistrationFormProps) {
           tenantColors={tenantColors}
           eventName={eventName}
           userProfile={userProfile}
+          organizationMode={form.organizationMode}
+          organizationOptions={form.organizationOptions}
+          selectedOrganization={form.selectedOrganization}
+          organizationLinkPrefix={form.organizationLinkPrefix}
         />
       )}
 

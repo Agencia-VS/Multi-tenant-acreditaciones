@@ -15,6 +15,8 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface Profile {
   id: string;
+  document_type?: 'rut' | 'dni_extranjero' | null;
+  document_number?: string | null;
   rut: string;
   nombre: string;
   apellido: string;
@@ -35,6 +37,7 @@ interface FieldErrors {
 
 export default function PerfilPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileExists, setProfileExists] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -47,6 +50,10 @@ export default function PerfilPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const fromEquipo = searchParams.get('from') === 'equipo';
+  const safeReturnTo = (() => {
+    const value = searchParams.get('returnTo');
+    return value && value.startsWith('/') ? value : null;
+  })();
 
   /** Campos requeridos que aún faltan */
   const missingRequired = profile ? getMissingProfileFields(profile) : [];
@@ -57,15 +64,70 @@ export default function PerfilPage() {
     loadProfile();
   }, []);
 
+  useEffect(() => {
+    if (loading || !safeReturnTo || !profile) return;
+    if (isReadyToAccredit(profile)) {
+      router.replace(safeReturnTo);
+    }
+  }, [loading, profile, router, safeReturnTo]);
+
+  const buildDraftProfile = (params?: {
+    email?: string | null;
+    nombre?: string | null;
+    apellido?: string | null;
+  }): Profile => ({
+    id: 'draft',
+    document_type: 'rut',
+    document_number: '',
+    rut: '',
+    nombre: params?.nombre || '',
+    apellido: params?.apellido || '',
+    email: params?.email || null,
+    telefono: null,
+    medio: null,
+    tipo_medio: null,
+    cargo: null,
+    foto_url: null,
+    nacionalidad: null,
+    datos_base: {},
+  });
+
   const loadProfile = async () => {
     try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
       const res = await fetch('/api/profiles/lookup');
       const data = await res.json();
       if (data.found && data.profile) {
-        setProfile(data.profile);
+        setProfile({
+          ...data.profile,
+          document_type: data.profile.document_type || 'rut',
+          document_number: data.profile.document_number || data.profile.rut || '',
+        });
+        setProfileExists(true);
+      } else {
+        const meta = (user?.user_metadata || {}) as Record<string, unknown>;
+        const fullName = typeof meta.full_name === 'string'
+          ? meta.full_name
+          : (typeof meta.name === 'string' ? meta.name : '');
+        const nombre = typeof meta.nombre === 'string'
+          ? meta.nombre
+          : (fullName ? fullName.split(' ')[0] : '');
+        const apellido = typeof meta.apellido === 'string'
+          ? meta.apellido
+          : (fullName ? fullName.split(' ').slice(1).join(' ') : '');
+
+        setProfile(buildDraftProfile({
+          email: user?.email || null,
+          nombre,
+          apellido,
+        }));
+        setProfileExists(false);
       }
     } catch {
-      // ignore
+      setProfile(buildDraftProfile());
+      setProfileExists(false);
     } finally {
       setLoading(false);
     }
@@ -113,17 +175,46 @@ export default function PerfilPage() {
     setMessage('');
 
     try {
+      const isDraft = !profileExists || !profile.id || profile.id === 'draft';
+
+      if (isDraft) {
+        if (!profile.document_number || !profile.nombre?.trim() || !profile.apellido?.trim()) {
+          setMessage('Para crear tu perfil debes completar documento, nombre y apellido');
+          setSaving(false);
+          return;
+        }
+
+        const createRes = await fetch('/api/profiles/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: profile.email ? sanitize(profile.email) : null,
+          }),
+        });
+
+        const createData = await createRes.json();
+        if (!createRes.ok) {
+          setMessage(createData.error || 'Error al crear perfil');
+          showError(createData.error || 'Error al crear perfil');
+          setSaving(false);
+          return;
+        }
+
+        setProfileExists(true);
+      }
+
       const res = await fetch('/api/profiles/lookup', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          document_type: profile.document_type || 'rut',
+          document_number: profile.document_number ? sanitize(profile.document_number) : null,
           nombre: sanitize(profile.nombre),
           apellido: sanitize(profile.apellido),
           email: profile.email ? sanitize(profile.email) : null,
           telefono: profile.telefono ? sanitize(profile.telefono) : null,
           medio: profile.medio ? sanitize(profile.medio) : null,
           nacionalidad: profile.nacionalidad ? sanitize(profile.nacionalidad) : null,
-          ...(profile.rut ? { rut: sanitize(profile.rut) } : {}),
         }),
       });
 
@@ -135,14 +226,22 @@ export default function PerfilPage() {
         setMessage('Perfil actualizado correctamente');
         showSuccess('Perfil actualizado correctamente');
 
+        const updated = {
+          ...profile,
+          document_type: profile.document_type || 'rut',
+          document_number: profile.document_number ? sanitize(profile.document_number) : null,
+          nombre: sanitize(profile.nombre),
+          apellido: sanitize(profile.apellido),
+          medio: profile.medio ? sanitize(profile.medio) : null,
+        };
+
+        if (safeReturnTo && isReadyToAccredit(updated)) {
+          setTimeout(() => router.push(safeReturnTo), 900);
+          return;
+        }
+
         // Si vino desde equipo y ahora el perfil está completo → redirigir
         if (fromEquipo && profile) {
-          const updated = {
-            ...profile,
-            nombre: sanitize(profile.nombre),
-            apellido: sanitize(profile.apellido),
-            medio: profile.medio ? sanitize(profile.medio) : null,
-          };
           if (isProfileComplete(updated)) {
             setTimeout(() => router.push('/acreditado/equipo'), 1200);
           }
@@ -160,21 +259,7 @@ export default function PerfilPage() {
   }
 
   if (!profile) {
-    return (
-      <div className="text-center py-12 bg-white rounded-xl border max-w-md mx-auto">
-        <i className="fas fa-user-circle text-5xl text-edge mb-4" />
-        <p className="text-muted text-lg mb-2">Aún no tienes un perfil</p>
-        <p className="text-muted text-sm mb-6">
-          Completa tu registro para crear tu perfil y poder acreditarte a eventos.
-        </p>
-        <a
-          href="/acreditado"
-          className="inline-block px-6 py-2 bg-brand text-on-brand rounded-lg font-semibold hover:bg-brand-hover transition"
-        >
-          Ir al Dashboard
-        </a>
-      </div>
-    );
+    return <LoadingSpinner fullPage />;
   }
 
   const inputClass = 'w-full px-3 py-2 rounded-lg border border-field-border text-heading transition';
@@ -229,6 +314,18 @@ export default function PerfilPage() {
         </div>
       )}
 
+      {!profileExists && (
+        <div className="bg-info-light border border-info rounded-lg p-4 mb-6 flex items-start gap-3">
+          <i className="fas fa-user-plus text-info mt-0.5" />
+          <div>
+            <p className="font-semibold text-heading text-sm">Tu perfil se creará al guardar</p>
+            <p className="text-body text-xs mt-1">
+              Completa tus datos y presiona guardar para activar tu perfil de acreditado.
+            </p>
+          </div>
+        </div>
+      )}
+
       {message && (
         <div className={`p-3 rounded-lg text-sm mb-6 ${
           message.includes('Error') || message.includes('Corrige') ? 'bg-danger-light text-danger-dark' : 'bg-success-light text-success-dark'
@@ -253,7 +350,13 @@ export default function PerfilPage() {
                 ? `${profile.nombre || ''} ${profile.apellido || ''}`.trim()
                 : <span className="text-muted italic">Sin nombre</span>}
             </p>
-            {profile.rut && <p className="text-body font-mono text-sm">RUT: {formatRut(cleanRut(profile.rut))}</p>}
+            {(profile.document_number || profile.rut) && (
+              <p className="text-body font-mono text-sm">
+                {(profile.document_type || 'rut') === 'rut'
+                  ? `RUT: ${formatRut(cleanRut(profile.document_number || profile.rut || ''))}`
+                  : `Documento: ${profile.document_number || profile.rut}`}
+              </p>
+            )}
             {profile.email && <p className="text-body text-sm">{profile.email}</p>}
           </div>
         </div>
@@ -284,20 +387,45 @@ export default function PerfilPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <RequiredLabel field="rut">RUT</RequiredLabel>
-            <input
-              type="text"
-              value={profile.rut ? formatRut(cleanRut(profile.rut)) : ''}
-              onChange={(e) => {
-                const raw = cleanRut(e.target.value);
-                setProfile(prev => prev ? { ...prev, rut: raw } : null);
-              }}
-              placeholder="12.345.678-9"
-              className={isMissing('rut') ? missingInputClass : inputClass}
-              maxLength={12}
-            />
-            <p className="text-xs text-muted mt-1">Requerido para acreditarse a eventos</p>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-label mb-1">Tipo documento</label>
+              <select
+                value={profile.document_type || 'rut'}
+                onChange={(e) => setProfile(prev => prev ? { ...prev, document_type: e.target.value as 'rut' | 'dni_extranjero' } : null)}
+                className={inputClass}
+              >
+                <option value="rut">RUT (Chile)</option>
+                <option value="dni_extranjero">DNI / Pasaporte (Extranjero)</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <RequiredLabel field="document_number">Documento</RequiredLabel>
+              <input
+                type="text"
+                value={profile.document_number || ''}
+                onChange={(e) => {
+                  const type = profile.document_type || 'rut';
+                  const value = type === 'rut'
+                    ? e.target.value
+                      .replace(/[^0-9kK.-]/g, '')
+                      .replace(/\./g, '')
+                      .toUpperCase()
+                    : e.target.value;
+                  setProfile(prev => prev ? { ...prev, document_number: value } : null);
+                }}
+                onBlur={() => {
+                  if ((profile.document_type || 'rut') !== 'rut') return;
+                  const cleaned = cleanRut(profile.document_number || '');
+                  if (!cleaned) return;
+                  setProfile(prev => prev ? { ...prev, document_number: formatRut(cleaned) } : null);
+                }}
+                placeholder={(profile.document_type || 'rut') === 'rut' ? '12.345.678-9' : 'Ej: AB1234567'}
+                className={isMissing('document_number') ? missingInputClass : inputClass}
+                maxLength={(profile.document_type || 'rut') === 'rut' ? 12 : 32}
+              />
+              <p className="text-xs text-muted mt-1">Requerido para acreditarse a eventos</p>
+            </div>
           </div>
         </div>
 

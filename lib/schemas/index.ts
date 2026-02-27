@@ -161,6 +161,8 @@ export const profileSignupSchema = z.object({
 });
 
 export const profileUpdateSchema = z.object({
+  document_type: z.enum(['rut', 'dni_extranjero']).optional(),
+  document_number: safeString.optional(),
   rut: rutSchema.optional(),
   nombre: safeString.optional(),
   apellido: safeString.optional(),

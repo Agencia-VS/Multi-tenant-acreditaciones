@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getProfileByUserId } from '@/lib/services/profiles';
+import { normalizeDocumentByType } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -43,11 +44,15 @@ export async function GET(request: NextRequest) {
         if (!existing) {
           const meta = data.user.user_metadata || {};
           const adminClient = createSupabaseAdminClient();
+          const tempDocumentNumber = `TEMP-${data.user.id}`;
           const insertData: Record<string, unknown> = {
             user_id: data.user.id,
             nombre: meta.nombre || meta.full_name?.split(' ')[0] || meta.name?.split(' ')[0] || null,
             apellido: meta.apellido || meta.full_name?.split(' ').slice(1).join(' ') || meta.name?.split(' ').slice(1).join(' ') || null,
             email: data.user.email || null,
+            document_type: 'dni_extranjero',
+            document_number: tempDocumentNumber,
+            document_normalized: normalizeDocumentByType('dni_extranjero', tempDocumentNumber),
             rut: meta.rut || null,
           };
           await adminClient.from('profiles').insert(insertData as never);

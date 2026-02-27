@@ -90,6 +90,7 @@ export interface TemplateVars {
   info_especifica: string;
   notas_importantes: string;
   info_general: string;
+  [key: string]: string;
 }
 
 /**
@@ -99,23 +100,45 @@ export interface TemplateVars {
  * porque son generadas por el sistema o por admins de confianza.
  */
 export function replaceVars(template: string, vars: TemplateVars): string {
-  return template
-    .replace(/\{nombre\}/g, vars.nombre)
-    .replace(/\{apellido\}/g, vars.apellido)
-    .replace(/\{evento\}/g, vars.evento)
-    .replace(/\{fecha\}/g, vars.fecha)
-    .replace(/\{lugar\}/g, vars.lugar)
-    .replace(/\{organizacion\}/g, vars.organizacion)
-    .replace(/\{cargo\}/g, vars.cargo)
-    .replace(/\{motivo\}/g, vars.motivo)
-    .replace(/\{tenant\}/g, vars.tenant)
-    .replace(/\{zona\}/g, vars.zona)
-    .replace(/\{area\}/g, vars.area)
-    .replace(/\{qr_section\}/g, vars.qr_section)
-    .replace(/\{instrucciones_acceso\}/g, vars.instrucciones_acceso)
-    .replace(/\{info_especifica\}/g, vars.info_especifica)
-    .replace(/\{notas_importantes\}/g, vars.notas_importantes)
-    .replace(/\{info_general\}/g, vars.info_general);
+  let rendered = template;
+  for (const [key, value] of Object.entries(vars)) {
+    rendered = rendered.split(`{${key}}`).join(value ?? '');
+  }
+  return rendered;
+}
+
+function normalizeEventMailVariables(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+
+  const source = raw as Record<string, unknown>;
+  const result: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    if (!normalizedKey) continue;
+    const normalizedValue = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+    if (!normalizedValue) continue;
+    result[normalizedKey] = escapeHtml(normalizedValue);
+  }
+
+  return result;
+}
+
+async function getEventMailVariables(eventId: string): Promise<Record<string, string>> {
+  if (!eventId) return {};
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data } = await supabase
+      .from('events')
+      .select('config')
+      .eq('id', eventId)
+      .single();
+
+    const config = (data?.config || {}) as Record<string, unknown>;
+    return normalizeEventMailVariables(config.email_variables);
+  } catch {
+    return {};
+  }
 }
 
 /** Obtiene plantilla custom de la DB. Retorna null si no existe. */
@@ -179,6 +202,7 @@ function buildVars(
   tenant: Tenant,
   zoneContent: { titulo: string; instrucciones_acceso: string; info_especifica: string; notas_importantes: string } | null,
   infoGeneral: string | null,
+  eventVariables: Record<string, string>,
   motivo?: string
 ): TemplateVars {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -223,6 +247,7 @@ function buildVars(
     info_especifica: especifica,
     notas_importantes: notas,
     info_general: infoGeneral || '',
+    ...eventVariables,
   };
 }
 
@@ -344,15 +369,17 @@ function fallbackRejectionHtml(tenant: Tenant, vars: TemplateVars): string {
  */
 export async function sendApprovalEmail(
   registration: RegistrationFull,
-  tenant: Tenant
+  tenant: Tenant,
+  eventVariables?: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const zona = extractZona(registration);
-    const [custom, zoneContent] = await Promise.all([
+    const [custom, zoneContent, resolvedEventVars] = await Promise.all([
       getCustomTemplate(tenant.id, 'aprobacion'),
       getZoneContent(tenant.id, 'aprobacion', zona),
+      eventVariables ? Promise.resolve(eventVariables) : getEventMailVariables(registration.event_id),
     ]);
-    const vars = buildVars(registration, tenant, zoneContent, custom?.info_general || null);
+    const vars = buildVars(registration, tenant, zoneContent, custom?.info_general || null, resolvedEventVars);
 
     const subject = custom
       ? replaceVars(custom.subject, vars)
@@ -386,15 +413,17 @@ export async function sendApprovalEmail(
 export async function sendRejectionEmail(
   registration: RegistrationFull,
   tenant: Tenant,
-  motivo?: string
+  motivo?: string,
+  eventVariables?: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const zona = extractZona(registration);
-    const [custom, zoneContent] = await Promise.all([
+    const [custom, zoneContent, resolvedEventVars] = await Promise.all([
       getCustomTemplate(tenant.id, 'rechazo'),
       getZoneContent(tenant.id, 'rechazo', zona),
+      eventVariables ? Promise.resolve(eventVariables) : getEventMailVariables(registration.event_id),
     ]);
-    const vars = buildVars(registration, tenant, zoneContent, custom?.info_general || null, motivo);
+    const vars = buildVars(registration, tenant, zoneContent, custom?.info_general || null, resolvedEventVars, motivo);
 
     const subject = custom
       ? replaceVars(custom.subject, vars)
@@ -433,16 +462,25 @@ export async function sendBulkApprovalEmails(
   let skipped = 0;
   let errors = 0;
 
+  const uniqueEventIds = [...new Set(registrations.map(r => r.event_id).filter(Boolean))];
+  const eventVarsMap = new Map<string, Record<string, string>>();
+  await Promise.all(
+    uniqueEventIds.map(async (eventId) => {
+      eventVarsMap.set(eventId, await getEventMailVariables(eventId));
+    })
+  );
+
   for (const reg of registrations) {
     if (!reg.profile_email) { skipped++; continue; }
     // Solo enviar a estados finales (guard server-side)
     if (reg.status !== 'aprobado' && reg.status !== 'rechazado') { skipped++; continue; }
 
+    const eventVars = eventVarsMap.get(reg.event_id) || {};
     let result: { success: boolean; error?: string };
     if (reg.status === 'rechazado') {
-      result = await sendRejectionEmail(reg, tenant);
+      result = await sendRejectionEmail(reg, tenant, undefined, eventVars);
     } else {
-      result = await sendApprovalEmail(reg, tenant);
+      result = await sendApprovalEmail(reg, tenant, eventVars);
     }
     if (result.success) sent++;
     else errors++;
