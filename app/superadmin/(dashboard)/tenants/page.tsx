@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useToast, PageHeader, Modal, LoadingSpinner, FormActions, ButtonSpinner } from '@/components/shared/ui';
 import ImageUploadField from '@/components/shared/ImageUploadField';
-import type { TenantConfig } from '@/types';
+import type { TenantConfig, ProviderMode } from '@/types';
 
 interface Tenant {
   id: string;
@@ -52,6 +52,10 @@ export default function TenantsPage() {
   const [deleting, setDeleting] = useState<Tenant | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [togglingProviders, setTogglingProviders] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const loadTenants = useCallback(async () => {
@@ -67,6 +71,8 @@ export default function TenantsPage() {
 
   const handleEdit = (tenant: Tenant) => {
     setEditing(tenant);
+    setInviteCode(null);
+    setCodeCopied(false);
     setForm({
       nombre: tenant.nombre,
       slug: tenant.slug,
@@ -113,6 +119,66 @@ export default function TenantsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /** Activar/desactivar módulo proveedores via API */
+  const handleToggleProviders = async (tenantId: string, currentMode: ProviderMode | undefined) => {
+    const enabling = currentMode !== 'approved_only';
+    setTogglingProviders(tenantId);
+    try {
+      const res = await fetch('/api/providers/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId, enabled: enabling }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error al cambiar módulo');
+      }
+      const result = await res.json();
+      if (enabling && result.provider_invite_code) {
+        setInviteCode(result.provider_invite_code);
+      }
+      showSuccess(enabling ? 'Módulo de proveedores activado' : 'Módulo de proveedores desactivado');
+      loadTenants();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error al cambiar módulo');
+    } finally {
+      setTogglingProviders(null);
+    }
+  };
+
+  /** Regenerar código de invitación */
+  const handleRegenerateCode = async (tenantId: string) => {
+    setGeneratingCode(true);
+    try {
+      const res = await fetch('/api/providers/invite-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error al regenerar código');
+      }
+      const { code } = await res.json();
+      setInviteCode(code);
+      showSuccess('Nuevo código de invitación generado');
+      loadTenants();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error al regenerar código');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  /** Copiar enlace de invitación al clipboard */
+  const handleCopyInviteLink = (slug: string, code: string) => {
+    const url = `${window.location.origin}/${slug}/proveedores?code=${code}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
   };
 
   const generateSlug = (nombre: string) => {
@@ -269,6 +335,104 @@ export default function TenantsPage() {
                     />
                   </button>
                 </label>
+              </div>
+
+              {/* ═══ Módulo Proveedores ═══ */}
+              <div className="mt-4 p-4 bg-canvas rounded-xl">
+                <h4 className="text-sm font-semibold text-label mb-3">
+                  <i className="fas fa-user-shield mr-2 text-brand" />
+                  Proveedores Autorizados
+                </h4>
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-label">Modo proveedores</p>
+                    <p className="text-xs text-muted">Solo proveedores aprobados podrán acreditar personas. Requiere zonas configuradas.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={(form.config as TenantConfig)?.provider_mode === 'approved_only'}
+                    disabled={togglingProviders === editing?.id}
+                    onClick={() => {
+                      if (editing) {
+                        handleToggleProviders(editing.id, (form.config as TenantConfig)?.provider_mode);
+                        // Actualizar form local
+                        const newMode = (form.config as TenantConfig)?.provider_mode === 'approved_only' ? 'open' : 'approved_only';
+                        setForm(prev => ({
+                          ...prev,
+                          config: { ...prev.config, provider_mode: newMode },
+                        }));
+                      }
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                      (form.config as TenantConfig)?.provider_mode === 'approved_only' ? 'bg-success' : 'bg-edge'
+                    } ${togglingProviders === editing?.id ? 'opacity-50' : ''}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${
+                        (form.config as TenantConfig)?.provider_mode === 'approved_only' ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </label>
+
+                {/* Código de invitación (solo visible si modo proveedores activo) */}
+                {(form.config as TenantConfig)?.provider_mode === 'approved_only' && editing && (
+                  <div className="mt-4 pt-4 border-t border-edge">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-label">Código de invitación</p>
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerateCode(editing.id)}
+                        disabled={generatingCode}
+                        className="text-xs text-brand hover:text-info font-medium transition flex items-center gap-1"
+                      >
+                        {generatingCode ? (
+                          <><ButtonSpinner /> Generando...</>
+                        ) : (
+                          <><i className="fas fa-sync-alt" /> Regenerar</>
+                        )}
+                      </button>
+                    </div>
+                    {(() => {
+                      const code = inviteCode || ((editing.config as TenantConfig)?.provider_invite_code as string);
+                      if (!code) return <p className="text-xs text-muted">Sin código generado</p>;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 px-3 py-2 bg-subtle rounded-lg text-sm font-mono text-heading tracking-wider">
+                            {code}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyInviteLink(editing.slug, code)}
+                            className="px-3 py-2 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition flex items-center gap-1.5"
+                          >
+                            <i className={`fas ${codeCopied ? 'fa-check' : 'fa-link'}`} />
+                            {codeCopied ? 'Copiado' : 'Copiar enlace'}
+                          </button>
+                        </div>
+                      );
+                    })()}
+                    <p className="text-[11px] text-muted mt-2">
+                      Enlace: <span className="font-mono">/{editing.slug}/proveedores?code=...</span> — Compártelo con los proveedores que deseas invitar.
+                    </p>
+
+                    {/* Descripción para proveedores */}
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-label mb-1">Descripción (visible al proveedor)</label>
+                      <textarea
+                        value={((form.config as TenantConfig)?.provider_description as string) || ''}
+                        onChange={(e) => setForm(prev => ({
+                          ...prev,
+                          config: { ...prev.config, provider_description: e.target.value || undefined },
+                        }))}
+                        placeholder="Ej: Bienvenido al sistema de acreditaciones de Cruzados. Solicita acceso para poder acreditar a tu equipo."
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ═══ PuntoTicket Config ═══ */}
@@ -432,6 +596,12 @@ export default function TenantsPage() {
                   >
                     {tenant.activo ? 'Activo' : 'Inactivo'}
                   </span>
+
+                  {(tenant.config as TenantConfig)?.provider_mode === 'approved_only' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                      <i className="fas fa-user-shield mr-1" />Proveedores
+                    </span>
+                  )}
 
                   <div className="flex gap-2">
                     <a
