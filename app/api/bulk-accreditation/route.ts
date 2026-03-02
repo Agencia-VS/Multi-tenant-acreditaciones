@@ -21,6 +21,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEventById } from '@/lib/services';
 import { getCurrentUser, isSuperAdmin } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
+import { getProviderByTenantAndProfile } from '@/lib/services/providers';
+import { getTenantById } from '@/lib/services/tenants';
 import { logAuditAction } from '@/lib/services/audit';
 import { isAccreditationClosed } from '@/lib/dates';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
@@ -148,6 +150,7 @@ export async function POST(request: NextRequest) {
     // ── 2. Resolver usuario autenticado (submitter) ──
     let authUserId: string | undefined;
     let submitterProfileId: string | undefined;
+    let providerAllowedZones: string[] | null = null;
     try {
       const user = await getCurrentUser();
       if (user) {
@@ -160,6 +163,28 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch { /* no bloquear */ }
+
+    // ── 2b. Provider gate: si tenant es approved_only, validar proveedor ──
+    try {
+      const tenant = await getTenantById(event.tenant_id);
+      const tenantConfig = tenant?.config as Record<string, unknown> | undefined;
+      if (tenantConfig?.provider_mode === 'approved_only') {
+        if (!submitterProfileId) {
+          return NextResponse.json(
+            { error: 'Esta organización requiere ser proveedor autorizado para enviar acreditaciones' },
+            { status: 403 }
+          );
+        }
+        const provider = await getProviderByTenantAndProfile(event.tenant_id, submitterProfileId);
+        if (!provider || provider.status !== 'approved') {
+          return NextResponse.json(
+            { error: 'No tienes acceso como proveedor autorizado a esta organización' },
+            { status: 403 }
+          );
+        }
+        providerAllowedZones = provider.allowed_zones || [];
+      }
+    } catch { /* non-blocking: if tenant lookup fails, skip provider check */ }
 
     // ── 3. Validar filas y separar válidas/inválidas ──
     const results: BulkResultRow[] = [];
@@ -480,6 +505,21 @@ export async function POST(request: NextRequest) {
       if (!datosExtra.zona) {
         const autoZona = resolveZoneLocal(formData.cargo, formData.tipo_medio);
         if (autoZona) datosExtra.zona = autoZona;
+      }
+
+      // Provider zone validation: if provider has allowed_zones, verify the resolved zone
+      if (providerAllowedZones && providerAllowedZones.length > 0 && datosExtra.zona) {
+        if (!providerAllowedZones.includes(datosExtra.zona)) {
+          skippedResults.push({
+            row: index + 1,
+            rut: formData.rut,
+            nombre: `${formData.nombre} ${formData.apellido}`,
+            ok: false,
+            error: `Zona '${datosExtra.zona}' no permitida para tu acceso. Zonas autorizadas: ${providerAllowedZones.join(', ')}`,
+          });
+          errorCount++;
+          continue;
+        }
       }
 
       rpcRows.push({
