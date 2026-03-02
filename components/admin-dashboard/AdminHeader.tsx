@@ -7,7 +7,7 @@ import { useAdmin } from './AdminContext';
 import { ButtonSpinner } from '@/components/shared/ui';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChangePasswordModal from './ChangePasswordModal';
-import type { AdminTab } from '@/types';
+import type { AdminTab, TenantConfig } from '@/types';
 
 const AUTO_REFRESH_MS = 60_000; // 60s
 
@@ -50,12 +50,14 @@ export default function AdminHeader() {
   }, []);
 
   const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
+  const providerMode = (tenant?.config as TenantConfig | undefined)?.provider_mode;
 
   const tabs: { key: AdminTab; label: string; icon: string; badge?: number; newBadge?: number }[] = [
     { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge', badge: stats.pendientes, newBadge: newPendientes },
     { key: 'configuracion', label: 'Configuración', icon: 'fa-cog' },
     { key: 'mail', label: 'Mail', icon: 'fa-envelope' },
     ...(billingEnabled ? [{ key: 'plan' as AdminTab, label: 'Plan', icon: 'fa-crown' }] : []),
+    ...(providerMode === 'approved_only' ? [{ key: 'proveedores' as AdminTab, label: 'Proveedores', icon: 'fa-user-shield' }] : []),
   ];
 
   // Mark as seen when switching to the acreditaciones tab
