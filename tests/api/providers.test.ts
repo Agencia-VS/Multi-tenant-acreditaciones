@@ -38,6 +38,8 @@ vi.mock('@/lib/services', () => ({
   validateInviteCode: (...args: unknown[]) => mockValidateInviteCode(...args),
   toggleProviderMode: (...args: unknown[]) => mockToggleProviderMode(...args),
   logAuditAction: (...args: unknown[]) => mockLogAuditAction(...args),
+  getProfileByUserId: (...args: unknown[]) => mockGetProfileByUserId(...args),
+  getTenantById: (...args: unknown[]) => mockGetTenantById(...args),
 }));
 
 vi.mock('@/lib/services/requireAuth', () => ({

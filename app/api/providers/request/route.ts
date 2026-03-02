@@ -4,10 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createProviderRequest, validateInviteCode, getProviderByTenantAndProfile } from '@/lib/services';
+import { createProviderRequest, validateInviteCode, getProfileByUserId, getTenantById } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
-import { getProfileByUserId } from '@/lib/services/profiles';
-import { getTenantBySlug } from '@/lib/services/tenants';
 import { providerRequestSchema, safeParse } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
@@ -23,7 +21,6 @@ export async function POST(request: NextRequest) {
     const { tenant_id: tenantId, code, organizacion, mensaje } = parsed.data;
 
     // Obtener el tenant para validar el código
-    const { getTenantById } = await import('@/lib/services/tenants');
     const tenant = await getTenantById(tenantId);
     if (!tenant) {
       return NextResponse.json({ error: 'Organización no encontrada' }, { status: 404 });

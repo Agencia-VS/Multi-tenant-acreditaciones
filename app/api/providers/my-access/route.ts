@@ -4,9 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listProvidersByProfile } from '@/lib/services';
+import { listProvidersByProfile, getProfileByUserId } from '@/lib/services';
 import { requireAuth } from '@/lib/services/requireAuth';
-import { getProfileByUserId } from '@/lib/services/profiles';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
