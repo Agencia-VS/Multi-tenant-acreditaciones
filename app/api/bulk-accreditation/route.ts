@@ -336,6 +336,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fallback: buscar por columna legacy `rut` para perfiles que tengan document_normalized NULL
+    const rutNormalized = validRows
+      .filter(v => v.formData.document_type === 'rut')
+      .map(v => v.formData.document_normalized);
+    const missingRuts = rutNormalized.filter(n => !existingProfiles.has(docKey('rut', n)));
+    if (missingRuts.length > 0) {
+      for (const rutChunk of chunk(missingRuts, 100)) {
+        const { data: legacyProfiles } = await (supabase as any)
+          .from('profiles')
+          .select('id, rut, user_id, document_type, document_normalized')
+          .is('document_normalized', null)
+          .in('rut', rutChunk);
+        if (legacyProfiles) {
+          for (const p of legacyProfiles) {
+            const normalized = p.rut as string;
+            if (normalized && !existingProfiles.has(docKey('rut', normalized))) {
+              existingProfiles.set(docKey('rut', normalized), { id: p.id, user_id: p.user_id });
+            }
+          }
+        }
+      }
+    }
+
     // Separate new profiles from existing ones
     const profilesToCreate: Record<string, unknown>[] = [];
     const pendingProfileUpdates: { id: string; updates: Record<string, unknown> }[] = [];

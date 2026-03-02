@@ -66,6 +66,15 @@ function createFromMock() {
         select: vi.fn().mockReturnValue({
           limit: vi.fn().mockResolvedValue({ data: profileStore.slice(0, 1), error: null }),
           in: vi.fn().mockResolvedValue({ data: [...profileStore] }),
+          // Fallback query: .is('document_normalized', null).in('rut', [...])
+          is: vi.fn().mockReturnValue({
+            in: vi.fn().mockImplementation((_col: string, ruts: string[]) => {
+              const matches = profileStore.filter(
+                p => !p.document_normalized && p.rut && ruts.includes(p.rut)
+              );
+              return Promise.resolve({ data: matches });
+            }),
+          }),
         }),
         upsert: vi.fn().mockImplementation((rows: Array<{ rut?: string | null; nombre: string; document_type?: string; document_normalized?: string }>) => {
           const created = rows.map((r, i) => {
