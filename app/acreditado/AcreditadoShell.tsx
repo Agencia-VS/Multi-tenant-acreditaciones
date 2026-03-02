@@ -11,11 +11,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 const navItems = [
-  { href: '/acreditado', label: 'Inicio', icon: 'fas fa-home' },
-  { href: '/acreditado/dashboard', label: 'Mis Acreditaciones', icon: 'fas fa-ticket-alt' },
-  { href: '/acreditado/nueva', label: 'Nueva Solicitud', icon: 'fas fa-plus-circle' },
-  { href: '/acreditado/equipo', label: 'Mi Equipo', icon: 'fas fa-users' },
-  { href: '/acreditado/perfil', label: 'Mi Perfil', icon: 'fas fa-user' },
+  { href: '/acreditado', label: 'Inicio', icon: 'fas fa-home', mobileNav: true },
+  { href: '/acreditado/dashboard', label: 'Mis Acreditaciones', icon: 'fas fa-ticket-alt', mobileNav: true },
+  { href: '/acreditado/nueva', label: 'Nueva Solicitud', icon: 'fas fa-plus-circle', mobileNav: true },
+  { href: '/acreditado/equipo', label: 'Mi Equipo', icon: 'fas fa-users', mobileNav: true },
+  { href: '/acreditado/organizaciones', label: 'Organizaciones', icon: 'fas fa-building', mobileNav: false },
+  { href: '/acreditado/perfil', label: 'Mi Perfil', icon: 'fas fa-user', mobileNav: true },
 ];
 
 export default function AcreditadoShell({
@@ -149,7 +150,7 @@ export default function AcreditadoShell({
       {/* ── Mobile bottom nav ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-edge pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch">
-          {navItems.slice(0, 5).map((item) => {
+          {navItems.filter(i => i.mobileNav).slice(0, 5).map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
