@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Profile, FormFieldDefinition, TenantProfileStatus } from '@/types';
 import { buildMergedAutofillData } from '@/lib/services/autofill';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface TenantProfileState {
   profile: Partial<Profile> | null;
@@ -102,6 +103,10 @@ export function useTenantProfile() {
     formKeys: string[]
   ): Promise<boolean> => {
     try {
+      // Check auth locally (no HTTP call) to avoid a 401 POST that the browser logs in red
+      const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+      if (!sessionData?.session) return false;
+
       const res = await fetch('/api/profiles/tenant-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,13 +114,15 @@ export function useTenantProfile() {
       });
 
       if (!res.ok) {
+        // Silently ignore auth failures — non-critical persistence
+        if (res.status === 401 || res.status === 403) return false;
         console.warn('[useTenantProfile] Error saving tenant data:', res.status);
         return false;
       }
 
       return true;
     } catch {
-      console.warn('[useTenantProfile] Error saving tenant data');
+      // Non-critical: don't log noise for network/auth issues
       return false;
     }
   }, []);

@@ -751,10 +751,13 @@ export function useRegistrationForm(props: RegistrationFormProps) {
       const results: SubmitResult[] = [];
 
       if (!res.ok || (data?.errors && data?.success === 0)) {
-        console.warn('[BulkAccreditation] submit failed', {
+        // Use console.log instead of console.warn to avoid red/orange noise in devtools
+        // This is expected behavior for validation failures (duplicates, quota, etc.)
+        console.log('[BulkAccreditation] submit result:', {
           trace_id: data?.trace_id,
-          blocking_errors: data?.blocking_errors,
-          response: data,
+          success: data?.success,
+          errors: data?.errors,
+          blocking_errors: data?.blocking_errors?.length ?? 0,
         });
       }
 

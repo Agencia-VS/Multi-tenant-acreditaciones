@@ -3,6 +3,15 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+
+// Mock Supabase browser client before importing the hook
+const mockGetSession = vi.fn();
+vi.mock('@/lib/supabase/client', () => ({
+  getSupabaseBrowserClient: () => ({
+    auth: { getSession: mockGetSession },
+  }),
+}));
+
 import { useTenantProfile, useTenantStatuses } from '@/hooks/useTenantProfile';
 
 const mockFetch = vi.fn();
@@ -11,6 +20,8 @@ global.fetch = mockFetch;
 describe('useTenantProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: simulate an active session
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
   });
 
   it('starts with initial state', () => {
