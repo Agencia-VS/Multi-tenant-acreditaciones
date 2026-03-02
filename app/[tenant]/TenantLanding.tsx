@@ -20,6 +20,8 @@ interface TenantLandingProps {
   tenant: Tenant;
   event: Event | null;
   slug: string;
+  providerMode?: boolean;
+  providerStatus?: string | null;
 }
 
 interface SocialLinks {
@@ -29,7 +31,7 @@ interface SocialLinks {
   youtube?: string;
 }
 
-export default function TenantLanding({ tenant, event, slug }: TenantLandingProps) {
+export default function TenantLanding({ tenant, event, slug, providerMode, providerStatus }: TenantLandingProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navTarget, setNavTarget] = useState<string | null>(null);
   const router = useRouter();
@@ -428,6 +430,49 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
 
             {/* ── CTA Section ── */}
             <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in-delay-2">
+              {providerMode && providerStatus !== 'approved' ? (
+                /* ── Provider mode: restricted CTA ── */
+                <div
+                  className="rounded-2xl px-6 py-5 backdrop-blur-md text-center max-w-sm"
+                  style={{ background: `${p.forest}80`, border: `1px solid ${p.bright}20` }}
+                >
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+                    style={{ background: `${p.bright}20` }}
+                  >
+                    <i className="fas fa-shield-alt text-lg" style={{ color: `${p.bright}90` }} />
+                  </div>
+                  <p className="text-sm font-semibold text-white mb-1">
+                    {providerStatus === 'pending'
+                      ? 'Solicitud en revisión'
+                      : providerStatus === 'rejected'
+                        ? 'Acceso no concedido'
+                        : providerStatus === 'suspended'
+                          ? 'Acceso suspendido'
+                          : 'Proveedores autorizados'}
+                  </p>
+                  <p className="text-xs text-white/70">
+                    {providerStatus === 'pending'
+                      ? 'Tu solicitud de acceso está siendo revisada. Te notificaremos cuando sea procesada.'
+                      : providerStatus === 'rejected'
+                        ? 'Tu solicitud de acceso no fue aprobada. Contacta al administrador.'
+                        : providerStatus === 'suspended'
+                          ? 'Tu acceso ha sido suspendido temporalmente.'
+                          : 'Esta organización trabaja con proveedores autorizados. Si recibiste un enlace de invitación, úsalo para solicitar acceso.'}
+                  </p>
+                  {!providerStatus && (
+                    <button
+                      onClick={() => handleNavClick('/auth/acreditado', 'cuenta-sub')}
+                      disabled={isNavigating}
+                      className="mt-3 text-xs font-medium transition-snappy hover:opacity-80 underline"
+                      style={{ color: `${p.bright}90` }}
+                    >
+                      Iniciar sesión
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* ── Normal CTA ── */
+                <>
               <button
                 onClick={handleNavigate}
                 disabled={isNavigating}
@@ -476,6 +521,8 @@ export default function TenantLanding({ tenant, event, slug }: TenantLandingProp
                 )}
                 ¿Ya tienes cuenta? Entra aquí
               </button>
+                </>
+              )}
             </div>
           </div>
         ) : (

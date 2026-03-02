@@ -19,7 +19,7 @@ interface ActiveEvent {
   fecha: string | null;
   fecha_limite_acreditacion: string | null;
   venue: string | null;
-  tenant: { nombre: string; slug: string; shield_url: string | null; color_primario: string };
+  tenant: { id: string; nombre: string; slug: string; shield_url: string | null; color_primario: string; config: Record<string, unknown> | null };
 }
 
 interface ProfileData {
@@ -43,21 +43,50 @@ export default function NuevaSolicitudPage() {
       const [eventsRes, profileRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, nombre, fecha, fecha_limite_acreditacion, venue, tenant:tenants(nombre, slug, shield_url, color_primario)')
+          .select('id, nombre, fecha, fecha_limite_acreditacion, venue, tenant:tenants(id, nombre, slug, shield_url, color_primario, config)')
           .eq('is_active', true)
           .order('fecha', { ascending: true }),
         fetch('/api/profiles/lookup').then(r => r.json()).catch(() => null),
       ]);
 
-      if (eventsRes.data) {
-        const open = (eventsRes.data as unknown as ActiveEvent[]).filter(
-          (e) => !isDeadlinePast(e.fecha_limite_acreditacion)
-        );
-        setEvents(open);
-      }
-
+      // Obtener tenant IDs con approved_only para filtrar
+      let approvedTenantIds: Set<string> = new Set();
       if (profileRes?.found && profileRes.profile) {
         setProfile(profileRes.profile);
+
+        // Fetch provider accesses for the user
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const provRes = await fetch('/api/providers/my-access', {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (provRes.ok) {
+              const provData = await provRes.json();
+              approvedTenantIds = new Set(
+                provData
+                  .filter((p: { status: string }) => p.status === 'approved')
+                  .map((p: { tenant_id: string }) => p.tenant_id)
+              );
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (eventsRes.data) {
+        const open = (eventsRes.data as unknown as ActiveEvent[]).filter((e) => {
+          if (isDeadlinePast(e.fecha_limite_acreditacion)) return false;
+
+          // Filter provider-only events: only show if user is approved provider
+          const tenant = Array.isArray(e.tenant) ? e.tenant[0] : e.tenant;
+          const tenantConfig = tenant?.config as Record<string, unknown> | null;
+          if (tenantConfig?.provider_mode === 'approved_only') {
+            return approvedTenantIds.has(tenant?.id || '');
+          }
+
+          return true;
+        });
+        setEvents(open);
       }
 
       setLoading(false);

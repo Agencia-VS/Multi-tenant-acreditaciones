@@ -13,6 +13,7 @@ import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { isSuperAdmin, isTenantAdmin } from '@/lib/services/auth';
 import { listEventDays } from '@/lib/services/eventDays';
+import { getProviderByTenantAndProfile } from '@/lib/services/providers';
 import { notFound, redirect } from 'next/navigation';
 import { getResponsableConfigFromEventConfig } from '@/lib/responsableConfig';
 import { RegistrationWizard as DynamicRegistrationForm } from '@/components/forms/registration';
@@ -38,11 +39,13 @@ export default async function AcreditacionPage({
   // Superadmins y tenant admins NO deben pre-llenar — la acreditación es solo para acreditados.
   const user = await getCurrentUser();
   let userProfile = null;
+  let isAdminUser = false;
   if (user) {
     const [isSuper, isAdmin] = await Promise.all([
       isSuperAdmin(user.id),
       isTenantAdmin(user.id, tenant.id),
     ]);
+    isAdminUser = isSuper || isAdmin;
     // Solo pre-llenar si NO es admin ni superadmin (es un acreditado real)
     if (!isSuper && !isAdmin) {
       userProfile = await getProfileByUserId(user.id);
@@ -51,6 +54,66 @@ export default async function AcreditacionPage({
       if (!userProfile || !isReadyToAccredit(userProfile)) {
         redirect(`/acreditado/perfil?from=acreditacion&returnTo=${encodeURIComponent(returnTo)}`);
       }
+    }
+  }
+
+  // ─── Gate de proveedor: si modo approved_only, verificar acceso ───
+  const isProviderMode = tenant.config?.provider_mode === 'approved_only';
+  let providerAllowedZones: string[] | null = null;
+
+  if (isProviderMode && !isAdminUser) {
+    // Si no está logueado → redirect a login con returnTo
+    if (!user) {
+      const returnTo = `/${slug}/acreditacion${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`;
+      redirect(`/auth/acreditado?returnTo=${encodeURIComponent(returnTo)}`);
+    }
+
+    // Si está logueado, verificar que sea proveedor aprobado
+    if (userProfile) {
+      const provider = await getProviderByTenantAndProfile(tenant.id, userProfile.id);
+
+      if (!provider || provider.status !== 'approved') {
+        // Not approved → show access restricted page
+        const statusMsg = !provider
+          ? 'No tienes acceso como proveedor a esta organización.'
+          : provider.status === 'pending'
+            ? 'Tu solicitud de acceso está en revisión. Te notificaremos cuando sea aprobada.'
+            : provider.status === 'rejected'
+              ? 'Tu solicitud de acceso no fue aprobada.'
+              : 'Tu acceso está suspendido. Contacta al administrador.';
+
+        return (
+          <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
+            <div className="text-center max-w-md">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-shield-alt text-2xl text-amber-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-heading mb-2">Acceso Restringido</h1>
+              <p className="text-body mt-2">{statusMsg}</p>
+              <p className="text-muted text-sm mt-4">
+                Esta organización trabaja con proveedores autorizados.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+                <Link
+                  href="/acreditado/organizaciones"
+                  className="px-4 py-2 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-brand-hover transition"
+                >
+                  Mis Organizaciones
+                </Link>
+                <Link
+                  href={`/${slug}`}
+                  className="px-4 py-2 bg-canvas border border-edge text-body rounded-lg text-sm font-medium hover:bg-surface transition"
+                >
+                  Volver
+                </Link>
+              </div>
+            </div>
+          </main>
+        );
+      }
+
+      // Proveedor aprobado → guardar zonas para filtrado
+      providerAllowedZones = provider.allowed_zones || [];
     }
   }
 
@@ -100,9 +163,14 @@ export default async function AcreditacionPage({
   // Verificar si la acreditación está cerrada (override manual + fecha límite)
   const eventConfig = event.config ?? {};
   const disclaimerConfig = eventConfig.disclaimer as import('@/types').DisclaimerConfig | undefined;
-  const eventZonas: string[] = (eventConfig as import('@/types').EventConfig).zonas || [];
+  const eventZonasRaw: string[] = (eventConfig as import('@/types').EventConfig).zonas || [];
   const zonaEnFormulario = !!(eventConfig as import('@/types').EventConfig).zona_en_formulario;
   const responsableConfig = getResponsableConfigFromEventConfig(eventConfig as import('@/types').EventConfig);
+
+  // Si es proveedor aprobado y hay zonas asignadas, intersectar con las zonas del evento
+  const eventZonas = (providerAllowedZones && zonaEnFormulario)
+    ? eventZonasRaw.filter(z => providerAllowedZones.includes(z))
+    : eventZonasRaw;
   const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
     eventConfig,
     event.fecha_limite_acreditacion

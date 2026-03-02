@@ -17,7 +17,7 @@ interface ActiveEvent {
   fecha: string | null;
   venue: string | null;
   fecha_limite_acreditacion: string | null;
-  tenant: { nombre: string; slug: string; shield_url: string | null; color_primario: string };
+  tenant: { id: string; nombre: string; slug: string; shield_url: string | null; color_primario: string; config: Record<string, unknown> | null };
 }
 
 export default function AcreditadoHomePage() {
@@ -49,14 +49,41 @@ export default function AcreditadoHomePage() {
       }
     } catch { /* ignore */ }
 
-    // Get active events
-    const { data: eventsData } = await supabase
-      .from('events')
-      .select('id, nombre, fecha, venue, fecha_limite_acreditacion, tenant:tenants(nombre, slug, logo_url, shield_url, color_primario)')
-      .eq('is_active', true)
-      .order('fecha', { ascending: true });
+    // Get active events + provider accesses in parallel
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (eventsData) setEvents(eventsData as unknown as ActiveEvent[]);
+    const [eventsResult, providerAccesses] = await Promise.all([
+      supabase
+        .from('events')
+        .select('id, nombre, fecha, venue, fecha_limite_acreditacion, tenant:tenants(id, nombre, slug, logo_url, shield_url, color_primario, config)')
+        .eq('is_active', true)
+        .order('fecha', { ascending: true }),
+      session
+        ? fetch('/api/providers/my-access', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    // Build set of approved tenant IDs
+    const approvedTenantIds = new Set(
+      (providerAccesses as { status: string; tenant_id: string }[])
+        .filter(p => p.status === 'approved')
+        .map(p => p.tenant_id)
+    );
+
+    if (eventsResult.data) {
+      // Filter: hide approved_only tenant events unless user is approved provider
+      const filtered = (eventsResult.data as unknown as ActiveEvent[]).filter(e => {
+        const tenant = Array.isArray(e.tenant) ? e.tenant[0] : e.tenant;
+        const tenantConfig = tenant?.config as Record<string, unknown> | null;
+        if (tenantConfig?.provider_mode === 'approved_only') {
+          return approvedTenantIds.has(tenant?.id || '');
+        }
+        return true;
+      });
+      setEvents(filtered);
+    }
 
     // Get tenant completion statuses
     try {
