@@ -281,6 +281,33 @@ export const adminCreateSchema = z.object({
   rol: z.enum(['admin', 'editor', 'viewer']).optional().default('admin'),
 });
 
+/* ─── Providers ──────────────────────────────────────────────────── */
+
+export const providerRequestSchema = z.object({
+  tenant_id: uuidSchema,
+  code: z.string().min(1, 'Código de invitación es requerido'),
+  organizacion: safeString.optional(),
+  mensaje: z.string().max(1000).optional(),
+});
+
+export const providerApproveSchema = z.object({
+  allowed_zones: z.array(safeString.pipe(z.string().min(1))).min(1, 'Debes asignar al menos una zona'),
+  notas: z.string().max(1000).optional(),
+});
+
+export const providerRejectSchema = z.object({
+  motivo: z.string().max(1000).optional(),
+});
+
+export const providerUpdateZonesSchema = z.object({
+  allowed_zones: z.array(safeString.pipe(z.string().min(1))).min(1, 'Debes asignar al menos una zona'),
+});
+
+export const providerToggleSchema = z.object({
+  tenant_id: uuidSchema,
+  enabled: z.boolean(),
+});
+
 /* ─── Helper: parse seguro que retorna NextResponse compatible ──── */
 
 export type ParseResult<T> = 
