@@ -203,9 +203,12 @@ export async function GET(request: NextRequest) {
                     typeof o === 'string' ? o : o.value
                   );
                 }
+                // Normalizar campo rut → document_number con header "Documento"
+                const key = f.key === 'rut' ? 'document_number' : f.key;
+                const header = f.key === 'rut' ? 'Documento' : f.label;
                 return {
-                  key: f.key,
-                  header: f.label,
+                  key,
+                  header,
                   required: f.required,
                   example: getFieldExample(f.key, f.type),
                   width: f.key === 'email' ? 28 : (f.key === 'rut' || f.key === 'document_number') ? 20 : 20,
