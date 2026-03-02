@@ -679,7 +679,12 @@ export function useRegistrationForm(props: RegistrationFormProps) {
         const documentType = a.document_type || 'rut';
         const documentNumber = sanitize(a.rut);
         const dynamicEntries = Object.entries(a.dynamicData || {})
-          .filter(([k]) => !['tipo_medio', 'organizacion', 'empresa', 'cargo', 'email', 'telefono'].includes(k))
+          .filter(([k]) => ![
+            // Base identity fields — never override from dynamicData
+            'rut', 'document_type', 'document_number', 'nombre', 'apellido',
+            // Already set explicitly above
+            'tipo_medio', 'organizacion', 'empresa', 'cargo', 'email', 'telefono',
+          ].includes(k))
           .map(([k, v]) => [k, sanitize(v)]);
         allRows.push({
           document_type: documentType,

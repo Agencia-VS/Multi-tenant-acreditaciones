@@ -84,7 +84,13 @@ function buildBlockingSummary(rows: BulkResultRow[]): string {
   return `${sample}${more}`;
 }
 
-function allOrNothingError(summary: string): string {
+function allOrNothingError(summary: string, totalRows: number = 2): string {
+  if (totalRows <= 1) {
+    // Single-row batch: don't reference "other people"
+    return summary
+      ? `No se procesó: ${summary}`
+      : 'No se procesó: error de validación';
+  }
   return summary
     ? `No se procesó: se encontraron errores en otras personas del lote. ${summary}`
     : 'No se procesó: se encontraron errores en otras personas del lote';
@@ -242,7 +248,7 @@ export async function POST(request: NextRequest) {
           rut: formData.rut,
           nombre: `${formData.nombre} ${formData.apellido}`,
           ok: false,
-          error: allOrNothingError(summary),
+          error: allOrNothingError(summary, rows.length),
         });
       }
       results.sort((a, b) => a.row - b.row);
@@ -500,7 +506,7 @@ export async function POST(request: NextRequest) {
           rut: vr.formData.rut,
           nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
           ok: false,
-          error: allOrNothingError(summary),
+          error: allOrNothingError(summary, rows.length),
         });
         errorCount++;
       }
@@ -519,6 +525,7 @@ export async function POST(request: NextRequest) {
     if (rpcRows.length > 0) {
       // ── Pre-check: duplicates against existing registrations ──
       const allProfileIds = [...new Set(rpcRows.map(r => r.profile_id))];
+      console.log(`[BulkAccreditation] trace=${traceId} rpcRows=${rpcRows.length} allProfileIds=${allProfileIds.length}`);
       const duplicateProfileIds = new Set<string>();
       for (const pidChunk of chunk(allProfileIds, 100)) {
         const { data: existingRegs } = await supabase
@@ -615,7 +622,7 @@ export async function POST(request: NextRequest) {
             rut: vr.formData.rut,
             nombre,
             ok: false,
-            error: ownError || allOrNothingError(summary),
+            error: ownError || allOrNothingError(summary, rpcRows.length),
           });
           errorCount++;
         }
@@ -676,18 +683,23 @@ export async function POST(request: NextRequest) {
         });
       } else {
         // Parse individual results from the RPC response
-        const rowResults = (rpcResults || []) as Array<{
+        // The RPC returns JSONB — ensure row_index comparison handles type coercion
+        const rawResults = rpcResults || [];
+        const rowResults = (Array.isArray(rawResults) ? rawResults : []) as Array<{
           row_index: number;
           ok: boolean;
           error?: string;
           reg_id?: string;
         }>;
 
+        console.log(`[BulkAccreditation] trace=${traceId} rpcResults count=${rowResults.length} rpcRows count=${rpcRows.length}`);
+
         const successfulRegIds = rowResults
           .filter(r => r.ok && !!r.reg_id)
           .map(r => r.reg_id as string);
+        // Use loose equality (==) for row_index comparison to handle JSONB int vs JS number edge cases
         const hasAnyFailure = rpcRows.some(rpcRow => {
-          const rr = rowResults.find(r => r.row_index === rpcRow.row_index);
+          const rr = rowResults.find(r => r.row_index == rpcRow.row_index);
           return !rr?.ok;
         });
 
@@ -706,15 +718,16 @@ export async function POST(request: NextRequest) {
 
           const blockingErrors = rpcRows
             .map((rpcRow) => {
-              const rr = rowResults.find(r => r.row_index === rpcRow.row_index);
+              const rr = rowResults.find(r => r.row_index == rpcRow.row_index);
               const vr = validRows.find(v => v.index === rpcRow.row_index)!;
               if (!rr) {
+                console.warn(`[BulkAccreditation] trace=${traceId} No RPC result for row_index=${rpcRow.row_index}. Available: ${JSON.stringify(rowResults.map(r => r.row_index))}`);
                 return {
                   row: rpcRow.row_index + 1,
                   rut: vr.formData.rut,
                   nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
                   ok: false,
-                  error: 'La validación masiva no devolvió detalle para esta fila (RPC sin detalle).',
+                  error: 'Error interno: la validación masiva no devolvió detalle para esta persona.',
                 } as BulkResultRow;
               }
               if (rr.ok) return null;
@@ -731,16 +744,18 @@ export async function POST(request: NextRequest) {
 
           for (const rpcRow of rpcRows) {
             const vr = validRows.find(v => v.index === rpcRow.row_index)!;
-            const rr = rowResults.find(r => r.row_index === rpcRow.row_index);
-            const hasRowError = rr && !rr.ok;
+            // Use loose equality for JSONB int ↔ JS number compatibility
+            const rr = rowResults.find(r => r.row_index == rpcRow.row_index);
+            // A row has its own error if: (a) RPC returned error for it, OR (b) no RPC result at all
+            const hasRowError = !rr || !rr.ok;
             results.push({
               row: rpcRow.row_index + 1,
               rut: vr.formData.rut,
               nombre: `${vr.formData.nombre} ${vr.formData.apellido}`,
               ok: false,
               error: hasRowError
-                ? (rr?.error || 'Error desconocido')
-                : allOrNothingError(summary),
+                ? (rr?.error || 'Error interno: sin detalle de validación para esta persona')
+                : allOrNothingError(summary, rpcRows.length),
             });
             errorCount++;
           }
@@ -755,8 +770,8 @@ export async function POST(request: NextRequest) {
             results,
           });
         } else {
-          // Build a map for quick lookup
-          const resultMap = new Map(rowResults.map(r => [r.row_index, r]));
+          // Build a map for quick lookup — coerce row_index to number for safe matching
+          const resultMap = new Map(rowResults.map(r => [Number(r.row_index), r]));
 
           for (const rpcRow of rpcRows) {
             const vr = validRows.find(v => v.index === rpcRow.row_index)!;
