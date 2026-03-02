@@ -238,9 +238,12 @@ export default async function AcreditacionPage({
             disclaimerConfig={disclaimerConfig}
             eventZonas={zonaEnFormulario ? eventZonas : []}
             responsableConfig={responsableConfig}
+            providerAllowedZones={providerAllowedZones}
             userProfile={userProfile ? {
               id: userProfile.id,
               rut: userProfile.rut,
+              document_type: (userProfile as Record<string, unknown>).document_type as string | undefined,
+              document_number: (userProfile as Record<string, unknown>).document_number as string | undefined,
               nombre: userProfile.nombre,
               apellido: userProfile.apellido,
               email: userProfile.email,

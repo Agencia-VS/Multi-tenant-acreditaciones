@@ -21,7 +21,7 @@ interface ProviderStats {
 }
 
 export default function AdminProvidersTab() {
-  const { tenant, showSuccess, showError } = useAdmin();
+  const { tenant, events, showSuccess, showError } = useAdmin();
   const [providers, setProviders] = useState<TenantProviderFull[]>([]);
   const [stats, setStats] = useState<ProviderStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,14 @@ export default function AdminProvidersTab() {
 
   const tenantId = tenant?.id || '';
   const tenantSlug = tenant?.slug || '';
-  const zonas: string[] = (tenant?.config as TenantConfig)?.zonas || [];
+  // Aggregate zones from ALL events + tenant config, deduplicated
+  const zonas: string[] = (() => {
+    const tenantZonas: string[] = (tenant?.config as TenantConfig)?.zonas || [];
+    const eventZonas: string[] = events.flatMap(
+      e => ((e.config as import('@/types').EventConfig)?.zonas || [])
+    );
+    return [...new Set([...tenantZonas, ...eventZonas])];
+  })();
   const currentCode = inviteCode || (tenant?.config as TenantConfig)?.provider_invite_code || '';
 
   // ─── Fetch providers ─────────────────────────────

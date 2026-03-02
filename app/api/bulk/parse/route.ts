@@ -159,6 +159,11 @@ export async function GET(request: NextRequest) {
     const tenantSlug = searchParams.get('tenant') || 'accredia';
     const color = searchParams.get('color') || '1a1a2e';
     const eventId = searchParams.get('event_id');
+    // Provider zone restriction: comma-separated allowed zones
+    const allowedZonesParam = searchParams.get('allowed_zones');
+    const providerAllowedZones = allowedZonesParam
+      ? allowedZonesParam.split(',').map(z => z.trim()).filter(Boolean)
+      : null;
 
     // Resolver columnas: dinámicas desde evento o fallback
     let columns = DEFAULT_BULK_COLUMNS;
@@ -233,7 +238,11 @@ export async function GET(request: NextRequest) {
     if (event && !hasCustomBulkTemplate) {
       try {
         const cfg = (event.config || {}) as EventConfig;
-        const zonas = cfg.zonas || [];
+        let zonas = cfg.zonas || [];
+        // If provider has restricted zones, intersect with event zones
+        if (providerAllowedZones && providerAllowedZones.length > 0) {
+          zonas = zonas.filter(z => providerAllowedZones.includes(z));
+        }
         const hasZonaCol = columns.some(c => c.key === 'zona');
         if (zonas.length > 0 && !hasZonaCol) {
           columns = [
@@ -249,6 +258,17 @@ export async function GET(request: NextRequest) {
           ];
         }
       } catch { /* ignore */ }
+    }
+
+    // Also filter zona options in custom templates when provider has restrictions
+    if (providerAllowedZones && providerAllowedZones.length > 0) {
+      columns = columns.map(col => {
+        if (col.key === 'zona' && col.options && col.options.length > 0) {
+          const filtered = col.options.filter(z => providerAllowedZones.includes(z));
+          return { ...col, options: filtered, example: filtered[0] || col.example };
+        }
+        return col;
+      });
     }
 
     const wb = new ExcelJS.Workbook();
