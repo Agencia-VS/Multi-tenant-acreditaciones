@@ -53,9 +53,6 @@ export default function TenantsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [togglingProviders, setTogglingProviders] = useState<string | null>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [generatingCode, setGeneratingCode] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const loadTenants = useCallback(async () => {
@@ -71,8 +68,6 @@ export default function TenantsPage() {
 
   const handleEdit = (tenant: Tenant) => {
     setEditing(tenant);
-    setInviteCode(null);
-    setCodeCopied(false);
     setForm({
       nombre: tenant.nombre,
       slug: tenant.slug,
@@ -135,50 +130,13 @@ export default function TenantsPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Error al cambiar módulo');
       }
-      const result = await res.json();
-      if (enabling && result.provider_invite_code) {
-        setInviteCode(result.provider_invite_code);
-      }
-      showSuccess(enabling ? 'Módulo de proveedores activado' : 'Módulo de proveedores desactivado');
+      showSuccess(enabling ? 'Módulo de proveedores activado — el admin puede gestionar el código de invitación desde su panel' : 'Módulo de proveedores desactivado');
       loadTenants();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Error al cambiar módulo');
     } finally {
       setTogglingProviders(null);
     }
-  };
-
-  /** Regenerar código de invitación */
-  const handleRegenerateCode = async (tenantId: string) => {
-    setGeneratingCode(true);
-    try {
-      const res = await fetch('/api/providers/invite-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: tenantId }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Error al regenerar código');
-      }
-      const { code } = await res.json();
-      setInviteCode(code);
-      showSuccess('Nuevo código de invitación generado');
-      loadTenants();
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Error al regenerar código');
-    } finally {
-      setGeneratingCode(false);
-    }
-  };
-
-  /** Copiar enlace de invitación al clipboard */
-  const handleCopyInviteLink = (slug: string, code: string) => {
-    const url = `${window.location.origin}/${slug}/proveedores?code=${code}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
-    });
   };
 
   const generateSlug = (nombre: string) => {
@@ -376,61 +334,13 @@ export default function TenantsPage() {
                   </button>
                 </label>
 
-                {/* Código de invitación (solo visible si modo proveedores activo) */}
-                {(form.config as TenantConfig)?.provider_mode === 'approved_only' && editing && (
-                  <div className="mt-4 pt-4 border-t border-edge">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-label">Código de invitación</p>
-                      <button
-                        type="button"
-                        onClick={() => handleRegenerateCode(editing.id)}
-                        disabled={generatingCode}
-                        className="text-xs text-brand hover:text-info font-medium transition flex items-center gap-1"
-                      >
-                        {generatingCode ? (
-                          <><ButtonSpinner /> Generando...</>
-                        ) : (
-                          <><i className="fas fa-sync-alt" /> Regenerar</>
-                        )}
-                      </button>
-                    </div>
-                    {(() => {
-                      const code = inviteCode || ((editing.config as TenantConfig)?.provider_invite_code as string);
-                      if (!code) return <p className="text-xs text-muted">Sin código generado</p>;
-                      return (
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 px-3 py-2 bg-subtle rounded-lg text-sm font-mono text-heading tracking-wider">
-                            {code}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyInviteLink(editing.slug, code)}
-                            className="px-3 py-2 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition flex items-center gap-1.5"
-                          >
-                            <i className={`fas ${codeCopied ? 'fa-check' : 'fa-link'}`} />
-                            {codeCopied ? 'Copiado' : 'Copiar enlace'}
-                          </button>
-                        </div>
-                      );
-                    })()}
-                    <p className="text-[11px] text-muted mt-2">
-                      Enlace: <span className="font-mono">/{editing.slug}/proveedores?code=...</span> — Compártelo con los proveedores que deseas invitar.
+                {/* Hint: codigo de invitacion gestionado por admin */}
+                {(form.config as TenantConfig)?.provider_mode === 'approved_only' && (
+                  <div className="mt-3 flex items-start gap-2 p-3 bg-info-light rounded-lg">
+                    <i className="fas fa-info-circle text-info text-sm mt-0.5" />
+                    <p className="text-xs text-body">
+                      El código de invitación y la gestión de proveedores están disponibles en el <strong>panel del admin</strong> del tenant, en la pestaña &quot;Proveedores&quot;.
                     </p>
-
-                    {/* Descripción para proveedores */}
-                    <div className="mt-3">
-                      <label className="block text-xs font-medium text-label mb-1">Descripción (visible al proveedor)</label>
-                      <textarea
-                        value={((form.config as TenantConfig)?.provider_description as string) || ''}
-                        onChange={(e) => setForm(prev => ({
-                          ...prev,
-                          config: { ...prev.config, provider_description: e.target.value || undefined },
-                        }))}
-                        placeholder="Ej: Bienvenido al sistema de acreditaciones de Cruzados. Solicita acceso para poder acreditar a tu equipo."
-                        rows={2}
-                        className="w-full px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
-                      />
-                    </div>
                   </div>
                 )}
               </div>

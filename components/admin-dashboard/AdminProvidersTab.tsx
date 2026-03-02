@@ -38,8 +38,19 @@ export default function AdminProvidersTab() {
   const [approveNotas, setApproveNotas] = useState('');
   const [rejectMotivo, setRejectMotivo] = useState('');
 
+  // Invite code states
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [providerDescription, setProviderDescription] = useState<string>(
+    (tenant?.config as TenantConfig)?.provider_description || '',
+  );
+  const [savingDescription, setSavingDescription] = useState(false);
+
   const tenantId = tenant?.id || '';
+  const tenantSlug = tenant?.slug || '';
   const zonas: string[] = (tenant?.config as TenantConfig)?.zonas || [];
+  const currentCode = inviteCode || (tenant?.config as TenantConfig)?.provider_invite_code || '';
 
   // ─── Fetch providers ─────────────────────────────
   const fetchProviders = useCallback(async () => {
@@ -67,6 +78,61 @@ export default function AdminProvidersTab() {
   }, [tenantId, statusFilter, showError]);
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
+
+  // ─── Invite code handlers ─────────────────────────
+  const handleRegenerateCode = async () => {
+    setGeneratingCode(true);
+    try {
+      const res = await fetch('/api/providers/invite-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error al regenerar código');
+      }
+      const { code } = await res.json();
+      setInviteCode(code);
+      showSuccess('Nuevo código de invitación generado');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error al regenerar código');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const handleCopyInviteLink = () => {
+    if (!currentCode) return;
+    const url = `${window.location.origin}/${tenantSlug}/proveedores?code=${currentCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
+
+  const handleSaveDescription = async () => {
+    setSavingDescription(true);
+    try {
+      const res = await fetch('/api/providers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          provider_description: providerDescription || '',
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error guardando');
+      }
+      showSuccess('Descripción guardada');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setSavingDescription(false);
+    }
+  };
 
   // ─── Actions ──────────────────────────────────────
   const handleAction = async (providerId: string, action: ProviderAction, extra?: Record<string, unknown>) => {
@@ -162,6 +228,89 @@ export default function AdminProvidersTab() {
   // ─── Render ──────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* ═══ Enlace de invitación ═══ */}
+      <div className="bg-surface rounded-xl border p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center">
+            <i className="fas fa-link text-brand text-sm" />
+          </div>
+          <h3 className="font-bold text-heading text-sm">Enlace de invitación</h3>
+        </div>
+
+        {currentCode ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-subtle rounded-lg text-sm font-mono text-heading tracking-wider truncate">
+                {currentCode}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopyInviteLink}
+                className="px-3 py-2 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition flex items-center gap-1.5 shrink-0"
+              >
+                <i className={`fas ${codeCopied ? 'fa-check' : 'fa-link'}`} />
+                {codeCopied ? 'Copiado' : 'Copiar enlace'}
+              </button>
+              <button
+                type="button"
+                onClick={handleRegenerateCode}
+                disabled={generatingCode}
+                className="px-3 py-2 bg-subtle text-body rounded-lg text-sm hover:bg-edge transition flex items-center gap-1.5 shrink-0"
+                title="Generar nuevo código (invalida el anterior)"
+              >
+                {generatingCode ? (
+                  <><ButtonSpinner /> <span className="hidden sm:inline">Generando...</span></>
+                ) : (
+                  <><i className="fas fa-sync-alt" /> <span className="hidden sm:inline">Regenerar</span></>
+                )}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted">
+              <i className="fas fa-info-circle mr-1" />
+              Enlace: <span className="font-mono">/{tenantSlug}/proveedores?code=...</span> — Compártelo con los proveedores que deseas invitar. Regenerar invalida el código anterior.
+            </p>
+
+            {/* Descripción para proveedores */}
+            <div className="pt-3 border-t border-edge">
+              <label className="block text-xs font-medium text-label mb-1">Descripción (visible al proveedor)</label>
+              <div className="flex gap-2">
+                <textarea
+                  value={providerDescription}
+                  onChange={(e) => setProviderDescription(e.target.value)}
+                  placeholder="Ej: Bienvenido al sistema de acreditaciones. Solicita acceso para poder acreditar a tu equipo."
+                  rows={2}
+                  className="flex-1 px-3 py-2 rounded-lg border border-field-border text-heading text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveDescription}
+                  disabled={savingDescription}
+                  className="self-end px-3 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition shrink-0"
+                >
+                  {savingDescription ? <ButtonSpinner /> : <i className="fas fa-save" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted mb-3">No hay código de invitación generado</p>
+            <button
+              type="button"
+              onClick={handleRegenerateCode}
+              disabled={generatingCode}
+              className="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2 mx-auto"
+            >
+              {generatingCode ? (
+                <><ButtonSpinner /> Generando...</>
+              ) : (
+                <><i className="fas fa-key" /> Generar código de invitación</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Header + Stats */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
