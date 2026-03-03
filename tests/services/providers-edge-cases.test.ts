@@ -211,7 +211,7 @@ describe('Edge 3: toggleProviderMode disable — providers persist', () => {
     expect(result.provider_mode).toBe('open');
 
     // Key assertion: from() was only called for 'tenants', not 'tenant_providers'
-    const fromCalls = mockFrom.mock.calls.map(c => c[0]);
+    const fromCalls = mockFrom.mock.calls.map((c: unknown[]) => c[0]);
     expect(fromCalls).not.toContain('tenant_providers');
   });
 });
@@ -390,7 +390,7 @@ describe('Edge 2: updateProviderZones — no impact on existing registrations', 
     expect(result.allowed_zones).toEqual(['Cancha']);
 
     // Verify only tenant_providers was touched
-    const fromCalls = mockFrom.mock.calls.map(c => c[0]);
+    const fromCalls = mockFrom.mock.calls.map((c: unknown[]) => c[0]);
     expect(fromCalls).toEqual(['tenant_providers']);
     // No call to 'registrations' table
     expect(fromCalls).not.toContain('registrations');
