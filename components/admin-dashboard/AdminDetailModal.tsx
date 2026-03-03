@@ -255,7 +255,8 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
         <div className="mt-4 p-4 bg-[#d1fae5] border border-[#059669]/30 rounded-xl">
           <p className="text-sm text-[#065f46] mb-3">
             <i className="fas fa-info-circle mr-1" />
-            ¿Aprobar la acreditación de <strong>{reg.profile_nombre} {reg.profile_apellido}</strong>? Se enviará un email de confirmación.
+            ¿Aprobar la acreditación de <strong>{reg.profile_nombre} {reg.profile_apellido}</strong>?
+            <span className="block text-xs text-[#065f46]/70 mt-1">No se enviará email automáticamente. Usa el botón &quot;Enviar email&quot; después si deseas notificar.</span>
           </p>
           <div className="flex gap-2">
             <button onClick={handleApprove} disabled={isProcessing} className="px-4 py-2 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] disabled:opacity-50 transition">

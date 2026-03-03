@@ -736,7 +736,7 @@ export default function TenantLanding({ tenant, events, slug, providerMode, prov
          ═══════════════════════════════════════════════════════════════ */}
       <div className="relative z-10 text-center py-4 px-4">
         <div className="flex items-center justify-center gap-4 text-[0.65rem]" style={{ color: `${p.tint}70` }}>
-          <span>© {new Date().getFullYear()} {tenant.nombre}</span>
+          <span>© {new Date().getFullYear()} {tenant.slug.toUpperCase()}</span>
           <span className="hidden sm:inline">·</span>
           <Link
             href="/"

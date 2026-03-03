@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAdmin } from './AdminContext';
@@ -13,6 +14,7 @@ const AUTO_REFRESH_MS = 60_000; // 60s
 
 export default function AdminHeader() {
   const { tenant, selectedEvent, activeTab, setActiveTab, stats, fetchData, loading, registrations } = useAdmin();
+  const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -95,10 +97,12 @@ export default function AdminHeader() {
     try {
       const supabase = getSupabaseBrowserClient();
       await supabase.auth.signOut();
-      const slug = window.location.pathname.split('/')[1];
-      window.location.href = `/${slug}/admin/login`;
+      const slug = tenant?.slug || window.location.pathname.split('/')[1];
+      router.push(`/${slug}/admin/login`);
+      router.refresh();
     } catch {
-      window.location.href = '/';
+      router.push('/');
+      router.refresh();
     }
   };
 

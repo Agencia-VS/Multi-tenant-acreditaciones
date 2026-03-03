@@ -1,12 +1,30 @@
 'use client';
 
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useAdmin } from './AdminContext';
 import AdminRow from './AdminRow';
 import AdminExportActions from './AdminExportActions';
 import type { RegistrationFull } from '@/types';
 import { TIPOS_MEDIO } from '@/types';
 import { LoadingSpinner, EmptyState, ButtonSpinner } from '@/components/shared/ui';
+
+// ─── Sort types ──────────────────────────────────────
+type SortColumn = 'rut' | 'nombre' | 'organizacion' | 'tipo_medio' | 'cargo' | 'status' | 'created_at' | null;
+type SortDir = 'asc' | 'desc';
+
+/** Extract sortable value from a registration */
+function getSortValue(reg: RegistrationFull, col: SortColumn): string {
+  switch (col) {
+    case 'rut': return reg.rut || '';
+    case 'nombre': return `${reg.profile_nombre || ''} ${reg.profile_apellido || ''}`.trim().toLowerCase();
+    case 'organizacion': return (reg.organizacion || '').toLowerCase();
+    case 'tipo_medio': return (reg.tipo_medio || '').toLowerCase();
+    case 'cargo': return (reg.cargo || '').toLowerCase();
+    case 'status': return reg.status || '';
+    case 'created_at': return reg.created_at || '';
+    default: return '';
+  }
+}
 
 interface AdminTableProps {
   onViewDetail: (reg: RegistrationFull) => void;
@@ -26,10 +44,33 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const [page, setPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = useCallback((col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(col);
+      setSortDir('asc');
+    }
+    setPage(1);
+  }, [sortColumn]);
+
+  // Apply sorting to filtered registrations
+  const sortedRegistrations = useMemo(() => {
+    if (!sortColumn) return filteredRegistrations;
+    const sorted = [...filteredRegistrations].sort((a, b) => {
+      const va = getSortValue(a, sortColumn);
+      const vb = getSortValue(b, sortColumn);
+      return va.localeCompare(vb, 'es', { numeric: true });
+    });
+    return sortDir === 'desc' ? sorted.reverse() : sorted;
+  }, [filteredRegistrations, sortColumn, sortDir]);
 
   const ids = Array.from(selectedIds);
   const hasSel = ids.length > 0;
-  const allSelected = hasSel && selectedIds.size === filteredRegistrations.length;
+  const allSelected = hasSel && selectedIds.size === sortedRegistrations.length;
 
   // Count selected registrations that have email
   const selectedWithEmail = useMemo(() => {
@@ -52,12 +93,20 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
   const filterKey = `${filters.search}|${filters.status}|${filters.tipo_medio}|${filters.event_day_id}|${filters.event_id}`;
   useEffect(() => { setPage(1); }, [filterKey]);
 
-  if (loading) return <LoadingSpinner size="lg" />;
+  // Show full spinner only on initial load (no data yet)
+  if (loading && filteredRegistrations.length === 0) return <LoadingSpinner size="lg" />;
 
   const hasActiveFilters = !!(filters.status || filters.tipo_medio || filters.search || filters.event_day_id);
+  const isRefreshing = loading && filteredRegistrations.length > 0;
 
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-edge">
+    <div className="bg-surface rounded-2xl shadow-sm border border-edge relative">
+      {/* Subtle refresh indicator — keeps table visible */}
+      {isRefreshing && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 z-20 bg-brand/20 rounded-t-2xl overflow-hidden">
+          <div className="h-full w-1/3 bg-brand rounded-full animate-[shimmer_1.2s_ease-in-out_infinite]" />
+        </div>
+      )}
 
       {/* ═══════ Filters ═══════ */}
       <div className="bg-surface border-b border-edge rounded-t-2xl">
@@ -284,24 +333,27 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
       </div>
 
       {/* ═══════ Table ═══════ */}
-      {filteredRegistrations.length === 0 ? (
+      {sortedRegistrations.length === 0 ? (
         <EmptyState message={hasActiveFilters ? 'No hay registros que coincidan con los filtros' : 'No hay registros para este evento'} icon="fa-inbox" />
       ) : (
         <PaginatedTable
-          registrations={filteredRegistrations}
+          registrations={sortedRegistrations}
           allSelected={allSelected}
           toggleSelectAll={toggleSelectAll}
           onViewDetail={onViewDetail}
           onReject={onReject}
           page={page}
           setPage={setPage}
+          sortColumn={sortColumn}
+          sortDir={sortDir}
+          onSort={handleSort}
         />
       )}
 
       {/* Footer */}
-      {filteredRegistrations.length > 0 && (
+      {sortedRegistrations.length > 0 && (
         <div className="px-4 py-2.5 bg-canvas/50 border-t border-edge text-xs text-muted flex justify-between items-center rounded-b-2xl">
-          <span>Mostrando {filteredRegistrations.length} registros</span>
+          <span>Mostrando {sortedRegistrations.length} registros</span>
           {hasSel && <span className="text-brand">{selectedIds.size} seleccionados</span>}
         </div>
       )}
@@ -324,6 +376,9 @@ interface PaginatedTableProps {
   onReject: (reg: RegistrationFull) => void;
   page: number;
   setPage: (p: number) => void;
+  sortColumn: SortColumn;
+  sortDir: SortDir;
+  onSort: (col: SortColumn) => void;
 }
 
 function PaginatedTable({
@@ -334,6 +389,9 @@ function PaginatedTable({
   onReject,
   page,
   setPage,
+  sortColumn,
+  sortDir,
+  onSort,
 }: PaginatedTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const totalPages = Math.ceil(registrations.length / PAGE_SIZE);
@@ -354,6 +412,25 @@ function PaginatedTable({
     if (p >= 1 && p <= totalPages) setPage(p);
   };
 
+  // Sort indicator helper
+  const SortIcon = ({ col }: { col: SortColumn }) => {
+    if (sortColumn !== col) return <i className="fas fa-sort text-[9px] ml-1 opacity-30" />;
+    return <i className={`fas fa-sort-${sortDir === 'asc' ? 'up' : 'down'} text-[9px] ml-1 text-brand`} />;
+  };
+
+  const sortableTh = (col: SortColumn, label: string) => (
+    <th
+      className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider cursor-pointer select-none hover:text-heading transition group"
+      onClick={() => onSort(col)}
+      aria-sort={sortColumn === col ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {label}
+        <SortIcon col={col} />
+      </span>
+    </th>
+  );
+
   return (
     <>
       <div ref={scrollRef} className="overflow-y-auto max-h-[70vh]">
@@ -369,13 +446,13 @@ function PaginatedTable({
                   aria-label="Seleccionar todos los registros"
                 />
               </th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">RUT</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Nombre</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Organización</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Tipo Medio</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Cargo</th>
+              {sortableTh('rut', 'RUT')}
+              {sortableTh('nombre', 'Nombre')}
+              {sortableTh('organizacion', 'Organización')}
+              {sortableTh('tipo_medio', 'Tipo Medio')}
+              {sortableTh('cargo', 'Cargo')}
               <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Estado</th>
+              {sortableTh('status', 'Estado')}
               <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Check-in</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider pr-4">Acciones</th>
             </tr>

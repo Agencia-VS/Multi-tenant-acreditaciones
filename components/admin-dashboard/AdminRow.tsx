@@ -149,7 +149,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
                 onClick={() => handleStatusChange(reg.id, 'aprobado')}
                 disabled={isProcessing}
                 className="p-1.5 text-success bg-success-light hover:bg-green-100 rounded-lg transition disabled:opacity-50"
-                title="Aprobar (sin enviar email)"
+                title="Aprobar"
               >
                 {isProcessing ? (
                   <ButtonSpinner />
@@ -161,7 +161,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
                 onClick={() => onReject(reg)}
                 disabled={isProcessing}
                 className="p-1.5 text-danger bg-danger-light hover:bg-red-100 rounded-lg transition disabled:opacity-50"
-                title="Rechazar (sin enviar email)"
+                title="Rechazar"
               >
                 <i className="fas fa-times text-sm" />
               </button>

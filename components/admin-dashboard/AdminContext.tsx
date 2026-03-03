@@ -278,26 +278,58 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     }
   }, [registrations, showSuccess, showError]);
 
-  // ─── Bulk action ──────────────────────────────────
+  // ─── Bulk action — optimistic ──────────────────────
   const handleBulkAction = useCallback(async (payload: BulkActionPayload) => {
     if (payload.registration_ids.length === 0) return;
+    const prevRegs = registrations;
+    const idsSet = new Set(payload.registration_ids);
     setProcessing('bulk');
-    try {
-      if (payload.action === 'approve' || payload.action === 'reject') {
+
+    if (payload.action === 'approve' || payload.action === 'reject') {
+      const newStatus = payload.action === 'approve' ? 'aprobado' : 'rechazado';
+      // Optimistic: update local state immediately
+      const updated = registrations.map(r =>
+        idsSet.has(r.id) ? { ...r, status: newStatus as RegistrationStatus, motivo_rechazo: payload.motivo_rechazo || r.motivo_rechazo, processed_at: new Date().toISOString() } : r
+      );
+      setRegistrations(updated);
+      recomputeStats(updated);
+      setSelectedIds(new Set());
+
+      try {
         const res = await fetch('/api/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             registration_ids: payload.registration_ids,
-            status: payload.action === 'approve' ? 'aprobado' : 'rechazado',
+            status: newStatus,
             motivo_rechazo: payload.motivo_rechazo,
             send_emails: false,
           }),
         });
-        const data = await res.json();
-        showSuccess(`${data.success || 0} registros ${payload.action === 'approve' ? 'aprobados' : 'rechazados'}`);
-      } else if (payload.action === 'delete') {
-        // Bulk delete: 1 request en vez de N
+        if (!res.ok) {
+          setRegistrations(prevRegs);
+          recomputeStats(prevRegs);
+          const d = await res.json();
+          showError(d.error || 'Error en operación masiva');
+        } else {
+          const data = await res.json();
+          showSuccess(`${data.success || 0} registros ${payload.action === 'approve' ? 'aprobados' : 'rechazados'}`);
+        }
+      } catch {
+        setRegistrations(prevRegs);
+        recomputeStats(prevRegs);
+        showError('Error en operación masiva');
+      } finally {
+        setProcessing(null);
+      }
+    } else if (payload.action === 'delete') {
+      // Optimistic: remove from local state immediately
+      const updated = registrations.filter(r => !idsSet.has(r.id));
+      setRegistrations(updated);
+      recomputeStats(updated);
+      setSelectedIds(new Set());
+
+      try {
         const res = await fetch('/api/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -306,10 +338,25 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
             action: 'delete',
           }),
         });
-        const data = await res.json();
-        showSuccess(`${data.success || 0} registros eliminados`);
-      } else if (payload.action === 'email') {
-        // Resend approval emails (no status change)
+        if (!res.ok) {
+          setRegistrations(prevRegs);
+          recomputeStats(prevRegs);
+          const d = await res.json();
+          showError(d.error || 'Error eliminando registros');
+        } else {
+          const data = await res.json();
+          showSuccess(`${data.success || 0} registros eliminados`);
+        }
+      } catch {
+        setRegistrations(prevRegs);
+        recomputeStats(prevRegs);
+        showError('Error en operación masiva');
+      } finally {
+        setProcessing(null);
+      }
+    } else if (payload.action === 'email') {
+      // Email can't be optimistic — show progress state
+      try {
         const res = await fetch('/api/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -326,34 +373,43 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         if (em.errors > 0) parts.push(`${em.errors} fallidos`);
         if (parts.length === 0) parts.push('No se enviaron emails');
         showSuccess(`Emails: ${parts.join(', ')}`);
+      } catch {
+        showError('Error enviando emails');
+      } finally {
+        setSelectedIds(new Set());
+        setProcessing(null);
       }
-      setSelectedIds(new Set());
-      fetchData();
-    } catch {
-      showError('Error en operación masiva');
-    } finally {
-      setProcessing(null);
     }
-  }, [fetchData, showSuccess, showError]);
+  }, [registrations, recomputeStats, showSuccess, showError]);
 
-  // ─── Delete single ────────────────────────────────
+  // ─── Delete single — optimistic ────────────────────
   const handleDelete = useCallback(async (regId: string) => {
+    const prevRegs = registrations;
+    // Optimistic: remove immediately
+    const updated = registrations.filter(r => r.id !== regId);
+    setRegistrations(updated);
+    recomputeStats(updated);
     setProcessing(regId);
+
     try {
       const res = await fetch(`/api/registrations/${regId}`, { method: 'DELETE' });
       if (res.ok) {
         showSuccess('Registro eliminado');
-        fetchData();
       } else {
+        // Rollback
+        setRegistrations(prevRegs);
+        recomputeStats(prevRegs);
         const d = await res.json();
         showError(d.error || 'Error al eliminar');
       }
     } catch {
+      setRegistrations(prevRegs);
+      recomputeStats(prevRegs);
       showError('Error de conexión');
     } finally {
       setProcessing(null);
     }
-  }, [fetchData, showSuccess, showError]);
+  }, [registrations, recomputeStats, showSuccess, showError]);
 
   // ─── Update zona for a registration ───────────────
   const updateRegistrationZona = useCallback(async (regId: string, zona: string) => {

@@ -10,6 +10,7 @@
  *   - Paleta semántica via generateTenantPalette
  */
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { BackButton, useToast, ButtonSpinner } from '@/components/shared/ui';
@@ -42,6 +43,7 @@ export default function AdminLoginForm({
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { showError, showSuccess } = useToast();
+  const router = useRouter();
 
   const p = useMemo(() => generateTenantPalette(
     colorPrimario,
@@ -82,7 +84,8 @@ export default function AdminLoginForm({
           );
           return;
         }
-        window.location.href = `/${tenantSlug}/admin`;
+        router.push(`/${tenantSlug}/admin`);
+        router.refresh();
       }
     } catch {
       setError('Error al iniciar sesión. Intenta de nuevo.');
