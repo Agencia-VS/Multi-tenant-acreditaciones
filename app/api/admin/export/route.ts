@@ -48,12 +48,31 @@ const ALL_XLSX_COLUMNS: ColumnDef[] = [
 
 /* ── helpers ─────────────────────────────────────────── */
 
+/**
+ * Alias map: mapea keys del export a posibles variantes almacenadas
+ * en datos_extra o profile_datos_base.
+ * Permite que el export encuentre valores aunque la form_field key
+ * difiera del nombre interno de la columna Excel.
+ */
+const KEY_ALIASES: Record<string, string[]> = {
+  n_credencial: ['n_credencial', 'numero_credencial', 'num_credencial', 'numero_de_credencial'],
+  tipo_credencial: ['tipo_credencial', 'credencial_tipo', 'tipo_de_credencial'],
+  empresa: ['empresa', 'organizacion', 'medio'],
+  area: ['area', 'área'],
+};
+
 /** Try to extract a field: datos_extra → profile datos_base → '' */
 function extractField(r: Record<string, unknown>, key: string): string {
   const extras = (r.datos_extra ?? {}) as RegistrationExtras;
-  if (extras[key]) return String(extras[key]);
   const db = (r.profile_datos_base ?? {}) as ProfileDatosBase;
-  if (db[key]) return String(db[key]);
+  const keysToTry = KEY_ALIASES[key] || [key];
+
+  for (const k of keysToTry) {
+    if (extras[k]) return String(extras[k]);
+  }
+  for (const k of keysToTry) {
+    if (db[k]) return String(db[k]);
+  }
   return '';
 }
 
