@@ -73,24 +73,25 @@ export default function AcreditadoHomePage() {
     );
 
     if (eventsResult.data) {
-      // Filter: hide approved_only tenant events unless user is approved provider
+      // Exclude events from provider tenants (those appear in Organizaciones tab)
+      // Also hide approved_only tenants where user is NOT a provider
       const filtered = (eventsResult.data as unknown as ActiveEvent[]).filter(e => {
         const tenant = Array.isArray(e.tenant) ? e.tenant[0] : e.tenant;
+        if (approvedTenantIds.has(tenant?.id || '')) return false;
         const tenantConfig = tenant?.config as Record<string, unknown> | null;
-        if (tenantConfig?.provider_mode === 'approved_only') {
-          return approvedTenantIds.has(tenant?.id || '');
-        }
+        if (tenantConfig?.provider_mode === 'approved_only') return false;
         return true;
       });
       setEvents(filtered);
     }
 
-    // Get tenant completion statuses
+    // Get tenant completion statuses (exclude provider tenants)
     try {
       const statusRes = await fetch('/api/profiles/tenant-status');
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        setTenantStatuses(statusData.tenants || []);
+        const allStatuses: TenantProfileStatus[] = statusData.tenants || [];
+        setTenantStatuses(allStatuses.filter(t => !approvedTenantIds.has(t.tenantId)));
       }
     } catch { /* ignore */ }
 

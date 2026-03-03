@@ -129,13 +129,27 @@ export default function DashboardPage() {
 
   const loadTenantStatuses = async () => {
     try {
-      const res = await fetch('/api/profiles/tenant-status');
-      if (!res.ok) {
+      // Fetch tenant statuses and provider accesses in parallel
+      const [statusRes, providerAccesses] = await Promise.all([
+        fetch('/api/profiles/tenant-status'),
+        fetch('/api/providers/my-access').then(r => r.ok ? r.json() : []).catch(() => []),
+      ]);
+
+      // Build set of approved provider tenant IDs
+      const approvedTenantIds = new Set(
+        (providerAccesses as { status: string; tenant_id: string }[])
+          .filter(p => p.status === 'approved')
+          .map(p => p.tenant_id)
+      );
+
+      if (!statusRes.ok) {
         setLoadingStatuses(false);
         return;
       }
-      const data = await res.json();
-      setTenantStatuses(data.tenants || []);
+      const data = await statusRes.json();
+      // Exclude provider tenants (shown in Organizaciones tab)
+      const allStatuses: TenantProfileStatus[] = data.tenants || [];
+      setTenantStatuses(allStatuses.filter(t => !approvedTenantIds.has(t.tenantId)));
     } catch {
       // ignore
     } finally {
