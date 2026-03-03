@@ -19,8 +19,6 @@ export default async function TenantPage({
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
 
-  const event = await getActiveEvent(tenant.id, { publicOnly: true });
-
   // ── Provider status para landing (si es approved_only) ──
   let providerStatus: string | null = null;
   const isProviderMode = tenant.config?.provider_mode === 'approved_only';
@@ -35,6 +33,10 @@ export default async function TenantPage({
       }
     }
   }
+
+  // Proveedores aprobados pueden ver eventos invite_only (ya están autorizados a nivel tenant)
+  const isApprovedProvider = isProviderMode && providerStatus === 'approved';
+  const event = await getActiveEvent(tenant.id, isApprovedProvider ? {} : { publicOnly: true });
 
   return (
     <TenantLanding

@@ -78,6 +78,34 @@ describe('Event Visibility', () => {
       const result = await getActiveEvent('tenant-1');
       expect(result).toBeNull();
     });
+
+    it('returns invite_only event when publicOnly is NOT set (provider bypass path)', async () => {
+      // Proveedores aprobados llaman getActiveEvent SIN publicOnly,
+      // por lo que eventos invite_only son visibles para ellos
+      setupChain({ id: 'e-1', nombre: 'Private Event', visibility: 'invite_only' });
+
+      const { getActiveEvent } = await import('@/lib/services/events');
+      const result = await getActiveEvent('tenant-1'); // sin publicOnly
+
+      expect(result).not.toBeNull();
+      expect(result!.visibility).toBe('invite_only');
+      // No debe filtrar por visibility
+      const eqCalls = mockEq.mock.calls.map(c => c[0]);
+      expect(eqCalls).not.toContain('visibility');
+    });
+
+    it('excludes invite_only event when publicOnly is true (normal landing path)', async () => {
+      setupChain(null);
+
+      const { getActiveEvent } = await import('@/lib/services/events');
+      await getActiveEvent('tenant-1', { publicOnly: true });
+
+      // Debe filtrar por visibility=public
+      const eqCalls = mockEq.mock.calls;
+      const visibilityCall = eqCalls.find(c => c[0] === 'visibility');
+      expect(visibilityCall).toBeDefined();
+      expect(visibilityCall![1]).toBe('public');
+    });
   });
 });
 

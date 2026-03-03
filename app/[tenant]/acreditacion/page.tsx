@@ -137,8 +137,11 @@ export default async function AcreditacionPage({
   // ─── Verificar visibilidad del evento ───
   const visibility = event.visibility || 'public';
 
-  // Evento por invitación: validar que el token del URL coincida con el del evento
-  if (visibility === 'invite_only') {
+  // Proveedores aprobados bypasean la invitación — ya fueron validados a nivel tenant
+  const isApprovedProvider = providerAllowedZones !== null;
+
+  // Evento por invitación: validar token (excepto proveedores aprobados y admins)
+  if (visibility === 'invite_only' && !isApprovedProvider && !isAdminUser) {
     const eventToken = event.invite_token;
     if (!inviteToken || inviteToken !== eventToken) {
       return (
