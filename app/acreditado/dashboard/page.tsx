@@ -5,14 +5,14 @@
  *
  * Dos secciones:
  * 1. Estado por Tenant: tarjetas con % de completitud del perfil por organización
- * 2. Historial: lista de todas las acreditaciones enviadas (propias + equipo)
+ * 2. Historial: acreditaciones agrupadas por evento, secciones colapsables
  *
  * Implementa "Registros Contextuales":
  * - Muestra qué datos faltan para cada tenant activo
  * - Detecta cambios en formularios (campos nuevos/eliminados)
  * - Link directo para completar datos faltantes
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { LoadingSpinner } from '@/components/shared/ui';
@@ -449,8 +449,22 @@ function TenantCard({
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Registration History View — Lista existente de acreditaciones
+// Registration History View — Agrupado por evento, colapsable
 // ═════════════════════════════════════════════════════════════════════════════
+
+interface EventGroup {
+  eventKey: string;
+  eventName: string;
+  tenantName: string;
+  tenantSlug: string;
+  tenantColor: string;
+  eventDate: string | null;
+  eventVenue: string | null;
+  registrations: Registration[];
+  selfCount: number;
+  teamCount: number;
+  statusSummary: Record<string, number>;
+}
 
 function RegistrationHistoryView({
   registrations,
@@ -469,41 +483,118 @@ function RegistrationHistoryView({
   teamCount: number;
   loading: boolean;
 }) {
+  // Group filtered registrations by event
+  const eventGroups = useMemo<EventGroup[]>(() => {
+    const map = new Map<string, EventGroup>();
+    for (const reg of filtered) {
+      const key = `${reg.tenant.slug}__${reg.event.nombre}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          eventKey: key,
+          eventName: reg.event.nombre,
+          tenantName: reg.tenant.nombre,
+          tenantSlug: reg.tenant.slug,
+          tenantColor: reg.tenant.color_primario,
+          eventDate: reg.event.fecha,
+          eventVenue: reg.event.venue,
+          registrations: [],
+          selfCount: 0,
+          teamCount: 0,
+          statusSummary: {},
+        });
+      }
+      const group = map.get(key)!;
+      group.registrations.push(reg);
+      if (reg.isSelf) group.selfCount++; else group.teamCount++;
+      group.statusSummary[reg.status] = (group.statusSummary[reg.status] || 0) + 1;
+    }
+    // Sort: most recent event first
+    return [...map.values()].sort((a, b) => {
+      const da = a.eventDate ? new Date(a.eventDate).getTime() : 0;
+      const db = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+      return db - da;
+    });
+  }, [filtered]);
+
+  // Track collapsed state per group (default: first expanded, rest collapsed if >3 groups)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // When groups change (e.g. filter changes), auto-expand all if few, collapse if many
+  useEffect(() => {
+    if (eventGroups.length <= 3) {
+      setCollapsed(new Set());
+    } else {
+      // Keep first expanded, collapse rest
+      setCollapsed(new Set(eventGroups.slice(1).map(g => g.eventKey)));
+    }
+  }, [eventGroups.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleGroup = (key: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const expandAll = () => setCollapsed(new Set());
+  const collapseAll = () => setCollapsed(new Set(eventGroups.map(g => g.eventKey)));
+
   if (loading) {
     return <LoadingSpinner fullPage />;
   }
 
   return (
     <div>
-      {/* Filtros rápidos */}
-      {teamCount > 0 && (
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === 'all' ? 'bg-heading text-on-brand' : 'bg-subtle text-body hover:bg-edge'
-            }`}
-          >
-            Todas ({registrations.length})
-          </button>
-          <button
-            onClick={() => setFilter('self')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === 'self' ? 'bg-brand text-on-brand' : 'bg-accent-light text-brand hover:bg-accent-light/80'
-            }`}
-          >
-            <i className="fas fa-user mr-1" /> Propias ({selfCount})
-          </button>
-          <button
-            onClick={() => setFilter('team')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === 'team' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
-            }`}
-          >
-            <i className="fas fa-users mr-1" /> Equipo ({teamCount})
-          </button>
-        </div>
-      )}
+      {/* Top bar: person filter + expand/collapse controls */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {/* Self/Team filter */}
+        {teamCount > 0 && (
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                filter === 'all' ? 'bg-heading text-on-brand' : 'bg-subtle text-body hover:bg-edge'
+              }`}
+            >
+              Todas ({registrations.length})
+            </button>
+            <button
+              onClick={() => setFilter('self')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                filter === 'self' ? 'bg-brand text-on-brand' : 'bg-accent-light text-brand hover:bg-accent-light/80'
+              }`}
+            >
+              <i className="fas fa-user mr-1" />Propias ({selfCount})
+            </button>
+            <button
+              onClick={() => setFilter('team')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                filter === 'team' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
+              }`}
+            >
+              <i className="fas fa-users mr-1" />Equipo ({teamCount})
+            </button>
+          </div>
+        )}
+
+        {/* Expand/Collapse all (only if multiple groups) */}
+        {eventGroups.length > 1 && (
+          <div className="ml-auto flex gap-1.5">
+            <button onClick={expandAll} className="px-2.5 py-1.5 text-xs text-body hover:text-heading bg-subtle hover:bg-edge rounded-lg transition" title="Expandir todos">
+              <i className="fas fa-expand-alt mr-1" />Expandir
+            </button>
+            <button onClick={collapseAll} className="px-2.5 py-1.5 text-xs text-body hover:text-heading bg-subtle hover:bg-edge rounded-lg transition" title="Colapsar todos">
+              <i className="fas fa-compress-alt mr-1" />Colapsar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Summary bar */}
+      <div className="text-xs text-muted mb-4">
+        {filtered.length} registro{filtered.length !== 1 ? 's' : ''} en {eventGroups.length} evento{eventGroups.length !== 1 ? 's' : ''}
+      </div>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-surface rounded-xl border border-edge">
@@ -516,46 +607,136 @@ function RegistrationHistoryView({
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filtered.map((reg) => {
+        <div className="space-y-3">
+          {eventGroups.map((group) => {
+            const isCollapsed = collapsed.has(group.eventKey);
+            return (
+              <EventGroupCard
+                key={group.eventKey}
+                group={group}
+                isCollapsed={isCollapsed}
+                onToggle={() => toggleGroup(group.eventKey)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Event Group Card ──────────────────────────────────────────────────── */
+
+function EventGroupCard({
+  group,
+  isCollapsed,
+  onToggle,
+}: {
+  group: EventGroup;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
+  const total = group.registrations.length;
+  const approved = group.statusSummary['aprobado'] || 0;
+  const pending = group.statusSummary['pendiente'] || 0;
+  const rejected = group.statusSummary['rechazado'] || 0;
+
+  return (
+    <div className="bg-surface rounded-xl border border-edge overflow-hidden">
+      {/* Collapsible header */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-subtle/50 transition text-left"
+      >
+        {/* Tenant color dot */}
+        <div
+          className="w-3 h-3 rounded-full shrink-0"
+          style={{ backgroundColor: group.tenantColor }}
+        />
+
+        {/* Event info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-heading text-sm sm:text-base truncate">{group.eventName}</h3>
+            <span className="text-xs text-muted">{group.tenantName}</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted mt-0.5">
+            {group.eventDate && (
+              <span><i className="fas fa-calendar mr-1" />{new Date(group.eventDate).toLocaleDateString('es-CL')}</span>
+            )}
+            {group.eventVenue && (
+              <span className="hidden sm:inline"><i className="fas fa-map-marker-alt mr-1" />{group.eventVenue}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Status mini-summary */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs">
+            {approved > 0 && (
+              <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded-md font-medium">
+                <i className="fas fa-check mr-0.5" />{approved}
+              </span>
+            )}
+            {pending > 0 && (
+              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md font-medium">
+                <i className="fas fa-clock mr-0.5" />{pending}
+              </span>
+            )}
+            {rejected > 0 && (
+              <span className="px-1.5 py-0.5 bg-red-50 text-red-700 rounded-md font-medium">
+                <i className="fas fa-times mr-0.5" />{rejected}
+              </span>
+            )}
+          </div>
+          <span className="text-xs font-medium text-body bg-subtle px-2 py-0.5 rounded-full">
+            {total}
+          </span>
+          <i className={`fas fa-chevron-down text-muted text-xs transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+        </div>
+      </button>
+
+      {/* Expanded: registration list */}
+      {!isCollapsed && (
+        <div className="border-t border-edge divide-y divide-edge">
+          {group.registrations.map((reg) => {
             const sCfg = statusConfig[reg.status] || statusConfig.pendiente;
             return (
-              <div key={reg.id} className="bg-surface rounded-xl border border-edge p-4 sm:p-6 hover:shadow-md transition">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-heading text-lg">{reg.event.nombre}</h3>
+              <div key={reg.id} className="px-4 py-3 sm:px-5 sm:py-4 hover:bg-subtle/30 transition">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Name (for team members) or "Mi acreditación" for self */}
+                      {reg.isSelf ? (
+                        <span className="text-sm font-medium text-heading">Mi acreditación</span>
+                      ) : (
+                        <span className="text-sm font-medium text-heading truncate">
+                          {reg.profile_nombre} {reg.profile_apellido}
+                        </span>
+                      )}
                       {!reg.isSelf && (
-                        <span className="px-2 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full font-medium">
-                          <i className="fas fa-users mr-1" />Equipo
+                        <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[10px] rounded-full font-medium shrink-0">
+                          <i className="fas fa-users mr-0.5" />Equipo
                         </span>
                       )}
                     </div>
-                    {!reg.isSelf && (
-                      <p className="text-sm text-purple-600 mt-0.5">
-                        <i className="fas fa-user mr-1" />
-                        {reg.profile_nombre} {reg.profile_apellido} — {
-                          (reg.document_type || 'rut') === 'rut'
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-muted">
+                      {!reg.isSelf && (
+                        <span>
+                          {(reg.document_type || 'rut') === 'rut'
                             ? formatRut(cleanRut(reg.document_number || reg.rut || ''))
-                            : (reg.document_number || reg.rut || '—')
-                        }
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 text-sm text-body mt-1">
-                      <span>{reg.tenant.nombre}</span>
-                      {reg.event.fecha && (
-                        <span><i className="fas fa-calendar mr-1" />{new Date(reg.event.fecha).toLocaleDateString('es-CL')}</span>
+                            : (reg.document_number || reg.rut || '—')}
+                        </span>
                       )}
-                      {reg.organizacion && <span><i className="fas fa-building mr-1" />{reg.organizacion}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-muted">
-                      {reg.tipo_medio && <span className="px-2 py-0.5 bg-subtle rounded-full">{reg.tipo_medio}</span>}
-                      {reg.cargo && <span className="px-2 py-0.5 bg-subtle rounded-full">{reg.cargo}</span>}
+                      {reg.organizacion && <span><i className="fas fa-building mr-0.5" />{reg.organizacion}</span>}
+                      {reg.tipo_medio && <span className="px-1.5 py-0.5 bg-subtle rounded-full">{reg.tipo_medio}</span>}
+                      {reg.cargo && <span className="px-1.5 py-0.5 bg-subtle rounded-full">{reg.cargo}</span>}
+                      <span>{new Date(reg.created_at).toLocaleDateString('es-CL')}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${sCfg.bg} ${sCfg.text}`}>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sCfg.bg} ${sCfg.text}`}>
                       <i className={`${sCfg.icon} mr-1`} />
                       {sCfg.label}
                     </span>
@@ -569,22 +750,20 @@ function RegistrationHistoryView({
                         title="Ver credencial digital"
                       >
                         <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`${window.location.origin}/qr/${reg.qr_token}`)}`}
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(`${typeof window !== 'undefined' ? window.location.origin : ''}/qr/${reg.qr_token}`)}`}
                           alt="QR de acceso"
-                          className="w-16 h-16 rounded-lg border border-edge group-hover:shadow-md transition"
+                          className="w-12 h-12 rounded-lg border border-edge group-hover:shadow-md transition"
                         />
-                        <p className="text-xs text-muted mt-1 group-hover:text-brand transition">Mi QR</p>
                       </a>
                     )}
                   </div>
                 </div>
 
-                {/* Motivo de rechazo visible al acreditado */}
+                {/* Motivo rechazo */}
                 {reg.status === 'rechazado' && reg.motivo_rechazo && (
-                  <div className="mt-3 p-3 bg-danger-light rounded-lg border border-danger/10">
-                    <p className="text-sm text-danger-dark">
-                      <i className="fas fa-info-circle mr-1.5" />
-                      <span className="font-medium">Motivo:</span> {reg.motivo_rechazo}
+                  <div className="mt-2 p-2 bg-danger-light rounded-lg border border-danger/10">
+                    <p className="text-xs text-danger-dark">
+                      <i className="fas fa-info-circle mr-1" />
                     </p>
                   </div>
                 )}
