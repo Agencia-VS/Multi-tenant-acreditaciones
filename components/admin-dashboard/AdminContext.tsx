@@ -40,6 +40,8 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
   const [processing, setProcessing] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [eventDays, setEventDays] = useState<EventDay[]>([]);
+  // Mapa registration_id → Set<event_day_id> para filtro multidía
+  const [regDayMap, setRegDayMap] = useState<Map<string, Set<string>>>(new Map());
   const { showSuccess, showError, toast, dismiss } = useToast();
 
   // ─── Debounce search ─────────────────────────────
@@ -147,6 +149,24 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       const data: RegistrationFull[] = json.data || [];
       setRegistrations(data);
 
+      // Para eventos multidía: cargar registration_days para filtro por jornada
+      if (isMultidia && data.length > 0) {
+        try {
+          const rdRes = await fetch(`/api/events/${eventId}/registration-days`);
+          if (rdRes.ok) {
+            const rdRows: { registration_id: string; event_day_id: string }[] = await rdRes.json();
+            const map = new Map<string, Set<string>>();
+            for (const rd of rdRows) {
+              if (!map.has(rd.registration_id)) map.set(rd.registration_id, new Set());
+              map.get(rd.registration_id)!.add(rd.event_day_id);
+            }
+            setRegDayMap(map);
+          }
+        } catch { /* ignore — filter simply won't work */ }
+      } else {
+        setRegDayMap(new Map());
+      }
+
       // Stats always from full (unfiltered) dataset
       setStats({
         total: data.length,
@@ -162,7 +182,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.event_id, selectedEvent?.id, showError]);
+  }, [filters.event_id, selectedEvent?.id, isMultidia, showError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -175,19 +195,23 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     if (filters.tipo_medio) {
       result = result.filter(r => r.tipo_medio === filters.tipo_medio);
     }
+    if (filters.event_day_id && regDayMap.size > 0) {
+      result = result.filter(r => r.id && regDayMap.get(r.id)?.has(filters.event_day_id));
+    }
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase();
       result = result.filter(r =>
         (r.profile_nombre && r.profile_nombre.toLowerCase().includes(q)) ||
         (r.profile_apellido && r.profile_apellido.toLowerCase().includes(q)) ||
         (r.rut && r.rut.toLowerCase().includes(q)) ||
+        (r.profile_document_number && r.profile_document_number.toLowerCase().includes(q)) ||
         (r.organizacion && r.organizacion.toLowerCase().includes(q)) ||
         (r.profile_email && r.profile_email.toLowerCase().includes(q)) ||
         (r.tipo_medio && r.tipo_medio.toLowerCase().includes(q))
       );
     }
     return result;
-  }, [registrations, filters.status, filters.tipo_medio, debouncedSearch]);
+  }, [registrations, filters.status, filters.tipo_medio, filters.event_day_id, regDayMap, debouncedSearch]);
 
   // ─── Select event ─────────────────────────────────
   const selectEvent = useCallback((eventId: string) => {

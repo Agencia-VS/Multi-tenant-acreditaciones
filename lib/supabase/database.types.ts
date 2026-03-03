@@ -1393,6 +1393,8 @@ export type Database = {
           processed_by: string | null
           profile_apellido: string | null
           profile_datos_base: Json | null
+          profile_document_number: string | null
+          profile_document_type: string | null
           profile_email: string | null
           profile_foto: string | null
           profile_id: string | null

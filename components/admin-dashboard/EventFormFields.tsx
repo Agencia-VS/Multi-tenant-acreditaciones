@@ -3,18 +3,22 @@
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import TagInput from '@/components/shared/TagInput';
 import DisclaimerEditor from './DisclaimerEditor';
+import EventDaysTab from '@/app/superadmin/(dashboard)/eventos/EventDaysTab';
 import type { DisclaimerSection, EventType } from '@/types';
 import type { EventForm } from './useEventForm';
+import type { EventDayFormData } from '@/types';
 
 interface EventFormFieldsProps {
   form: EventForm;
   setForm: React.Dispatch<React.SetStateAction<EventForm>>;
   zonas: string[];
   setZonas: React.Dispatch<React.SetStateAction<string[]>>;
+  eventDays?: EventDayFormData[];
+  setEventDays?: React.Dispatch<React.SetStateAction<EventDayFormData[]>>;
 }
 
 export default function EventFormFields({
-  form, setForm, zonas, setZonas,
+  form, setForm, zonas, setZonas, eventDays, setEventDays,
 }: EventFormFieldsProps) {
   return (
     <div className="space-y-4">
@@ -122,6 +126,20 @@ export default function EventFormFields({
             folder="events"
             rounded
             previewSize="sm"
+          />
+        </div>
+      )}
+
+      {/* Multi-día — fechas y jornadas */}
+      {form.event_type === 'multidia' && eventDays && setEventDays && (
+        <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-200/50 space-y-3">
+          <EventDaysTab
+            days={eventDays}
+            setDays={setEventDays}
+            fechaInicio={form.fecha_inicio}
+            fechaFin={form.fecha_fin}
+            setFechaInicio={(v) => setForm(f => ({ ...f, fecha_inicio: v }))}
+            setFechaFin={(v) => setForm(f => ({ ...f, fecha_fin: v }))}
           />
         </div>
       )}

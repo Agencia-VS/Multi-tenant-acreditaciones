@@ -13,7 +13,7 @@ import type { Event, EventConfig } from '@/types';
 export default function AdminConfigTab() {
   const { tenant, events, fetchData, refreshEvents, showSuccess, showError } = useAdmin();
   const eventForm = useEventForm();
-  const { form, formFields, quotaRules, zoneRules, zonas, bulkTemplateColumns, responsableConfig, cloneSourceId, cloning, resetForm, syncFromEvent } = eventForm;
+  const { form, formFields, quotaRules, zoneRules, zonas, bulkTemplateColumns, responsableConfig, cloneSourceId, cloning, resetForm, syncFromEvent, eventDays, setEventDays } = eventForm;
 
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -48,11 +48,21 @@ export default function AdminConfigTab() {
           ...formData, tenant_id: tenant.id, config: eventConfig, form_fields: formFields,
           clone_from_event_id: cloneSourceId || undefined,
           event_type: form.event_type,
+          fecha_inicio: form.event_type === 'multidia' ? form.fecha_inicio || null : null,
+          fecha_fin: form.event_type === 'multidia' ? form.fecha_fin || null : null,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
       if (res.ok) {
         const created = await res.json();
+        // Sync event_days para multidia
+        if (form.event_type === 'multidia' && eventDays.length > 0) {
+          await fetch(`/api/events/${created.id}/days`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days: eventDays }),
+          }).catch(() => { /* ignore */ });
+        }
         // Clonar cupos y reglas de zona en paralelo
         const clonePromises: Promise<unknown>[] = [];
         if (quotaRules.length > 0) {
@@ -108,10 +118,22 @@ export default function AdminConfigTab() {
         body: JSON.stringify({
           ...formData, config: updatedConfig,
           event_type: form.event_type,
+          fecha_inicio: form.event_type === 'multidia' ? form.fecha_inicio || null : null,
+          fecha_fin: form.event_type === 'multidia' ? form.fecha_fin || null : null,
           fecha_limite_acreditacion: form.fecha_limite_acreditacion ? localToChileISO(form.fecha_limite_acreditacion) : null,
         }),
       });
-      if (res.ok) { showSuccess('Evento actualizado'); setEditEvent(null); resetForm(); await refreshEvents(); fetchData(); }
+      if (res.ok) {
+        // Sync event_days para multidia
+        if (form.event_type === 'multidia') {
+          await fetch(`/api/events/${editEvent.id}/days`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days: eventDays }),
+          }).catch(() => { /* ignore */ });
+        }
+        showSuccess('Evento actualizado'); setEditEvent(null); resetForm(); await refreshEvents(); fetchData();
+      }
       else { const d = await res.json(); showError(d.error || 'Error actualizando evento'); }
     } catch { showError('Error de conexión'); }
     finally { setSaving(false); }
