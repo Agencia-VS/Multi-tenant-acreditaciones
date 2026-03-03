@@ -17,7 +17,7 @@ ALTER FUNCTION public.trigger_set_updated_at() SET search_path = public;
 DROP POLICY IF EXISTS providers_select ON public.tenant_providers;
 CREATE POLICY providers_select ON public.tenant_providers
   FOR SELECT USING (
-    user_id = (select auth.uid())
+    profile_id IN (SELECT id FROM public.profiles WHERE user_id = (select auth.uid()))
     OR tenant_id IN (
       SELECT tenant_id FROM public.tenant_users
       WHERE user_id = (select auth.uid()) AND role IN ('admin', 'owner')
@@ -28,7 +28,7 @@ CREATE POLICY providers_select ON public.tenant_providers
 DROP POLICY IF EXISTS providers_insert ON public.tenant_providers;
 CREATE POLICY providers_insert ON public.tenant_providers
   FOR INSERT WITH CHECK (
-    user_id = (select auth.uid())
+    profile_id IN (SELECT id FROM public.profiles WHERE user_id = (select auth.uid()))
   );
 
 -- ─── 3. Vista v_registration_full — agregar document_number ──
