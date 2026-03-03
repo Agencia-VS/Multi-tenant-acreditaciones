@@ -34,6 +34,7 @@ function AcreditadoAuthContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [transitioning, setTransitioning] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const formRef = useRef<HTMLDivElement>(null);
   const { showSuccess, showError } = useToast();
 
@@ -45,12 +46,13 @@ function AcreditadoAuthContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         window.location.href = returnTo || '/acreditado';
-      } else if (urlError) {
-        // Solo mostrar error de URL si el usuario no tiene sesión
+        return; // keep checkingSession=true so we don't flash the form
+      }
+      if (urlError) {
         setError('La sesión expiró o hubo un error de autenticación. Intenta de nuevo.');
-        // Limpiar el param del URL sin recargar la página
         window.history.replaceState({}, '', '/auth/acreditado');
       }
+      setCheckingSession(false);
     };
     checkSession();
   }, []);
@@ -192,6 +194,15 @@ function AcreditadoAuthContent() {
   };
 
   const inputClass = 'w-full px-4 py-3 rounded-xl border border-field-border bg-canvas text-heading placeholder-muted text-sm transition-snappy';
+
+  // Show loading while checking existing session (prevents login form flash)
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#111111] flex items-center justify-center p-4 sm:p-6 relative dark-surface">
