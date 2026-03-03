@@ -15,7 +15,7 @@ interface AdminTableProps {
 
 export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) {
   const {
-    registrations, loading, selectedIds, toggleSelectAll,
+    filteredRegistrations, loading, selectedIds, toggleSelectAll,
     handleBulkAction, processing,
     events, filters, setFilters, fetchData,
     eventDays, isMultidia,
@@ -29,13 +29,13 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
 
   const ids = Array.from(selectedIds);
   const hasSel = ids.length > 0;
-  const allSelected = hasSel && selectedIds.size === registrations.length;
+  const allSelected = hasSel && selectedIds.size === filteredRegistrations.length;
 
   // Count selected registrations that have email
   const selectedWithEmail = useMemo(() => {
     if (!hasSel) return 0;
-    return registrations.filter(r => selectedIds.has(r.id) && r.profile_email).length;
-  }, [registrations, selectedIds, hasSel]);
+    return filteredRegistrations.filter(r => selectedIds.has(r.id) && r.profile_email).length;
+  }, [filteredRegistrations, selectedIds, hasSel]);
 
   const updateFilter = (key: string, value: string) => {
     setFilters({ ...filters, [key]: value });
@@ -151,7 +151,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
 
           {/* Active filter pills + count */}
           <div className="flex items-center gap-2 mt-2 text-xs text-muted">
-            <span className="font-medium">{registrations.length} registros</span>
+            <span className="font-medium">{filteredRegistrations.length} registros</span>
             {selectedIds.size > 0 && (
               <span className="text-brand font-medium">· {selectedIds.size} sel.</span>
             )}
@@ -284,11 +284,11 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
       </div>
 
       {/* ═══════ Table ═══════ */}
-      {registrations.length === 0 ? (
-        <EmptyState message="No hay registros para este evento" icon="fa-inbox" />
+      {filteredRegistrations.length === 0 ? (
+        <EmptyState message={hasActiveFilters ? 'No hay registros que coincidan con los filtros' : 'No hay registros para este evento'} icon="fa-inbox" />
       ) : (
         <PaginatedTable
-          registrations={registrations}
+          registrations={filteredRegistrations}
           allSelected={allSelected}
           toggleSelectAll={toggleSelectAll}
           onViewDetail={onViewDetail}
@@ -299,9 +299,9 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
       )}
 
       {/* Footer */}
-      {registrations.length > 0 && (
+      {filteredRegistrations.length > 0 && (
         <div className="px-4 py-2.5 bg-canvas/50 border-t border-edge text-xs text-muted flex justify-between items-center rounded-b-2xl">
-          <span>Mostrando {registrations.length} registros</span>
+          <span>Mostrando {filteredRegistrations.length} registros</span>
           {hasSel && <span className="text-brand">{selectedIds.size} seleccionados</span>}
         </div>
       )}

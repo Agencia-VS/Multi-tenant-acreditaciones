@@ -672,6 +672,8 @@ export interface AdminContextType {
   events: Event[];
   selectedEvent: EventFull | null;
   registrations: RegistrationFull[];
+  /** Registrations after applying client-side filters (status, tipo_medio, search, event_day) */
+  filteredRegistrations: RegistrationFull[];
   stats: AdminStats;
   /** Jornadas del evento seleccionado (solo multidía) */
   eventDays: import('./index').EventDay[];

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import type {
   Tenant, Event, EventFull, RegistrationFull, RegistrationStatus,
   AdminTab, AdminFilterState, AdminStats, AdminContextType, BulkActionPayload,
@@ -133,25 +133,21 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     } catch { /* ignore */ }
   }, [tenantId, selectedEvent?.id]);
 
-  // ─── Fetch registrations whenever event/filters change ──────────
+  // ─── Fetch registrations when event changes (no filter deps) ──────────
   const fetchData = useCallback(async () => {
     const eventId = filters.event_id || selectedEvent?.id;
     if (!eventId) { setLoading(false); return; }
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({ event_id: eventId });
-      if (filters.status) params.set('status', filters.status);
-      if (filters.tipo_medio) params.set('tipo_medio', filters.tipo_medio);
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      params.set('limit', '500');
+      const params = new URLSearchParams({ event_id: eventId, limit: '500' });
 
       const res = await fetch(`/api/registrations?${params}`);
       const json = await res.json();
       const data: RegistrationFull[] = json.data || [];
       setRegistrations(data);
 
-      // Compute stats from full unfiltered set if no filters, otherwise from result
+      // Stats always from full (unfiltered) dataset
       setStats({
         total: data.length,
         pendientes: data.filter(r => r.status === 'pendiente').length,
@@ -165,9 +161,36 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     } finally {
       setLoading(false);
     }
-  }, [filters.event_id, filters.status, filters.tipo_medio, debouncedSearch, selectedEvent?.id, showError]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.event_id, selectedEvent?.id, showError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ─── Client-side filtering (no network round-trip) ──────────
+  const filteredRegistrations = useMemo(() => {
+    let result = registrations;
+    if (filters.status) {
+      result = result.filter(r => r.status === filters.status);
+    }
+    if (filters.tipo_medio) {
+      result = result.filter(r => r.tipo_medio === filters.tipo_medio);
+    }
+    if (filters.event_day_id) {
+      result = result.filter(r => r.event_day_id === filters.event_day_id);
+    }
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(r =>
+        (r.profile_nombre && r.profile_nombre.toLowerCase().includes(q)) ||
+        (r.profile_apellido && r.profile_apellido.toLowerCase().includes(q)) ||
+        (r.profile_document_number && r.profile_document_number.toLowerCase().includes(q)) ||
+        (r.profile_organizacion && r.profile_organizacion.toLowerCase().includes(q)) ||
+        (r.profile_email && r.profile_email.toLowerCase().includes(q)) ||
+        (r.tipo_medio && r.tipo_medio.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [registrations, filters.status, filters.tipo_medio, filters.event_day_id, debouncedSearch]);
 
   // ─── Select event ─────────────────────────────────
   const selectEvent = useCallback((eventId: string) => {
@@ -368,13 +391,13 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
 
   const toggleSelectAll = useCallback(() => {
     setSelectedIds(prev =>
-      prev.size === registrations.length ? new Set() : new Set(registrations.map(r => r.id))
+      prev.size === filteredRegistrations.length ? new Set() : new Set(filteredRegistrations.map(r => r.id))
     );
-  }, [registrations]);
+  }, [filteredRegistrations]);
 
   // ─── Context value ─────────────────────────────────
   const value: AdminContextType = {
-    tenant, events, selectedEvent, registrations, stats,
+    tenant, events, selectedEvent, registrations, filteredRegistrations, stats,
     eventDays, isMultidia,
     activeTab, setActiveTab, filters, setFilters,
     selectedIds, setSelectedIds, loading, processing,
