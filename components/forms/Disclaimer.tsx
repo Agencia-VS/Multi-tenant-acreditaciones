@@ -22,9 +22,22 @@ interface DisclaimerProps {
   disclaimerConfig?: DisclaimerConfig;
 }
 
+/**
+ * Parse date string safely.
+ * Date-only strings like "2026-03-15" are parsed as UTC midnight by `new Date()`,
+ * which shifts back one day in negative-offset timezones (e.g. America/Santiago).
+ * Fix: append T12:00 so the local conversion stays on the correct day.
+ */
+function parseDate(dateStr: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date(dateStr + 'T12:00:00');
+  }
+  return new Date(dateStr);
+}
+
 function formatDateTime(dateStr: string): string {
   try {
-    const date = new Date(dateStr);
+    const date = parseDate(dateStr);
     return date.toLocaleDateString('es-CL', {
       day: '2-digit',
       month: '2-digit',
@@ -40,7 +53,7 @@ function formatDateTime(dateStr: string): string {
 
 function formatDate(dateStr: string): string {
   try {
-    const date = new Date(dateStr);
+    const date = parseDate(dateStr);
     return date.toLocaleDateString('es-CL', {
       weekday: 'long',
       day: 'numeric',
