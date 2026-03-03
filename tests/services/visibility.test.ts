@@ -107,6 +107,60 @@ describe('Event Visibility', () => {
       expect(visibilityCall![1]).toBe('public');
     });
   });
+
+  describe('getActiveEvents (plural)', () => {
+    it('returns array of all active events', async () => {
+      const events = [
+        { id: 'e-1', nombre: 'Event 1', visibility: 'public' },
+        { id: 'e-2', nombre: 'Event 2', visibility: 'public' },
+      ];
+      // getActiveEvents uses .order() without .limit().single() — returns array directly
+      mockEq.mockReturnValue({ eq: mockEq, order: mockOrder });
+      mockOrder.mockResolvedValue({ data: events, error: null });
+
+      const { getActiveEvents } = await import('@/lib/services/events');
+      const result = await getActiveEvents('tenant-1');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('e-1');
+      expect(result[1].id).toBe('e-2');
+    });
+
+    it('returns empty array when no active events', async () => {
+      mockEq.mockReturnValue({ eq: mockEq, order: mockOrder });
+      mockOrder.mockResolvedValue({ data: null, error: { message: 'none' } });
+
+      const { getActiveEvents } = await import('@/lib/services/events');
+      const result = await getActiveEvents('tenant-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('filters by publicOnly when set', async () => {
+      mockEq.mockReturnValue({ eq: mockEq, order: mockOrder });
+      mockOrder.mockResolvedValue({ data: [{ id: 'e-1' }], error: null });
+
+      const { getActiveEvents } = await import('@/lib/services/events');
+      await getActiveEvents('tenant-1', { publicOnly: true });
+
+      const eqCalls = mockEq.mock.calls;
+      const visibilityCall = eqCalls.find(c => c[0] === 'visibility');
+      expect(visibilityCall).toBeDefined();
+      expect(visibilityCall![1]).toBe('public');
+    });
+
+    it('does not filter visibility when publicOnly is false', async () => {
+      mockEq.mockReturnValue({ eq: mockEq, order: mockOrder });
+      mockOrder.mockResolvedValue({ data: [{ id: 'e-1', visibility: 'invite_only' }], error: null });
+
+      const { getActiveEvents } = await import('@/lib/services/events');
+      const result = await getActiveEvents('tenant-1');
+
+      expect(result).toHaveLength(1);
+      const eqCalls = mockEq.mock.calls.map(c => c[0]);
+      expect(eqCalls).not.toContain('visibility');
+    });
+  });
 });
 
 describe('Invitation Service', () => {

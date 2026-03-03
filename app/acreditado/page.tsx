@@ -143,7 +143,7 @@ export default function AcreditadoHomePage() {
               return (
                 <Link
                   key={t.tenantId}
-                  href={`/${t.tenantSlug}/acreditacion`}
+                  href={t.eventId ? `/${t.tenantSlug}/acreditacion?event=${t.eventId}` : `/${t.tenantSlug}/acreditacion`}
                   className="flex items-center gap-3 p-4 bg-surface rounded-xl border border-edge hover:shadow-md transition"
                 >
                   {/* Mini completion ring */}
@@ -232,7 +232,7 @@ export default function AcreditadoHomePage() {
                     </div>
                   </div>
                   <Link
-                    href={`/${tenant?.slug}/acreditacion`}
+                    href={`/${tenant?.slug}/acreditacion?event=${event.id}`}
                     className="px-4 py-2 bg-brand text-on-brand rounded-lg text-xs sm:text-sm font-medium hover:bg-brand-hover transition w-full sm:w-auto text-center shrink-0"
                   >
                     Acreditarme

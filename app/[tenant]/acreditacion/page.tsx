@@ -8,7 +8,7 @@
  * - invite_only → requiere ?invite=<token> que coincida con event.invite_token
  */
 import { getTenantBySlug } from '@/lib/services/tenants';
-import { getActiveEvent } from '@/lib/services/events';
+import { getActiveEvent, getEventFull } from '@/lib/services/events';
 import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { isSuperAdmin, isTenantAdmin } from '@/lib/services/auth';
@@ -28,12 +28,21 @@ export default async function AcreditacionPage({
   searchParams,
 }: {
   params: Promise<{ tenant: string }>;
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; event?: string }>;
 }) {
   const { tenant: slug } = await params;
-  const { invite: inviteToken } = await searchParams;
+  const { invite: inviteToken, event: eventId } = await searchParams;
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
+
+  // Build returnTo preserving query params
+  const buildReturnTo = () => {
+    const params = new URLSearchParams();
+    if (inviteToken) params.set('invite', inviteToken);
+    if (eventId) params.set('event', eventId);
+    const qs = params.toString();
+    return `/${slug}/acreditacion${qs ? `?${qs}` : ''}`;
+  };
 
   // ─── Auth opcional: si hay sesión de ACREDITADO, pre-llena datos ───
   // Superadmins y tenant admins NO deben pre-llenar — la acreditación es solo para acreditados.
@@ -50,9 +59,8 @@ export default async function AcreditacionPage({
     if (!isSuper && !isAdmin) {
       userProfile = await getProfileByUserId(user.id);
 
-      const returnTo = `/${slug}/acreditacion${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`;
       if (!userProfile || !isReadyToAccredit(userProfile)) {
-        redirect(`/acreditado/perfil?from=acreditacion&returnTo=${encodeURIComponent(returnTo)}`);
+        redirect(`/acreditado/perfil?from=acreditacion&returnTo=${encodeURIComponent(buildReturnTo())}`);
       }
     }
   }
@@ -64,8 +72,7 @@ export default async function AcreditacionPage({
   if (isProviderMode && !isAdminUser) {
     // Si no está logueado → redirect a login con returnTo
     if (!user) {
-      const returnTo = `/${slug}/acreditacion${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`;
-      redirect(`/auth/acreditado?returnTo=${encodeURIComponent(returnTo)}`);
+      redirect(`/auth/acreditado?returnTo=${encodeURIComponent(buildReturnTo())}`);
     }
 
     // Si está logueado, verificar que sea proveedor aprobado
@@ -117,7 +124,10 @@ export default async function AcreditacionPage({
     }
   }
 
-  const event = await getActiveEvent(tenant.id);
+  // Si viene ?event=id, cargar ese evento específico; si no, fallback al primer evento activo
+  let event = eventId ? await getEventFull(eventId) : null;
+  if (event && (event.tenant_id !== tenant.id || !event.is_active)) event = null;
+  if (!event) event = await getActiveEvent(tenant.id);
 
   if (!event) {
     return (

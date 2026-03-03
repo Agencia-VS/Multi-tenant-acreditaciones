@@ -1,9 +1,9 @@
 /**
  * Tenant Landing — Server Component
- * Obtiene datos del tenant y evento activo, delega la UI al client component
+ * Obtiene datos del tenant y eventos activos, delega la UI al client component
  */
 import { getTenantBySlug } from '@/lib/services/tenants';
-import { getActiveEvent } from '@/lib/services/events';
+import { getActiveEvents } from '@/lib/services/events';
 import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { getProviderByTenantAndProfile } from '@/lib/services/providers';
@@ -36,12 +36,12 @@ export default async function TenantPage({
 
   // Proveedores aprobados pueden ver eventos invite_only (ya están autorizados a nivel tenant)
   const isApprovedProvider = isProviderMode && providerStatus === 'approved';
-  const event = await getActiveEvent(tenant.id, isApprovedProvider ? {} : { publicOnly: true });
+  const events = await getActiveEvents(tenant.id, isApprovedProvider ? {} : { publicOnly: true });
 
   return (
     <TenantLanding
       tenant={tenant}
-      event={event}
+      events={events}
       slug={slug}
       providerMode={isProviderMode}
       providerStatus={providerStatus}

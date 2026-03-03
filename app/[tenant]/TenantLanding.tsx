@@ -12,13 +12,14 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { Tenant, Event, EventType } from '@/types';
+import type { Tenant, Event, EventType, EventFull } from '@/types';
 import { formatDeadlineChile } from '@/lib/dates';
+import { isAccreditationClosed } from '@/lib/dates';
 import { generateTenantPalette } from '@/lib/colors';
 
 interface TenantLandingProps {
   tenant: Tenant;
-  event: Event | null;
+  events: EventFull[];
   slug: string;
   providerMode?: boolean;
   providerStatus?: string | null;
@@ -31,10 +32,14 @@ interface SocialLinks {
   youtube?: string;
 }
 
-export default function TenantLanding({ tenant, event, slug, providerMode, providerStatus }: TenantLandingProps) {
+export default function TenantLanding({ tenant, events, slug, providerMode, providerStatus }: TenantLandingProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navTarget, setNavTarget] = useState<string | null>(null);
   const router = useRouter();
+
+  // Primary event = first in list (backward compat); null if no events
+  const event = events.length > 0 ? events[0] : null;
+  const hasMultipleEvents = events.length > 1;
 
   const p = useMemo(() => generateTenantPalette(
     tenant.color_primario,
@@ -52,10 +57,11 @@ export default function TenantLanding({ tenant, event, slug, providerMode, provi
     return d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
   }, [event?.fecha]);
 
-  const handleNavigate = () => {
+  const handleNavigate = (eventId?: string) => {
     setIsNavigating(true);
-    setNavTarget('acreditacion');
-    router.push(`/${slug}/acreditacion`);
+    setNavTarget(eventId || 'acreditacion');
+    const url = eventId ? `/${slug}/acreditacion?event=${eventId}` : `/${slug}/acreditacion`;
+    router.push(url);
   };
 
   const handleNavClick = (href: string, key: string) => {
@@ -290,7 +296,161 @@ export default function TenantLanding({ tenant, event, slug, providerMode, provi
           HERO CONTENT — "White space dominates, colour is strategic"
          ═══════════════════════════════════════════════════════════════ */}
       <div className="relative z-10 flex-1 flex flex-col justify-center items-center px-5 sm:px-8 lg:px-16 py-12">
-        {event ? (
+        {hasMultipleEvents ? (
+          /* ═══════ MULTI-EVENT: Org header + cards grid ═══════ */
+          <div className="flex flex-col items-center gap-8 max-w-5xl w-full">
+            {/* Org identity */}
+            <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
+              {(tenant.shield_url || tenant.logo_url) && (
+                <img
+                  src={tenant.shield_url || tenant.logo_url!}
+                  alt={tenant.nombre}
+                  className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
+                  style={{ filter: `drop-shadow(0 0 24px ${p.interactiveAccent}25)` }}
+                />
+              )}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-lg text-center tracking-tight">
+                {tenant.nombre}
+              </h1>
+              <p className="text-sm text-white/70">Selecciona un evento para acreditarte</p>
+            </div>
+
+            {/* Provider restricted message */}
+            {providerMode && providerStatus !== 'approved' ? (
+              <div
+                className="rounded-2xl px-6 py-5 backdrop-blur-md text-center max-w-sm opacity-0 animate-fade-in"
+                style={{ background: `${p.forest}80`, border: `1px solid ${p.bright}20` }}
+              >
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+                  style={{ background: `${p.bright}20` }}
+                >
+                  <i className="fas fa-shield-alt text-lg" style={{ color: `${p.bright}90` }} />
+                </div>
+                <p className="text-sm font-semibold text-white mb-1">
+                  {providerStatus === 'pending' ? 'Solicitud en revisión'
+                    : providerStatus === 'rejected' ? 'Acceso no concedido'
+                    : providerStatus === 'suspended' ? 'Acceso suspendido'
+                    : 'Proveedores autorizados'}
+                </p>
+                <p className="text-xs text-white/70">
+                  {providerStatus === 'pending' ? 'Tu solicitud de acceso está siendo revisada.'
+                    : providerStatus === 'rejected' ? 'Tu solicitud no fue aprobada. Contacta al administrador.'
+                    : providerStatus === 'suspended' ? 'Tu acceso ha sido suspendido temporalmente.'
+                    : 'Esta organización trabaja con proveedores autorizados.'}
+                </p>
+              </div>
+            ) : (
+              /* Event cards grid */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full opacity-0 animate-fade-in-delay-2">
+                {events.map((ev) => {
+                  const evDate = ev.fecha ? new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' }) : null;
+                  const evType: EventType = (ev as Event & { event_type?: EventType }).event_type || (ev.opponent_name ? 'deportivo' : 'simple');
+                  const isMatch = Boolean(ev.opponent_name);
+                  const { closed } = isAccreditationClosed(ev.config ?? {}, ev.fecha_limite_acreditacion);
+                  const deadline = ev.fecha_limite_acreditacion ? formatDeadlineChile(ev.fecha_limite_acreditacion) : null;
+
+                  return (
+                    <button
+                      key={ev.id}
+                      onClick={() => !closed && handleNavigate(ev.id)}
+                      disabled={isNavigating || closed}
+                      className="group relative rounded-2xl p-5 text-left backdrop-blur-md transition-snappy hover:scale-[1.02] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{
+                        background: `${p.forest}90`,
+                        border: `1px solid ${p.bright}20`,
+                        boxShadow: `0 4px 20px ${p.forest}40`,
+                      }}
+                    >
+                      {/* Hover glow */}
+                      <div
+                        className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-fluid pointer-events-none"
+                        style={{ background: `linear-gradient(135deg, ${p.bright}08, ${p.bright}15)` }}
+                      />
+
+                      <div className="relative flex items-start gap-4">
+                        {/* Event visual */}
+                        {isMatch && ev.opponent_logo_url ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {tenant.shield_url && <img src={tenant.shield_url} alt="" className="w-8 h-8 object-contain" />}
+                            <span className="text-[10px] font-bold" style={{ color: `${p.bright}70` }}>VS</span>
+                            <img src={ev.opponent_logo_url} alt="" className="w-8 h-8 object-contain" />
+                          </div>
+                        ) : (
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ background: `${p.bright}15` }}
+                          >
+                            <i className={`fas ${evType === 'multidia' ? 'fa-calendar-week' : isMatch ? 'fa-futbol' : 'fa-calendar'} text-lg`} style={{ color: `${p.bright}80` }} />
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-white text-sm sm:text-base truncate">{ev.nombre}</h3>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                            {evDate && (
+                              <span className="text-xs text-white/60">
+                                <i className="fas fa-calendar mr-1" style={{ color: p.interactiveAccent }} />{evDate}
+                              </span>
+                            )}
+                            {ev.hora && (
+                              <span className="text-xs text-white/60">
+                                <i className="fas fa-clock mr-1" style={{ color: p.interactiveAccent }} />{ev.hora.substring(0, 5)}
+                              </span>
+                            )}
+                            {ev.venue && (
+                              <span className="text-xs text-white/60 truncate">
+                                <i className="fas fa-location-dot mr-1" style={{ color: p.interactiveAccent }} />{ev.venue}
+                              </span>
+                            )}
+                          </div>
+                          {closed ? (
+                            <p className="text-xs mt-2 font-medium" style={{ color: '#FF6B6B' }}>
+                              <i className="fas fa-lock mr-1" />Acreditación cerrada
+                            </p>
+                          ) : deadline ? (
+                            <p className="text-xs mt-2 text-amber-300/80">
+                              <i className="fas fa-clock mr-1" />Plazo: {deadline}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        {/* Arrow */}
+                        {!closed && (
+                          <div className="shrink-0 self-center">
+                            {navTarget === ev.id ? (
+                              <div className="w-5 h-5 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-5 h-5 text-white/40 group-hover:text-white/80 group-hover:translate-x-1 transition-snappy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Sub-link */}
+            {(!providerMode || providerStatus === 'approved') && (
+              <button
+                onClick={() => handleNavClick('/auth/acreditado', 'cuenta-sub')}
+                disabled={isNavigating}
+                className="text-xs font-medium transition-snappy hover-color-only disabled:opacity-60 flex items-center gap-1 opacity-0 animate-fade-in-delay-2"
+                style={{ '--hc-color': `${p.tint}80`, '--hc-color-hover': p.bright } as React.CSSProperties}
+              >
+                {navTarget === 'cuenta-sub' ? (
+                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <i className="fas fa-user-circle mr-1" />
+                )}
+                ¿Ya tienes cuenta? Entra aquí
+              </button>
+            )}
+          </div>
+        ) : event ? (
           <div className="flex flex-col items-center gap-8 max-w-4xl w-full">
 
             {/* Metadata chips */}
@@ -474,7 +634,7 @@ export default function TenantLanding({ tenant, event, slug, providerMode, provi
                 /* ── Normal CTA ── */
                 <>
               <button
-                onClick={handleNavigate}
+                onClick={() => handleNavigate()}
                 disabled={isNavigating}
                 className="group relative overflow-hidden rounded-2xl px-10 py-4 text-lg sm:text-xl font-bold transition-snappy hover:scale-[1.03] active:scale-[0.98] cursor-pointer shadow-2xl"
                 style={{
