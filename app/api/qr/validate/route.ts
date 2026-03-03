@@ -9,7 +9,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/services/auth';
+import { getUserTenantRole } from '@/lib/services/auth';
 import { logAuditAction } from '@/lib/services/audit';
+import { apiLimiter } from '@/lib/rateLimit';
 
 function toDisplayName(value: string): string {
   const normalized = value.trim().replace(/\s+/g, ' ');
@@ -26,6 +28,9 @@ function toDisplayName(value: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = apiLimiter.check(request, 30);
+    if (limited) return limited;
+
     const body = await request.json();
     const { qr_token, event_day_id } = body;
 
@@ -43,7 +48,7 @@ export async function POST(request: NextRequest) {
         id, status, checked_in, checked_in_at, event_id,
         organizacion, cargo, tipo_medio,
         profiles!registrations_profile_id_fkey (nombre, apellido, rut, foto_url, datos_base),
-        events!registrations_event_id_fkey (nombre, event_type, qr_enabled)
+        events!registrations_event_id_fkey (nombre, event_type, qr_enabled, tenant_id)
       `)
       .eq('qr_token', qr_token)
       .single();
@@ -63,9 +68,20 @@ export async function POST(request: NextRequest) {
       foto_url: string | null;
       datos_base?: Record<string, unknown> | null;
     };
-    const event = reg.events as unknown as { nombre: string; event_type: string; qr_enabled: boolean };
+    const event = reg.events as unknown as { nombre: string; event_type: string; qr_enabled: boolean; tenant_id: string };
     const nombreRaw = `${profile.nombre} ${profile.apellido}`.trim();
     const nombre = toDisplayName(nombreRaw);
+
+    // Verificar que el usuario que escanea es admin del tenant del evento
+    if (user && event.tenant_id) {
+      const scannerRole = await getUserTenantRole(user.id, event.tenant_id);
+      if (scannerRole === 'none') {
+        return NextResponse.json(
+          { error: 'No tienes permisos para escanear en este evento' },
+          { status: 403 }
+        );
+      }
+    }
     const datosBase = profile.datos_base && typeof profile.datos_base === 'object'
       ? profile.datos_base
       : null;

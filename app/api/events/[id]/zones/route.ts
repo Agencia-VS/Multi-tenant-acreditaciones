@@ -28,7 +28,12 @@ export async function GET(
       return NextResponse.json({ cargo, tipo_medio: tipoMedio, zona });
     }
 
-    // General: obtener todas las reglas
+    // General: obtener todas las reglas (requiere admin)
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
     const rules = await getZoneRules(eventId);
     return NextResponse.json(rules);
   } catch (error) {

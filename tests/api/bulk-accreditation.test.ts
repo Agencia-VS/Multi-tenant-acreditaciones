@@ -41,6 +41,13 @@ vi.mock('@/lib/services/tenants', () => ({
   getTenantById: (...args: unknown[]) => mockGetTenantById(...args),
 }));
 
+vi.mock('@/lib/rateLimit', () => ({
+  heavyLimiter: { check: () => null },
+  apiLimiter: { check: () => null },
+  authLimiter: { check: () => null },
+  rateLimit: () => ({ check: () => null }),
+}));
+
 vi.mock('@/lib/dates', () => ({
   isAccreditationClosed: (config: Record<string, unknown> | null, fecha: string | null) => {
     if (fecha === 'PAST') return { closed: true, reason: 'Plazo cerrado' };

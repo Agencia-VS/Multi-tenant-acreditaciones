@@ -75,6 +75,19 @@ function SuccessView({
         </p>
       </div>
 
+      {/* Disclaimer: envío no garantiza aprobación */}
+      {!allFailed && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 max-w-md mx-auto">
+          <div className="flex items-start gap-2.5">
+            <i className="fas fa-info-circle text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
+              <strong>Importante:</strong> el envío de tu solicitud no garantiza la acreditación. 
+              Tu solicitud será revisada y se te notificará el resultado por correo electrónico.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Summary stats for bulk */}
       {isBulk ? (
         <div className="max-w-sm mx-auto">

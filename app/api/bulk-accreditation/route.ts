@@ -18,6 +18,7 @@
  * NO vincula authUserId a profiles de bulk (evita duplicate key user_id).
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { heavyLimiter } from '@/lib/rateLimit';
 import { getEventById } from '@/lib/services';
 import { getCurrentUser, isSuperAdmin } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
@@ -100,6 +101,9 @@ function allOrNothingError(summary: string, totalRows: number = 2): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = heavyLimiter.check(request, 5);
+    if (limited) return limited;
+
     const traceId = crypto.randomUUID();
     const body = await request.json();
     const { event_id, rows } = body as { event_id: string; rows: BulkRow[] };

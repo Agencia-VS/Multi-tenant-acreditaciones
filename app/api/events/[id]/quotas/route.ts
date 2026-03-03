@@ -27,7 +27,12 @@ export async function GET(
       return NextResponse.json(result);
     }
     
-    // General: obtener todas las reglas con uso
+    // General: obtener todas las reglas con uso (requiere admin)
+    const tenantId = await getEventTenantId(eventId);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    await requireAuth(request, { role: 'admin_tenant', tenantId });
     const rules = await getQuotaRulesWithUsage(eventId);
     return NextResponse.json(rules);
   } catch (error) {

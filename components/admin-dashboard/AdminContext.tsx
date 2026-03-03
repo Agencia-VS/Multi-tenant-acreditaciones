@@ -175,22 +175,19 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     if (filters.tipo_medio) {
       result = result.filter(r => r.tipo_medio === filters.tipo_medio);
     }
-    if (filters.event_day_id) {
-      result = result.filter(r => r.event_day_id === filters.event_day_id);
-    }
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase();
       result = result.filter(r =>
         (r.profile_nombre && r.profile_nombre.toLowerCase().includes(q)) ||
         (r.profile_apellido && r.profile_apellido.toLowerCase().includes(q)) ||
-        (r.profile_document_number && r.profile_document_number.toLowerCase().includes(q)) ||
-        (r.profile_organizacion && r.profile_organizacion.toLowerCase().includes(q)) ||
+        (r.rut && r.rut.toLowerCase().includes(q)) ||
+        (r.organizacion && r.organizacion.toLowerCase().includes(q)) ||
         (r.profile_email && r.profile_email.toLowerCase().includes(q)) ||
         (r.tipo_medio && r.tipo_medio.toLowerCase().includes(q))
       );
     }
     return result;
-  }, [registrations, filters.status, filters.tipo_medio, filters.event_day_id, debouncedSearch]);
+  }, [registrations, filters.status, filters.tipo_medio, debouncedSearch]);
 
   // ─── Select event ─────────────────────────────────
   const selectEvent = useCallback((eventId: string) => {
