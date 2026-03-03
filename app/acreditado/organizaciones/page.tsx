@@ -49,6 +49,8 @@ export default function OrganizacionesPage() {
     const fetchAccesses = async () => {
       try {
         const supabase = getSupabaseBrowserClient();
+        // getUser() forces token refresh; getSession() alone may return stale token
+        await supabase.auth.getUser();
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {

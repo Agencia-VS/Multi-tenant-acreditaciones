@@ -118,8 +118,8 @@ export default function AcreditadoHomePage() {
           <h3 className="font-bold text-heading text-sm sm:text-base">Mis Acreditaciones</h3>
           <p className="text-xs sm:text-sm text-body mt-1">Ver estado de mis solicitudes</p>
         </Link>
-        <Link href="/acreditado/nueva" className="p-4 sm:p-6 bg-success-light rounded-xl border border-success-light hover:bg-success-light/80 transition">
-          <i className="fas fa-plus-circle text-xl sm:text-2xl text-success mb-2" />
+        <Link href="/acreditado/nueva" className="p-4 sm:p-6 bg-pink-100 rounded-xl border border-gray-200 hover:bg-gray-200 transition">
+          <i className="fas fa-plus-circle text-xl sm:text-2xl text-pink-600 mb-2" />
           <h3 className="font-bold text-heading text-sm sm:text-base">Nueva Solicitud</h3>
           <p className="text-xs sm:text-sm text-body mt-1">Solicitar acreditación para un evento</p>
         </Link>
