@@ -209,7 +209,7 @@ export default function OrganizacionesPage() {
                   {access.status === 'approved' && tenant?.slug && (
                     <div className="shrink-0 self-center">
                       <Link
-                        href={`/${tenant.slug}/acreditacion`}
+                        href={`/${tenant.slug}`}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-on-brand text-sm font-medium hover:bg-brand-hover transition"
                       >
                         <i className="fas fa-ticket-alt text-xs" />
