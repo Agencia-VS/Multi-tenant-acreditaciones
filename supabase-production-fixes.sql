@@ -19,9 +19,10 @@ CREATE POLICY providers_select ON public.tenant_providers
   FOR SELECT USING (
     profile_id IN (SELECT id FROM public.profiles WHERE user_id = (select auth.uid()))
     OR tenant_id IN (
-      SELECT tenant_id FROM public.tenant_users
-      WHERE user_id = (select auth.uid()) AND role IN ('admin', 'owner')
+      SELECT tenant_id FROM public.tenant_admins
+      WHERE user_id = (select auth.uid())
     )
+    OR EXISTS (SELECT 1 FROM public.superadmins WHERE user_id = (select auth.uid()))
   );
 
 -- Política: providers_insert
