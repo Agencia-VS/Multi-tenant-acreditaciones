@@ -106,8 +106,19 @@ export default function TenantsPage() {
         throw new Error(errData.error || `Error ${res.status}: ${res.statusText}`);
       }
 
+      const saved = await res.json().catch(() => null);
+
+      // Optimistic local update
+      if (editing) {
+        setTenants(prev => prev.map(t => t.id === editing.id ? { ...t, ...form, config: form.config as Record<string, unknown> } : t));
+      } else if (saved) {
+        // New tenant — append to list, then background refresh for stats
+        setTenants(prev => [...prev, { ...saved, total_events: 0, total_registrations: 0, total_admins: 0 }]);
+      }
+
       setShowForm(false);
       showSuccess(editing ? 'Tenant actualizado exitosamente' : 'Tenant creado exitosamente');
+      // Background refresh for accurate stats
       loadTenants();
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Error al guardar el tenant');
@@ -120,6 +131,20 @@ export default function TenantsPage() {
   const handleToggleProviders = async (tenantId: string, currentMode: ProviderMode | undefined) => {
     const enabling = currentMode !== 'approved_only';
     setTogglingProviders(tenantId);
+
+    // Optimistic: update config locally
+    const prevTenants = tenants;
+    setTenants(prev => prev.map(t => {
+      if (t.id !== tenantId) return t;
+      const newConfig = { ...t.config };
+      if (enabling) {
+        newConfig.provider_mode = 'approved_only';
+      } else {
+        delete newConfig.provider_mode;
+      }
+      return { ...t, config: newConfig };
+    }));
+
     try {
       const res = await fetch('/api/providers/toggle', {
         method: 'POST',
@@ -131,8 +156,9 @@ export default function TenantsPage() {
         throw new Error(err.error || 'Error al cambiar módulo');
       }
       showSuccess(enabling ? 'Módulo de proveedores activado — el admin puede gestionar el código de invitación desde su panel' : 'Módulo de proveedores desactivado');
-      loadTenants();
     } catch (err) {
+      // Rollback
+      setTenants(prevTenants);
       showError(err instanceof Error ? err.message : 'Error al cambiar módulo');
     } finally {
       setTogglingProviders(null);
@@ -447,10 +473,12 @@ export default function TenantsPage() {
                       const errData = await res.json().catch(() => ({}));
                       throw new Error(errData.error || 'Error al eliminar');
                     }
+                    // Optimistic: remove from local state
+                    const deletedId = deleting.id;
                     setDeleting(null);
                     setDeleteConfirm('');
+                    setTenants(prev => prev.filter(t => t.id !== deletedId));
                     showSuccess(`Tenant "${deleting.nombre}" eliminado`);
-                    loadTenants();
                   } catch (err) {
                     showError(err instanceof Error ? err.message : 'Error al eliminar');
                   } finally {
@@ -469,7 +497,7 @@ export default function TenantsPage() {
       </Modal>
 
       {/* Tenants List */}
-      {loading ? (
+      {loading && tenants.length === 0 ? (
         <LoadingSpinner />
       ) : (
         <div className="grid gap-4">

@@ -48,7 +48,7 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !stats) {
     return <LoadingSpinner fullPage />;
   }
 

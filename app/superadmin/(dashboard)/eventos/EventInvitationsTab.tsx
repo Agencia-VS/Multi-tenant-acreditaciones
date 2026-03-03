@@ -3,40 +3,22 @@
 /**
  * EventInvitationsTab — Muestra el link compartible del evento invite_only.
  * El link usa el invite_token del evento (un token único por evento).
+ * Recibe el token directamente como prop para evitar un fetch redundante.
  */
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useToast } from '@/components/shared/ui';
 
 interface EventInvitationsTabProps {
-  eventId: string;
+  inviteToken: string | null;
   tenantSlug: string;
 }
 
-export default function EventInvitationsTab({ eventId, tenantSlug }: EventInvitationsTabProps) {
-  const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function EventInvitationsTab({ inviteToken, tenantSlug }: EventInvitationsTabProps) {
   const [copied, setCopied] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const getBaseUrl = () => typeof window !== 'undefined' ? window.location.origin : '';
   const inviteLink = inviteToken ? `${getBaseUrl()}/${tenantSlug}/acreditacion?invite=${inviteToken}` : '';
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/events?id=${eventId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const ev = data.event || data;
-          setInviteToken(ev.invite_token || null);
-        }
-      } catch {
-        showError('Error cargando datos del evento');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [eventId, showError]);
 
   const copyLink = async () => {
     if (!inviteLink) return;
@@ -49,10 +31,6 @@ export default function EventInvitationsTab({ eventId, tenantSlug }: EventInvita
       showError('Error al copiar');
     }
   };
-
-  if (loading) {
-    return <div className="text-center py-8 text-muted"><i className="fas fa-spinner fa-spin mr-2" />Cargando...</div>;
-  }
 
   if (!inviteToken) {
     return (
