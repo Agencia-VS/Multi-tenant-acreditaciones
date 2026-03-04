@@ -65,9 +65,7 @@ ALTER FUNCTION check_and_create_registration SET search_path = public;
 -- =============================================================
 
 -- ─── Verificación ──────────────────────────────────────────
--- Ejecutar después de aplicar:
---   SELECT name, detail FROM extensions.pg_lint
---   WHERE level IN ('ERROR','WARN')
---   ORDER BY level, name;
--- Debe retornar solo auth_leaked_password_protection (requiere Pro).
+-- Después de aplicar, verificar en:
+--   Supabase Dashboard → Database → Linter
+-- Debe mostrar solo auth_leaked_password_protection (requiere Pro).
 -- =============================================================
