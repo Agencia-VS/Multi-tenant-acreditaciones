@@ -8,10 +8,12 @@
  */
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { normalizeForMatch } from '@/lib/normalizeMatch';
 import type { ZoneAssignmentRule, ZoneMatchField } from '@/types';
 
 /**
  * Resolver la zona para un registro basado en reglas de auto-asignación.
+ * Comparaciones normalizadas: case-insensitive y sin espacios.
  * Orden de prioridad:
  * 1. Match por cargo  (match_field='cargo')
  * 2. Match por tipo_medio (match_field='tipo_medio')
@@ -22,29 +24,29 @@ export async function resolveZone(
   cargo?: string,
   tipoMedio?: string
 ): Promise<string | null> {
+  if (!cargo && !tipoMedio) return null;
+
   const supabase = createSupabaseAdminClient();
 
-  // 1. Try match by cargo first (case-insensitive)
+  // Traer todas las reglas del evento y matchear en JS (normalizado)
+  const { data: rules } = await supabase
+    .from('event_zone_rules')
+    .select('zona, cargo, match_field')
+    .eq('event_id', eventId);
+
+  if (!rules || rules.length === 0) return null;
+
+  // 1. Try match by cargo first
   if (cargo) {
-    const { data: rule } = await supabase
-      .from('event_zone_rules')
-      .select('zona')
-      .eq('event_id', eventId)
-      .eq('match_field', 'cargo')
-      .ilike('cargo', cargo)
-      .single();
+    const nCargo = normalizeForMatch(cargo);
+    const rule = rules.find(r => r.match_field === 'cargo' && normalizeForMatch(r.cargo) === nCargo);
     if (rule?.zona) return rule.zona;
   }
 
-  // 2. Then try match by tipo_medio (case-insensitive)
+  // 2. Then try match by tipo_medio
   if (tipoMedio) {
-    const { data: rule } = await supabase
-      .from('event_zone_rules')
-      .select('zona')
-      .eq('event_id', eventId)
-      .eq('match_field', 'tipo_medio')
-      .ilike('cargo', tipoMedio)
-      .single();
+    const nTipoMedio = normalizeForMatch(tipoMedio);
+    const rule = rules.find(r => r.match_field === 'tipo_medio' && normalizeForMatch(r.cargo) === nTipoMedio);
     if (rule?.zona) return rule.zona;
   }
 

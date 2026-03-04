@@ -26,6 +26,7 @@ import { getProviderByTenantAndProfile } from '@/lib/services/providers';
 import { getTenantById } from '@/lib/services/tenants';
 import { logAuditAction } from '@/lib/services/audit';
 import { isAccreditationClosed } from '@/lib/dates';
+import { normalizeForMatch } from '@/lib/normalizeMatch';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { validateEmail, sanitize, validateDocumentByType, normalizeDocumentByType, type DocumentType } from '@/lib/validation';
 import type { Json } from '@/lib/supabase/database.types';
@@ -485,13 +486,13 @@ export async function POST(request: NextRequest) {
     function resolveZoneLocal(cargo?: string, tipoMedio?: string): string | null {
       if (!zoneRules) return null;
       if (cargo) {
-        const cargoLower = cargo.toLowerCase();
-        const rule = zoneRules.find(r => r.match_field === 'cargo' && r.cargo?.toLowerCase() === cargoLower);
+        const nCargo = normalizeForMatch(cargo);
+        const rule = zoneRules.find(r => r.match_field === 'cargo' && normalizeForMatch(r.cargo) === nCargo);
         if (rule?.zona) return rule.zona;
       }
       if (tipoMedio) {
-        const tmLower = tipoMedio.toLowerCase();
-        const rule = zoneRules.find(r => r.match_field === 'tipo_medio' && r.cargo?.toLowerCase() === tmLower);
+        const nTM = normalizeForMatch(tipoMedio);
+        const rule = zoneRules.find(r => r.match_field === 'tipo_medio' && normalizeForMatch(r.cargo) === nTM);
         if (rule?.zona) return rule.zona;
       }
       return null;

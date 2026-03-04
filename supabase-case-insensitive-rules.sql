@@ -1,16 +1,26 @@
 -- =============================================================
--- Fix: Case-insensitive quota & zone rule matching
+-- Fix: Normalized quota & zone rule matching (case + spaces)
 -- Fecha: 2026-03-04
 --
 -- Problema:
--- Las comparaciones de tipo_medio y organizacion son case-sensitive.
+-- Las comparaciones de tipo_medio y organizacion son exactas.
 -- "VS" != "vs", "UC" != "uc", "Todo o Nada" != "todoonada".
 -- Esto causa que cupos no se apliquen cuando el usuario escribe
--- su empresa con diferente capitalización.
+-- su empresa con diferente capitalización o espaciado.
 --
 -- Solución:
--- Usar lower() en ambos lados de las comparaciones SQL.
+-- Función normalize_match() que aplica normalize_match() + elimina espacios.
+-- Ambos lados de cada comparación usan normalize_match().
 -- =============================================================
+
+-- ─── 0. Función de normalización ──────────────────────────
+CREATE OR REPLACE FUNCTION normalize_match(text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT replace(lower(trim(coalesce($1, ''))), ' ', '');
+$$;
 
 -- ─── 1. check_and_create_registration ─────────────────────
 CREATE OR REPLACE FUNCTION check_and_create_registration(
@@ -44,17 +54,17 @@ BEGIN
     SELECT * INTO v_rule
     FROM event_quota_rules
     WHERE event_id = p_event_id
-      AND lower(tipo_medio) = lower(p_tipo_medio)
+      AND normalize_match(tipo_medio) = normalize_match(p_tipo_medio)
     FOR UPDATE;
 
     IF FOUND THEN
-      -- 2a. Límite por organización (case-insensitive)
+      -- 2a. Límite por organización (normalizado: case + espacios)
       IF v_rule.max_per_organization > 0 AND p_organizacion IS NOT NULL THEN
         SELECT COUNT(*) INTO v_count_org
         FROM registrations
         WHERE event_id   = p_event_id
-          AND lower(tipo_medio)   = lower(p_tipo_medio)
-          AND lower(organizacion) = lower(p_organizacion)
+          AND normalize_match(tipo_medio)   = normalize_match(p_tipo_medio)
+          AND normalize_match(organizacion) = normalize_match(p_organizacion)
           AND status      != 'rechazado';
 
         IF v_count_org >= v_rule.max_per_organization THEN
@@ -68,7 +78,7 @@ BEGIN
         SELECT COUNT(*) INTO v_count_global
         FROM registrations
         WHERE event_id  = p_event_id
-          AND lower(tipo_medio) = lower(p_tipo_medio)
+          AND normalize_match(tipo_medio) = normalize_match(p_tipo_medio)
           AND status     != 'rechazado';
 
         IF v_count_global >= v_rule.max_global THEN
@@ -150,7 +160,7 @@ BEGIN
       SELECT * INTO v_rule
       FROM event_quota_rules
       WHERE event_id = p_event_id
-        AND lower(tipo_medio) = lower(v_tipo_medio);
+        AND normalize_match(tipo_medio) = normalize_match(v_tipo_medio);
 
       IF FOUND THEN
         -- 2a) Límite por organización
@@ -158,8 +168,8 @@ BEGIN
           SELECT COUNT(*) INTO v_count_org
           FROM registrations
           WHERE event_id    = p_event_id
-            AND lower(tipo_medio)   = lower(v_tipo_medio)
-            AND lower(organizacion) = lower(v_organizacion)
+            AND normalize_match(tipo_medio)   = normalize_match(v_tipo_medio)
+            AND normalize_match(organizacion) = normalize_match(v_organizacion)
             AND status      != 'rechazado';
 
           IF v_count_org >= v_rule.max_per_organization THEN
@@ -178,7 +188,7 @@ BEGIN
           SELECT COUNT(*) INTO v_count_global
           FROM registrations
           WHERE event_id   = p_event_id
-            AND lower(tipo_medio) = lower(v_tipo_medio)
+            AND normalize_match(tipo_medio) = normalize_match(v_tipo_medio)
             AND status    != 'rechazado';
 
           IF v_count_global >= v_rule.max_global THEN
@@ -230,7 +240,8 @@ GRANT EXECUTE ON FUNCTION bulk_check_and_create_registrations TO service_role;
 ALTER FUNCTION bulk_check_and_create_registrations SET search_path = public;
 
 -- =============================================================
--- Verificación: probar con diferentes capitalizaciones
--- SELECT check_and_create_registration(...) debería matchear
--- reglas sin importar mayúsculas/minúsculas.
+-- Verificación:
+-- SELECT normalize_match('Todo o Nada');  -- → 'todoonada'
+-- SELECT normalize_match('VS');           -- → 'vs'
+-- SELECT normalize_match(' UC ');         -- → 'uc'
 -- =============================================================
