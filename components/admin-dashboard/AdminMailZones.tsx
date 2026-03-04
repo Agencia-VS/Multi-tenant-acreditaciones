@@ -195,24 +195,24 @@ export default function AdminMailZones() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-surface rounded-2xl shadow-sm border border-edge p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#fef3c7] flex items-center justify-center">
+      <div className="bg-surface rounded-2xl shadow-sm border border-edge p-4 sm:p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-[#fef3c7] flex items-center justify-center flex-shrink-0">
             <i className="fas fa-map-signs text-[#d97706] text-lg" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-lg font-bold text-heading">Instrucciones por Zona</h2>
-            <p className="text-sm text-body">
+            <p className="text-sm text-body break-words">
               Configura instrucciones de acceso, información y notas para cada zona.
-              Se inyectan en las plantillas vía <code className="px-1 py-0.5 bg-subtle rounded text-xs">{'{instrucciones_acceso}'}</code>,
-              <code className="px-1 py-0.5 bg-subtle rounded text-xs ml-1">{'{info_especifica}'}</code>,
-              <code className="px-1 py-0.5 bg-subtle rounded text-xs ml-1">{'{notas_importantes}'}</code>
+              Se inyectan en las plantillas vía <code className="px-1 py-0.5 bg-subtle rounded text-xs break-all">{'{instrucciones_acceso}'}</code>,
+              <code className="px-1 py-0.5 bg-subtle rounded text-xs ml-1 break-all">{'{info_especifica}'}</code>,
+              <code className="px-1 py-0.5 bg-subtle rounded text-xs ml-1 break-all">{'{notas_importantes}'}</code>
             </p>
           </div>
         </div>
 
         {/* Tipo tabs */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[
             { key: 'aprobacion' as EmailTemplateType, label: 'Aprobación', icon: 'fa-check-circle', color: 'text-[#059669]' },
             { key: 'rechazo' as EmailTemplateType, label: 'Rechazo', icon: 'fa-times-circle', color: 'text-[#dc2626]' },

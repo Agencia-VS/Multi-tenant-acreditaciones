@@ -64,23 +64,23 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
   return (
     <Modal open={open} onClose={onClose} title="Detalle de Acreditación" maxWidth="max-w-3xl">
       {/* Person header */}
-      <div className="flex items-start gap-4 mb-6 pb-6 border-b border-edge">
+      <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-edge">
         {reg.profile_foto ? (
-          <Image src={reg.profile_foto} alt="" width={64} height={64} className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
+          <Image src={reg.profile_foto} alt="" width={64} height={64} className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover shadow-sm flex-shrink-0" />
         ) : (
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-xl font-bold shadow-sm">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-lg sm:text-xl font-bold shadow-sm flex-shrink-0">
             {reg.profile_nombre?.[0]}{reg.profile_apellido?.[0]}
           </div>
         )}
-        <div className="flex-1">
-          <h3 className="text-xl font-bold text-heading">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-lg sm:text-xl font-bold text-heading truncate">
             {reg.profile_nombre} {reg.profile_apellido}
           </h3>
-          <p className="text-base text-body">{reg.organizacion || 'Sin organización'} · {reg.cargo || 'Sin cargo'}</p>
-          <div className="flex items-center gap-3 mt-2">
+          <p className="text-sm sm:text-base text-body truncate">{reg.organizacion || 'Sin organización'} · {reg.cargo || 'Sin cargo'}</p>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2">
             <StatusBadge status={reg.status} />
             {reg.checked_in && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium bg-success-light text-success-dark">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs sm:text-sm font-medium bg-success-light text-success-dark">
                 <i className="fas fa-qrcode" /> Check-in realizado
               </span>
             )}
@@ -89,7 +89,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
       </div>
 
       {/* Info grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
         {infoPairs.map(pair => (
           <div key={pair.label} className="flex items-start gap-3 p-3 bg-canvas rounded-xl">
             <div className="w-8 h-8 rounded-lg bg-surface shadow-sm flex items-center justify-center">
@@ -104,7 +104,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
       </div>
 
       {/* Zona Assignment */}
-      <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-100">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-purple-50 rounded-xl border border-purple-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <i className="fas fa-map-signs text-purple-600" />
@@ -133,7 +133,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
       </div>
 
       {/* Event info */}
-      <div className="mb-6 p-4 bg-accent-light rounded-xl">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-accent-light rounded-xl">
         <p className="text-sm text-accent uppercase tracking-wide mb-1">Evento</p>
         <p className="text-base font-medium text-brand">{reg.event_nombre}</p>
         {reg.event_fecha && (
@@ -180,7 +180,7 @@ export default function AdminDetailModal({ reg, open, onClose }: AdminDetailModa
       </div>
 
       {/* Action buttons */}
-      <div className="flex flex-wrap gap-3 pt-4 border-t border-edge">
+      <div className="flex flex-wrap gap-2 sm:gap-3 pt-4 border-t border-edge">
         {reg.status === 'pendiente' && (
           <>
             <button

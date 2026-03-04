@@ -176,22 +176,22 @@ export default function AdminPlanTab() {
   return (
     <div className="space-y-8">
       {/* ═══ Plan Actual + Uso ═══ */}
-      <div className="bg-surface rounded-xl border p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-heading flex items-center gap-2">
+      <div className="bg-surface rounded-xl border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl font-bold text-heading flex items-center gap-2">
               <i className="fas fa-crown text-yellow-500" />
-              Plan {plan.name}
+              <span className="truncate">Plan {plan.name}</span>
             </h2>
             <p className="text-sm text-muted mt-1">{plan.description}</p>
           </div>
           {!is_free && (
             <button
               onClick={handlePortal}
-              className="px-4 py-2 bg-subtle text-body rounded-lg text-sm hover:bg-edge transition flex items-center gap-2"
+              className="px-4 py-2 bg-subtle text-body rounded-lg text-sm hover:bg-edge transition flex items-center gap-2 self-start sm:self-auto flex-shrink-0"
             >
               <i className="fas fa-external-link-alt" />
-              Gestionar facturación
+              <span className="whitespace-nowrap">Gestionar facturación</span>
             </button>
           )}
         </div>
@@ -226,7 +226,7 @@ export default function AdminPlanTab() {
           <i className="fas fa-th-large mr-2 text-muted" />
           Planes disponibles
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {plans.map((p) => (
             <PlanCard
               key={p.id}

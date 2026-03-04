@@ -246,14 +246,14 @@ export default function AdminProvidersTab() {
 
         {currentCode ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <code className="flex-1 px-3 py-2 bg-subtle rounded-lg text-sm font-mono text-heading tracking-wider truncate">
                 {currentCode}
               </code>
               <button
                 type="button"
                 onClick={handleCopyInviteLink}
-                className="px-3 py-2 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition flex items-center gap-1.5 shrink-0"
+                className="px-3 py-2 bg-accent-light text-brand rounded-lg text-sm hover:bg-info-light transition flex items-center justify-center gap-1.5 shrink-0"
               >
                 <i className={`fas ${codeCopied ? 'fa-check' : 'fa-link'}`} />
                 {codeCopied ? 'Copiado' : 'Copiar enlace'}
@@ -280,7 +280,7 @@ export default function AdminProvidersTab() {
             {/* Descripción para proveedores */}
             <div className="pt-3 border-t border-edge">
               <label className="block text-xs font-medium text-label mb-1">Descripción (visible al proveedor)</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <textarea
                   value={providerDescription}
                   onChange={(e) => setProviderDescription(e.target.value)}
@@ -325,7 +325,7 @@ export default function AdminProvidersTab() {
           <p className="text-sm text-muted">Gestiona quién puede acreditar personas en tu organización</p>
         </div>
         {stats && (
-          <div className="flex gap-3 text-sm">
+          <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
             {[
               { label: 'Pendientes', value: stats.pending, color: 'text-yellow-600' },
               { label: 'Aprobados', value: stats.approved, color: 'text-green-600' },
@@ -493,10 +493,10 @@ export default function AdminProvidersTab() {
                 </div>
 
                 {/* Metadata line */}
-                <div className="flex items-center gap-4 mt-2 pt-2 border-t border-edge text-[11px] text-muted">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pt-2 border-t border-edge text-[11px] text-muted">
                   <span>Solicitud: {provider.created_at ? new Date(provider.created_at).toLocaleDateString('es-CL') : '—'}</span>
                   {provider.approved_at && <span>Aprobado: {new Date(provider.approved_at).toLocaleDateString('es-CL')}</span>}
-                  {provider.notas && <span className="truncate"><i className="fas fa-sticky-note mr-0.5" />{provider.notas}</span>}
+                  {provider.notas && <span className="truncate min-w-0"><i className="fas fa-sticky-note mr-0.5" />{provider.notas}</span>}
                 </div>
               </div>
             );

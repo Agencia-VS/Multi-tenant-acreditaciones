@@ -39,7 +39,7 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
           : 'hover:bg-canvas/50'
     }`}>
       {/* Checkbox */}
-      <td className="px-3 py-2 pl-4">
+      <td className="px-2 sm:px-3 py-2 pl-3 sm:pl-4">
         <input
           type="checkbox"
           checked={selectedIds.has(reg.id)}
@@ -50,54 +50,54 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
       </td>
 
       {/* RUT */}
-      <td className="px-3 py-2">
-        <span className="font-mono text-sm text-body">{reg.rut}</span>
+      <td className="px-2 sm:px-3 py-2">
+        <span className="font-mono text-xs sm:text-sm text-body whitespace-nowrap">{reg.rut}</span>
       </td>
 
       {/* Nombre */}
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-2.5">
+      <td className="px-2 sm:px-3 py-2">
+        <div className="flex items-center gap-2">
           {reg.profile_foto ? (
-            <Image src={reg.profile_foto} alt="" width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
+            <Image src={reg.profile_foto} alt="" width={32} height={32} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-[#00C48C] to-[#00A676] flex items-center justify-center text-white text-[10px] sm:text-xs font-bold flex-shrink-0">
               {reg.profile_nombre?.[0]}{reg.profile_apellido?.[0]}
             </div>
           )}
-          <div>
-            <p className="text-sm font-medium text-heading flex items-center gap-1.5">
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-heading flex items-center gap-1 truncate">
               {reg.profile_nombre} {reg.profile_apellido}
               {isRecent && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
+                <span className="inline-flex items-center px-1 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide flex-shrink-0">
                   Nuevo
                 </span>
               )}
             </p>
-            <p className="text-xs text-muted">{reg.profile_email || 'Sin email'}</p>
+            <p className="text-[11px] sm:text-xs text-muted truncate">{reg.profile_email || 'Sin email'}</p>
           </div>
         </div>
       </td>
 
       {/* Organización */}
-      <td className="px-3 py-2 text-sm text-body">{reg.organizacion || <span className="text-muted">—</span>}</td>
+      <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-body max-w-[120px] truncate">{reg.organizacion || <span className="text-muted">—</span>}</td>
 
       {/* Tipo Medio */}
-      <td className="px-3 py-2">
-        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-subtle text-xs font-medium text-body">
+      <td className="px-2 sm:px-3 py-2">
+        <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-md bg-subtle text-[11px] sm:text-xs font-medium text-body whitespace-nowrap">
           {reg.tipo_medio || '—'}
         </span>
       </td>
 
       {/* Cargo */}
-      <td className="px-3 py-2 text-sm text-body">{reg.cargo || <span className="text-muted">—</span>}</td>
+      <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-body max-w-[100px] truncate">{reg.cargo || <span className="text-muted">—</span>}</td>
 
       {/* Zona — always a select dropdown */}
-      <td className="px-3 py-2">
+      <td className="px-2 sm:px-3 py-2">
         {zonaOptions.length > 0 ? (
           <select
             value={String(reg.datos_extra?.zona || '')}
             onChange={(e) => updateRegistrationZona(reg.id, e.target.value)}
-            className={`px-2 py-1 rounded-md border text-sm font-medium transition cursor-pointer ${
+            className={`px-1.5 sm:px-2 py-1 rounded-md border text-xs sm:text-sm font-medium transition cursor-pointer ${
               reg.datos_extra?.zona
                 ? 'bg-purple-50 text-purple-700 border-purple-200'
                 : 'bg-subtle text-muted border-edge'
@@ -108,31 +108,31 @@ function AdminRowInner({ reg, onViewDetail, onReject }: AdminRowProps) {
             {zonaOptions.map(z => <option key={z} value={z}>{z}</option>)}
           </select>
         ) : (
-          <span className="text-xs text-muted italic" title="Configura zonas en Configuración del evento">
+          <span className="text-[11px] sm:text-xs text-muted italic" title="Configura zonas en Configuración del evento">
             Sin zonas
           </span>
         )}
       </td>
 
       {/* Estado */}
-      <td className="px-3 py-2">
+      <td className="px-2 sm:px-3 py-2">
         <StatusBadge status={reg.status} />
       </td>
 
       {/* Check-in */}
-      <td className="px-3 py-2">
+      <td className="px-2 sm:px-3 py-2">
         {reg.checked_in ? (
-          <span className="inline-flex items-center gap-1 text-success text-sm font-medium">
+          <span className="inline-flex items-center gap-1 text-success text-xs sm:text-sm font-medium whitespace-nowrap">
             <i className="fas fa-check-circle" /> Sí
           </span>
         ) : (
-          <span className="text-muted text-sm">No</span>
+          <span className="text-muted text-xs sm:text-sm">No</span>
         )}
       </td>
 
       {/* Acciones */}
-      <td className="px-3 py-2 pr-4">
-        <div className="flex items-center gap-1">
+      <td className="px-2 sm:px-3 py-2 pr-3 sm:pr-4">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           {/* View detail */}
           <button
             onClick={() => onViewDetail(reg)}

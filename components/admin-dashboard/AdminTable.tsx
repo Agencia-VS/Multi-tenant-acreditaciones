@@ -112,7 +112,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
       <div className="bg-surface border-b border-edge rounded-t-2xl">
 
         {/* ── Row 1: Filters ────────────────────────── */}
-        <div className="px-4 py-3">
+        <div className="px-3 sm:px-4 py-3">
           <div className="flex flex-wrap gap-2 items-center">
             {/* Event selector (multi-event tenants) */}
             {events.length > 1 && (
@@ -149,7 +149,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
             )}
 
             {/* Search */}
-            <div className="flex-1 min-w-[180px] relative">
+            <div className="flex-1 min-w-[140px] sm:min-w-[180px] relative">
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm" />
               <input
                 id="admin-search-input"
@@ -199,7 +199,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
           </div>
 
           {/* Active filter pills + count */}
-          <div className="flex items-center gap-2 mt-2 text-xs text-muted">
+          <div className="flex flex-wrap items-center gap-2 mt-2 px-3 sm:px-0 text-xs text-muted">
             <span className="font-medium">{filteredRegistrations.length} registros</span>
             {selectedIds.size > 0 && (
               <span className="text-brand font-medium">· {selectedIds.size} sel.</span>
@@ -244,7 +244,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
 
         {/* ── Bulk action bar (conditional) ─────────── */}
         {hasSel && (
-          <div className="bg-accent-light border-t border-blue-100 px-4 py-2.5">
+          <div className="bg-accent-light border-t border-blue-100 px-3 sm:px-4 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-info-dark">
                 <i className="fas fa-check-square mr-1" />
@@ -352,7 +352,7 @@ export default function AdminTable({ onViewDetail, onReject }: AdminTableProps) 
 
       {/* Footer */}
       {sortedRegistrations.length > 0 && (
-        <div className="px-4 py-2.5 bg-canvas/50 border-t border-edge text-xs text-muted flex justify-between items-center rounded-b-2xl">
+        <div className="px-3 sm:px-4 py-2.5 bg-canvas/50 border-t border-edge text-xs text-muted flex justify-between items-center rounded-b-2xl">
           <span>Mostrando {sortedRegistrations.length} registros</span>
           {hasSel && <span className="text-brand">{selectedIds.size} seleccionados</span>}
         </div>
@@ -433,11 +433,11 @@ function PaginatedTable({
 
   return (
     <>
-      <div ref={scrollRef} className="overflow-y-auto max-h-[70vh]">
-        <table className="w-full text-base">
+      <div ref={scrollRef} className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+        <table className="w-full text-base min-w-[800px]">
           <thead className="sticky top-0 z-10 bg-canvas [&_th]:border-b [&_th]:border-edge">
             <tr>
-              <th className="px-3 py-2 pl-4 text-left w-10">
+              <th className="px-2 sm:px-3 py-2 pl-3 sm:pl-4 text-left w-10">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -448,8 +448,8 @@ function PaginatedTable({
               </th>
               {sortableTh('rut', 'RUT')}
               {sortableTh('nombre', 'Nombre')}
-              {sortableTh('organizacion', 'Organización')}
-              {sortableTh('tipo_medio', 'Tipo Medio')}
+              {sortableTh('organizacion', 'Org.')}
+              {sortableTh('tipo_medio', 'Tipo')}
               {sortableTh('cargo', 'Cargo')}
               <th className="px-3 py-2 text-left text-xs font-semibold text-body uppercase tracking-wider">Zona</th>
               {sortableTh('status', 'Estado')}
@@ -467,7 +467,7 @@ function PaginatedTable({
 
       {/* Pagination controls */}
       {needsPagination && (
-        <div className="px-4 py-2 border-t border-edge bg-surface flex items-center justify-between gap-4">
+        <div className="px-3 sm:px-4 py-2 border-t border-edge bg-surface flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
           <span className="text-xs text-muted">
             Página {page} de {totalPages}
             <span className="ml-2 text-edge">|</span>
