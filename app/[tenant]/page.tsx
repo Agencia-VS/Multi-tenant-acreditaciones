@@ -34,9 +34,10 @@ export default async function TenantPage({
     }
   }
 
-  // Proveedores aprobados pueden ver eventos invite_only (ya están autorizados a nivel tenant)
+  // En provider_mode la landing siempre muestra eventos (el acceso se controla por provider status, no por visibility).
+  // Proveedores aprobados ven todo; el resto ve la landing con mensaje de restricción pero los eventos se listan.
   const isApprovedProvider = isProviderMode && providerStatus === 'approved';
-  const events = await getActiveEvents(tenant.id, isApprovedProvider ? {} : { publicOnly: true });
+  const events = await getActiveEvents(tenant.id, (isProviderMode || isApprovedProvider) ? {} : { publicOnly: true });
 
   return (
     <TenantLanding
