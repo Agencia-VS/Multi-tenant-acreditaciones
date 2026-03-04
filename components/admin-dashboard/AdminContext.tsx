@@ -135,22 +135,61 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
     } catch { /* ignore */ }
   }, [tenantId, selectedEvent?.id]);
 
-  // ─── Fetch registrations when event changes (no filter deps) ──────────
+  // ─── Fetch all registrations (paginated) + stats (server-side counts) ──
+  const PAGE_SIZE = 500;
+
   const fetchData = useCallback(async () => {
     const eventId = filters.event_id || selectedEvent?.id;
     if (!eventId) { setLoading(false); return; }
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({ event_id: eventId, limit: '500' });
+      // 1. Stats: server-side COUNT (head:true, no data transfer, no limit)
+      const statsPromise = fetch(`/api/registrations/stats?event_id=${eventId}`)
+        .then(r => r.ok ? r.json() : null);
 
-      const res = await fetch(`/api/registrations?${params}`);
-      const json = await res.json();
-      const data: RegistrationFull[] = json.data || [];
-      setRegistrations(data);
+      // 2. First page of registrations
+      const firstParams = new URLSearchParams({ event_id: eventId, limit: String(PAGE_SIZE), offset: '0' });
+      const firstRes = await fetch(`/api/registrations?${firstParams}`);
+      const firstJson = await firstRes.json();
+      const firstPage: RegistrationFull[] = firstJson.data || [];
+      const totalCount: number = firstJson.count || firstPage.length;
 
-      // Para eventos multidía: cargar registration_days para filtro por jornada
-      if (isMultidia && data.length > 0) {
+      // 3. Fetch remaining pages in parallel if needed
+      let allData = firstPage;
+      if (totalCount > PAGE_SIZE) {
+        const remaining = Math.ceil((totalCount - PAGE_SIZE) / PAGE_SIZE);
+        const pagePromises = Array.from({ length: remaining }, (_, i) => {
+          const offset = (i + 1) * PAGE_SIZE;
+          const params = new URLSearchParams({ event_id: eventId, limit: String(PAGE_SIZE), offset: String(offset) });
+          return fetch(`/api/registrations?${params}`).then(r => r.json());
+        });
+        const pages = await Promise.all(pagePromises);
+        for (const page of pages) {
+          if (page.data) allData = allData.concat(page.data);
+        }
+      }
+
+      setRegistrations(allData);
+
+      // 4. Apply server stats (exact counts, independent of loaded data)
+      const serverStats = await statsPromise;
+      if (serverStats && typeof serverStats.total === 'number') {
+        setStats(serverStats);
+      } else {
+        // Fallback: compute from loaded data
+        setStats({
+          total: allData.length,
+          pendientes: allData.filter(r => r.status === 'pendiente').length,
+          aprobados: allData.filter(r => r.status === 'aprobado').length,
+          rechazados: allData.filter(r => r.status === 'rechazado').length,
+          revision: allData.filter(r => r.status === 'revision').length,
+          checked_in: allData.filter(r => r.checked_in).length,
+        });
+      }
+
+      // 5. Para eventos multidía: cargar registration_days para filtro por jornada
+      if (isMultidia && allData.length > 0) {
         try {
           const rdRes = await fetch(`/api/events/${eventId}/registration-days`);
           if (rdRes.ok) {
@@ -166,16 +205,6 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       } else {
         setRegDayMap(new Map());
       }
-
-      // Stats always from full (unfiltered) dataset
-      setStats({
-        total: data.length,
-        pendientes: data.filter(r => r.status === 'pendiente').length,
-        aprobados: data.filter(r => r.status === 'aprobado').length,
-        rechazados: data.filter(r => r.status === 'rechazado').length,
-        revision: data.filter(r => r.status === 'revision').length,
-        checked_in: data.filter(r => r.checked_in).length,
-      });
     } catch {
       showError('Error cargando registros');
     } finally {

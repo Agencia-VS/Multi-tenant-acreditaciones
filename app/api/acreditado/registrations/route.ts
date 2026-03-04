@@ -29,7 +29,8 @@ export async function GET() {
       .from('v_registration_full')
       .select('*')
       .eq('profile_id', profile.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (ownErr) {
       console.error('[acreditado/registrations] Error own regs:', ownErr);
@@ -41,7 +42,8 @@ export async function GET() {
       .select('*')
       .eq('submitted_by', profile.id)
       .neq('profile_id', profile.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (managedErr) {
       console.error('[acreditado/registrations] Error managed regs:', managedErr);

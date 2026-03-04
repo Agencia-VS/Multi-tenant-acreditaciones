@@ -17,20 +17,22 @@ export async function GET() {
 
     const supabase = createSupabaseAdminClient();
 
-    const [tenants, events, registrations] = await Promise.all([
+    const [tenants, events, totalRegs, pendientes, aprobados, rechazados] = await Promise.all([
       supabase.from('tenants').select('*', { count: 'exact', head: true }),
       supabase.from('events').select('*', { count: 'exact', head: true }),
-      supabase.from('registrations').select('status'),
+      supabase.from('registrations').select('*', { count: 'exact', head: true }),
+      supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('status', 'pendiente'),
+      supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('status', 'aprobado'),
+      supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('status', 'rechazado'),
     ]);
 
-    const regs = registrations.data || [];
     const stats = {
       total_tenants: tenants.count || 0,
       total_events: events.count || 0,
-      total_registrations: regs.length,
-      pendientes: regs.filter((r) => r.status === 'pendiente').length,
-      aprobados: regs.filter((r) => r.status === 'aprobado').length,
-      rechazados: regs.filter((r) => r.status === 'rechazado').length,
+      total_registrations: totalRegs.count || 0,
+      pendientes: pendientes.count || 0,
+      aprobados: aprobados.count || 0,
+      rechazados: rechazados.count || 0,
     };
 
     return NextResponse.json(stats);
