@@ -18,6 +18,7 @@ CREATE OR REPLACE FUNCTION normalize_match(text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
+SET search_path = ''
 AS $$
   SELECT replace(lower(trim(coalesce($1, ''))), ' ', '');
 $$;
@@ -34,6 +35,7 @@ CREATE OR REPLACE FUNCTION check_and_create_registration(
 )
 RETURNS UUID
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 DECLARE
   v_rule         RECORD;

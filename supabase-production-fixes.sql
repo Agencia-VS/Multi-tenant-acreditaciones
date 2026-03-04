@@ -37,7 +37,9 @@ CREATE POLICY providers_insert ON public.tenant_providers
 -- lo que impedía buscar por número de documento en el admin.
 DROP VIEW IF EXISTS v_registration_full;
 
-CREATE VIEW v_registration_full AS
+CREATE VIEW v_registration_full
+  WITH (security_invoker = true)
+AS
 SELECT 
   r.*,
   p.rut,
