@@ -8,11 +8,12 @@
  * - invite_only → requiere ?invite=<token> que coincida con event.invite_token
  */
 import { getTenantBySlug } from '@/lib/services/tenants';
-import { getActiveEvent } from '@/lib/services/events';
+import { getActiveEvent, getEventFull } from '@/lib/services/events';
 import { getCurrentUser } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { isSuperAdmin, isTenantAdmin } from '@/lib/services/auth';
 import { listEventDays } from '@/lib/services/eventDays';
+import { getProviderByTenantAndProfile } from '@/lib/services/providers';
 import { notFound, redirect } from 'next/navigation';
 import { getResponsableConfigFromEventConfig } from '@/lib/responsableConfig';
 import { RegistrationWizard as DynamicRegistrationForm } from '@/components/forms/registration';
@@ -27,34 +28,106 @@ export default async function AcreditacionPage({
   searchParams,
 }: {
   params: Promise<{ tenant: string }>;
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; event?: string }>;
 }) {
   const { tenant: slug } = await params;
-  const { invite: inviteToken } = await searchParams;
+  const { invite: inviteToken, event: eventId } = await searchParams;
   const tenant = await getTenantBySlug(slug);
   if (!tenant) notFound();
+
+  // Build returnTo preserving query params
+  const buildReturnTo = () => {
+    const params = new URLSearchParams();
+    if (inviteToken) params.set('invite', inviteToken);
+    if (eventId) params.set('event', eventId);
+    const qs = params.toString();
+    return `/${slug}/acreditacion${qs ? `?${qs}` : ''}`;
+  };
 
   // ─── Auth opcional: si hay sesión de ACREDITADO, pre-llena datos ───
   // Superadmins y tenant admins NO deben pre-llenar — la acreditación es solo para acreditados.
   const user = await getCurrentUser();
   let userProfile = null;
+  let isAdminUser = false;
   if (user) {
     const [isSuper, isAdmin] = await Promise.all([
       isSuperAdmin(user.id),
       isTenantAdmin(user.id, tenant.id),
     ]);
+    isAdminUser = isSuper || isAdmin;
     // Solo pre-llenar si NO es admin ni superadmin (es un acreditado real)
     if (!isSuper && !isAdmin) {
       userProfile = await getProfileByUserId(user.id);
 
-      const returnTo = `/${slug}/acreditacion${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`;
       if (!userProfile || !isReadyToAccredit(userProfile)) {
-        redirect(`/acreditado/perfil?from=acreditacion&returnTo=${encodeURIComponent(returnTo)}`);
+        redirect(`/acreditado/perfil?from=acreditacion&returnTo=${encodeURIComponent(buildReturnTo())}`);
       }
     }
   }
 
-  const event = await getActiveEvent(tenant.id);
+  // ─── Gate de proveedor: si modo approved_only, verificar acceso ───
+  const isProviderMode = tenant.config?.provider_mode === 'approved_only';
+  let providerAllowedZones: string[] | null = null;
+
+  if (isProviderMode && !isAdminUser) {
+    // Si no está logueado → redirect a login con returnTo
+    if (!user) {
+      redirect(`/auth/acreditado?returnTo=${encodeURIComponent(buildReturnTo())}`);
+    }
+
+    // Si está logueado, verificar que sea proveedor aprobado
+    if (userProfile) {
+      const provider = await getProviderByTenantAndProfile(tenant.id, userProfile.id);
+
+      if (!provider || provider.status !== 'approved') {
+        // Not approved → show access restricted page
+        const statusMsg = !provider
+          ? 'No tienes acceso como proveedor a esta organización.'
+          : provider.status === 'pending'
+            ? 'Tu solicitud de acceso está en revisión. Te notificaremos cuando sea aprobada.'
+            : provider.status === 'rejected'
+              ? 'Tu solicitud de acceso no fue aprobada.'
+              : 'Tu acceso está suspendido. Contacta al administrador.';
+
+        return (
+          <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
+            <div className="text-center max-w-md">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-shield-alt text-2xl text-amber-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-heading mb-2">Acceso Restringido</h1>
+              <p className="text-body mt-2">{statusMsg}</p>
+              <p className="text-muted text-sm mt-4">
+                Esta organización trabaja con proveedores autorizados.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+                <Link
+                  href="/acreditado/organizaciones"
+                  className="px-4 py-2 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-brand-hover transition"
+                >
+                  Mis Organizaciones
+                </Link>
+                <Link
+                  href={`/${slug}`}
+                  className="px-4 py-2 bg-canvas border border-edge text-body rounded-lg text-sm font-medium hover:bg-surface transition"
+                >
+                  Volver
+                </Link>
+              </div>
+            </div>
+          </main>
+        );
+      }
+
+      // Proveedor aprobado → guardar zonas para filtrado
+      providerAllowedZones = provider.allowed_zones || [];
+    }
+  }
+
+  // Si viene ?event=id, cargar ese evento específico; si no, fallback al primer evento activo
+  let event = eventId ? await getEventFull(eventId) : null;
+  if (event && (event.tenant_id !== tenant.id || !event.is_active)) event = null;
+  if (!event) event = await getActiveEvent(tenant.id);
 
   if (!event) {
     return (
@@ -74,8 +147,11 @@ export default async function AcreditacionPage({
   // ─── Verificar visibilidad del evento ───
   const visibility = event.visibility || 'public';
 
-  // Evento por invitación: validar que el token del URL coincida con el del evento
-  if (visibility === 'invite_only') {
+  // Proveedores aprobados bypasean la invitación — ya fueron validados a nivel tenant
+  const isApprovedProvider = providerAllowedZones !== null;
+
+  // Evento por invitación: validar token (excepto proveedores aprobados y admins)
+  if (visibility === 'invite_only' && !isApprovedProvider && !isAdminUser) {
     const eventToken = event.invite_token;
     if (!inviteToken || inviteToken !== eventToken) {
       return (
@@ -100,9 +176,14 @@ export default async function AcreditacionPage({
   // Verificar si la acreditación está cerrada (override manual + fecha límite)
   const eventConfig = event.config ?? {};
   const disclaimerConfig = eventConfig.disclaimer as import('@/types').DisclaimerConfig | undefined;
-  const eventZonas: string[] = (eventConfig as import('@/types').EventConfig).zonas || [];
+  const eventZonasRaw: string[] = (eventConfig as import('@/types').EventConfig).zonas || [];
   const zonaEnFormulario = !!(eventConfig as import('@/types').EventConfig).zona_en_formulario;
   const responsableConfig = getResponsableConfigFromEventConfig(eventConfig as import('@/types').EventConfig);
+
+  // Si es proveedor aprobado y hay zonas asignadas, intersectar con las zonas del evento
+  const eventZonas = (providerAllowedZones && zonaEnFormulario)
+    ? eventZonasRaw.filter(z => providerAllowedZones.includes(z))
+    : eventZonasRaw;
   const { closed: pastDeadline, reason: closedReason } = isAccreditationClosed(
     eventConfig,
     event.fecha_limite_acreditacion
@@ -170,9 +251,12 @@ export default async function AcreditacionPage({
             disclaimerConfig={disclaimerConfig}
             eventZonas={zonaEnFormulario ? eventZonas : []}
             responsableConfig={responsableConfig}
+            providerAllowedZones={providerAllowedZones}
             userProfile={userProfile ? {
               id: userProfile.id,
               rut: userProfile.rut,
+              document_type: (userProfile as Record<string, unknown>).document_type as string | undefined,
+              document_number: (userProfile as Record<string, unknown>).document_number as string | undefined,
               nombre: userProfile.nombre,
               apellido: userProfile.apellido,
               email: userProfile.email,

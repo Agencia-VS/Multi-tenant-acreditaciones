@@ -57,6 +57,8 @@ export interface RegistrationFormProps {
   disclaimerConfig?: import('@/types').DisclaimerConfig;
   /** Zonas available for this event (from event.config.zonas) */
   eventZonas?: string[];
+  /** Zonas permitidas para el proveedor (si aplica, intersección con event zonas) */
+  providerAllowedZones?: string[] | null;
   /** Configuración del paso Responsable (event.config.responsable) */
   responsableConfig?: import('@/types').ResponsableConfig;
 }

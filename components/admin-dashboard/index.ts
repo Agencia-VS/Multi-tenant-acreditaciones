@@ -12,3 +12,4 @@ export { default as AdminRejectModal } from './AdminRejectModal';
 export { default as AdminConfigTab } from './AdminConfigTab';
 export { default as AdminMailTab } from './AdminMailTab';
 export { default as AdminMailZones } from './AdminMailZones';
+export { default as AdminProvidersTab } from './AdminProvidersTab';

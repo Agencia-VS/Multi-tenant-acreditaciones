@@ -147,9 +147,17 @@ export default function BillingPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Error guardando plan');
       }
+      const saved = await res.json().catch(() => null);
+      // Optimistic local update
+      if (editingPlan && saved) {
+        setPlans(prev => prev.map(p => p.id === editingPlan.id ? { ...p, ...saved } : p));
+      } else if (saved) {
+        setPlans(prev => [...prev, saved]);
+      } else {
+        loadData(); // fallback
+      }
       showSuccess(editingPlan ? 'Plan actualizado' : 'Plan creado');
       setShowPlanForm(false);
-      loadData();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Error');
     } finally {
@@ -175,8 +183,18 @@ export default function BillingPage() {
         throw new Error(err.error || 'Error');
       }
       showSuccess(`Plan asignado a ${assigningTenant.tenant_nombre}`);
+      // Optimistic: update summary locally
+      const assignedPlan = plans.find(p => p.id === selectedPlanId);
+      if (assignedPlan) {
+        setSummary(prev => prev.map(s => s.tenant_id === assigningTenant.tenant_id ? {
+          ...s,
+          plan_name: assignedPlan.name,
+          plan_slug: assignedPlan.slug,
+          plan_limits: assignedPlan.limits,
+          subscription_status: 'active',
+        } : s));
+      }
       setAssigningTenant(null);
-      loadData();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Error asignando plan');
     } finally {
@@ -195,7 +213,7 @@ export default function BillingPage() {
     setPlanForm(prev => ({ ...prev, features: prev.features.filter((_, i) => i !== idx) }));
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading && plans.length === 0 && summary.length === 0) return <LoadingSpinner />;
 
   return (
     <div>

@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (tenantId) {
+      await requireAuth(request, { role: 'admin_tenant', tenantId });
       const events = await listEventsByTenant(tenantId);
       return NextResponse.json(events);
     }

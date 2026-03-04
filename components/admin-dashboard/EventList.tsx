@@ -73,14 +73,14 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
 
   return (
     <div className="bg-surface rounded-2xl shadow-sm border border-edge">
-      <div className="px-6 py-4 border-b border-edge flex items-center justify-between">
+      <div className="px-4 sm:px-6 py-4 border-b border-edge flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold text-heading">Eventos</h2>
           <p className="text-sm text-body">Gestiona los eventos de {tenant?.nombre}</p>
         </div>
         <button
           onClick={onCreateNew}
-          className="px-4 py-2 bg-brand text-on-brand rounded-xl text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2"
+          className="px-4 py-2 bg-brand text-on-brand rounded-xl text-sm font-medium hover:bg-brand-hover transition flex items-center gap-2 self-start sm:self-auto"
         >
           <i className="fas fa-plus" /> Nuevo evento
         </button>
@@ -97,15 +97,15 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
           {events.map(ev => (
             <div
               key={ev.id}
-              className={`px-6 py-4 hover:bg-canvas/50 transition ${
+              className={`px-4 sm:px-6 py-3 sm:py-4 hover:bg-canvas/50 transition ${
                 selectedEvent?.id === ev.id ? 'bg-accent-light/30 border-l-4 border-l-brand' : ''
               }`}
             >
-              <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${ev.is_active ? 'bg-success' : 'bg-edge'}`} />
-                <div>
-                  <p className="text-sm font-medium text-heading">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${ev.is_active ? 'bg-success' : 'bg-edge'}`} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-heading truncate">
                     {ev.nombre}
                     {ev.visibility === 'invite_only' && (
                       <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
@@ -113,7 +113,7 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-body">
+                  <p className="text-xs text-body truncate">
                     {ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-CL') : 'Sin fecha'}
                     {ev.venue && ` · ${ev.venue}`}
                     {ev.opponent_name && ` · vs ${ev.opponent_name}`}
@@ -121,7 +121,7 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-6 sm:ml-0">
                 <button
                   onClick={() => handleToggleActive(ev)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
@@ -191,36 +191,38 @@ export default function EventList({ onCreateNew, onEditEvent }: EventListProps) 
                 if (!link) return null;
                 const isCopied = copiedId === ev.id;
                 return (
-                  <div className="mt-3 ml-7 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                  <div className="mt-3 ml-6 sm:ml-7 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
                       <i className="fas fa-link text-blue-500 text-xs" />
                       <span className="text-xs font-semibold text-blue-700">Link de invitación</span>
-                      <span className="text-xs text-blue-500">— Comparte este link para que se acrediten</span>
+                      <span className="hidden sm:inline text-xs text-blue-500">— Comparte este link para que se acrediten</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <code className="flex-1 text-xs bg-white px-3 py-2 rounded-lg border border-blue-200 text-heading truncate block">
                         {link}
                       </code>
-                      <button
-                        type="button"
-                        onClick={() => copyLink(link, ev.id)}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-                          isCopied
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        <i className={`fas ${isCopied ? 'fa-check' : 'fa-copy'}`} />
-                        {isCopied ? 'Copiado' : 'Copiar'}
-                      </button>
-                      <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Te invito a acreditarte: ${link}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition flex items-center gap-1.5"
-                      >
-                        <i className="fab fa-whatsapp" /> WhatsApp
-                      </a>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => copyLink(link, ev.id)}
+                          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                            isCopied
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                        >
+                          <i className={`fas ${isCopied ? 'fa-check' : 'fa-copy'}`} />
+                          {isCopied ? 'Copiado' : 'Copiar'}
+                        </button>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(`Te invito a acreditarte: ${link}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 sm:flex-none px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition flex items-center justify-center gap-1.5"
+                        >
+                          <i className="fab fa-whatsapp" /> WhatsApp
+                        </a>
+                      </div>
                     </div>
                   </div>
                 );

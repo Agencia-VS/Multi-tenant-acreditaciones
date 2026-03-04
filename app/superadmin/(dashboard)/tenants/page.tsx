@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useToast, PageHeader, Modal, LoadingSpinner, FormActions, ButtonSpinner } from '@/components/shared/ui';
 import ImageUploadField from '@/components/shared/ImageUploadField';
-import type { TenantConfig } from '@/types';
+import type { TenantConfig, ProviderMode } from '@/types';
 
 interface Tenant {
   id: string;
@@ -52,6 +52,7 @@ export default function TenantsPage() {
   const [deleting, setDeleting] = useState<Tenant | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [togglingProviders, setTogglingProviders] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
   const loadTenants = useCallback(async () => {
@@ -105,13 +106,62 @@ export default function TenantsPage() {
         throw new Error(errData.error || `Error ${res.status}: ${res.statusText}`);
       }
 
+      const saved = await res.json().catch(() => null);
+
+      // Optimistic local update
+      if (editing) {
+        setTenants(prev => prev.map(t => t.id === editing.id ? { ...t, ...form, config: form.config as Record<string, unknown> } : t));
+      } else if (saved) {
+        // New tenant — append to list, then background refresh for stats
+        setTenants(prev => [...prev, { ...saved, total_events: 0, total_registrations: 0, total_admins: 0 }]);
+      }
+
       setShowForm(false);
       showSuccess(editing ? 'Tenant actualizado exitosamente' : 'Tenant creado exitosamente');
+      // Background refresh for accurate stats
       loadTenants();
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Error al guardar el tenant');
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Activar/desactivar módulo proveedores via API */
+  const handleToggleProviders = async (tenantId: string, currentMode: ProviderMode | undefined) => {
+    const enabling = currentMode !== 'approved_only';
+    setTogglingProviders(tenantId);
+
+    // Optimistic: update config locally
+    const prevTenants = tenants;
+    setTenants(prev => prev.map(t => {
+      if (t.id !== tenantId) return t;
+      const newConfig = { ...t.config };
+      if (enabling) {
+        newConfig.provider_mode = 'approved_only';
+      } else {
+        delete newConfig.provider_mode;
+      }
+      return { ...t, config: newConfig };
+    }));
+
+    try {
+      const res = await fetch('/api/providers/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId, enabled: enabling }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error al cambiar módulo');
+      }
+      showSuccess(enabling ? 'Módulo de proveedores activado — el admin puede gestionar el código de invitación desde su panel' : 'Módulo de proveedores desactivado');
+    } catch (err) {
+      // Rollback
+      setTenants(prevTenants);
+      showError(err instanceof Error ? err.message : 'Error al cambiar módulo');
+    } finally {
+      setTogglingProviders(null);
     }
   };
 
@@ -271,6 +321,56 @@ export default function TenantsPage() {
                 </label>
               </div>
 
+              {/* ═══ Módulo Proveedores ═══ */}
+              <div className="mt-4 p-4 bg-canvas rounded-xl">
+                <h4 className="text-sm font-semibold text-label mb-3">
+                  <i className="fas fa-user-shield mr-2 text-brand" />
+                  Proveedores Autorizados
+                </h4>
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-label">Modo proveedores</p>
+                    <p className="text-xs text-muted">Solo proveedores aprobados podrán acreditar personas. Requiere zonas configuradas.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={(form.config as TenantConfig)?.provider_mode === 'approved_only'}
+                    disabled={togglingProviders === editing?.id}
+                    onClick={() => {
+                      if (editing) {
+                        handleToggleProviders(editing.id, (form.config as TenantConfig)?.provider_mode);
+                        // Actualizar form local
+                        const newMode = (form.config as TenantConfig)?.provider_mode === 'approved_only' ? 'open' : 'approved_only';
+                        setForm(prev => ({
+                          ...prev,
+                          config: { ...prev.config, provider_mode: newMode },
+                        }));
+                      }
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                      (form.config as TenantConfig)?.provider_mode === 'approved_only' ? 'bg-success' : 'bg-edge'
+                    } ${togglingProviders === editing?.id ? 'opacity-50' : ''}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${
+                        (form.config as TenantConfig)?.provider_mode === 'approved_only' ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </label>
+
+                {/* Hint: codigo de invitacion gestionado por admin */}
+                {(form.config as TenantConfig)?.provider_mode === 'approved_only' && (
+                  <div className="mt-3 flex items-start gap-2 p-3 bg-info-light rounded-lg">
+                    <i className="fas fa-info-circle text-info text-sm mt-0.5" />
+                    <p className="text-xs text-body">
+                      El código de invitación y la gestión de proveedores están disponibles en el <strong>panel del admin</strong> del tenant, en la pestaña &quot;Proveedores&quot;.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* ═══ PuntoTicket Config ═══ */}
               <div className="mt-4 p-4 bg-canvas rounded-xl">
                 <h4 className="text-sm font-semibold text-label mb-1">
@@ -373,10 +473,12 @@ export default function TenantsPage() {
                       const errData = await res.json().catch(() => ({}));
                       throw new Error(errData.error || 'Error al eliminar');
                     }
+                    // Optimistic: remove from local state
+                    const deletedId = deleting.id;
                     setDeleting(null);
                     setDeleteConfirm('');
+                    setTenants(prev => prev.filter(t => t.id !== deletedId));
                     showSuccess(`Tenant "${deleting.nombre}" eliminado`);
-                    loadTenants();
                   } catch (err) {
                     showError(err instanceof Error ? err.message : 'Error al eliminar');
                   } finally {
@@ -395,7 +497,7 @@ export default function TenantsPage() {
       </Modal>
 
       {/* Tenants List */}
-      {loading ? (
+      {loading && tenants.length === 0 ? (
         <LoadingSpinner />
       ) : (
         <div className="grid gap-4">
@@ -432,6 +534,12 @@ export default function TenantsPage() {
                   >
                     {tenant.activo ? 'Activo' : 'Inactivo'}
                   </span>
+
+                  {(tenant.config as TenantConfig)?.provider_mode === 'approved_only' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                      <i className="fas fa-user-shield mr-1" />Proveedores
+                    </span>
+                  )}
 
                   <div className="flex gap-2">
                     <a

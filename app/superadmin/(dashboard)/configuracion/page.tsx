@@ -53,10 +53,15 @@ export default function ConfiguracionPage() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
+        if (created?.admin) {
+          setSuperadmins(prev => [...prev, created.admin]);
+        } else {
+          loadData(); // fallback if response format unexpected
+        }
         showSuccess('SuperAdmin creado exitosamente');
         setShowForm(false);
         setForm({ email: '', nombre: '', password: '' });
-        loadData();
       } else {
         const data = await res.json();
         showError(data.error || 'Error al crear SuperAdmin');
@@ -76,9 +81,10 @@ export default function ConfiguracionPage() {
         body: JSON.stringify({ id: editing.id, nombre: editNombre }),
       });
       if (res.ok) {
+        // Optimistic: update in local list
+        setSuperadmins(prev => prev.map(sa => sa.id === editing.id ? { ...sa, nombre: editNombre } : sa));
         showSuccess('SuperAdmin actualizado');
         setEditing(null);
-        loadData();
       } else {
         const data = await res.json();
         showError(data.error || 'Error al actualizar');
@@ -94,9 +100,11 @@ export default function ConfiguracionPage() {
     try {
       const res = await fetch(`/api/superadmin/admins?id=${deleting.id}`, { method: 'DELETE' });
       if (res.ok) {
+        // Optimistic: remove from local list
+        const deletedId = deleting.id;
+        setSuperadmins(prev => prev.filter(sa => sa.id !== deletedId));
         showSuccess('SuperAdmin eliminado');
         setDeleting(null);
-        loadData();
       } else {
         const data = await res.json();
         showError(data.error || 'Error al eliminar');
@@ -128,7 +136,7 @@ export default function ConfiguracionPage() {
           Super Administradores ({superadmins.length})
         </h2>
 
-        {loading ? (
+        {loading && superadmins.length === 0 ? (
           <LoadingSpinner />
         ) : superadmins.length === 0 ? (
           <EmptyState message="No hay superadmins registrados" icon="fa-user-shield" />

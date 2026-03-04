@@ -109,10 +109,15 @@ export default function AdminsPage() {
         }),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
+        // Optimistic: add to local list
+        if (created) {
+          const tenant = tenants.find(t => t.id === form.tenant_id);
+          setAdmins(prev => [...prev, { ...created, tenant }]);
+        }
         showSuccess('Administrador creado. Se envió email con credenciales.');
         setShowForm(false);
         setForm({ tenant_id: tenants[0]?.id || '', email: '', nombre: '', password: '', rol: 'admin' });
-        loadData();
       } else {
         const data = await res.json();
         showError(data.error || 'Error al crear admin');
@@ -137,9 +142,10 @@ export default function AdminsPage() {
         }),
       });
       if (res.ok) {
+        // Optimistic: update in local list
+        setAdmins(prev => prev.map(a => a.id === editing.id ? { ...a, nombre: editForm.nombre, rol: editForm.rol } : a));
         showSuccess('Admin actualizado');
         setEditing(null);
-        loadData();
       } else {
         const data = await res.json();
         showError(data.error || 'Error al actualizar');
@@ -159,9 +165,11 @@ export default function AdminsPage() {
         { method: 'DELETE' }
       );
       if (res.ok) {
+        // Optimistic: remove from local list
+        const deletedId = deleting.id;
+        setAdmins(prev => prev.filter(a => a.id !== deletedId));
         showSuccess('Admin eliminado');
         setDeleting(null);
-        loadData();
       } else {
         const data = await res.json();
         showError(data.error || 'Error al eliminar');
@@ -211,7 +219,7 @@ export default function AdminsPage() {
       </div>
 
       {/* ══════ Table ══════ */}
-      {loading ? (
+      {loading && admins.length === 0 ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <EmptyState

@@ -280,7 +280,7 @@ export default function AdminMailTab() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {TEMPLATE_TYPES.map(t => (
                 <button
                   key={t.key}
@@ -385,7 +385,7 @@ export default function AdminMailTab() {
                 )}
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleSave}
                   disabled={saving || !subject.trim()}
@@ -449,23 +449,23 @@ export default function AdminMailTab() {
                 ) : (
                   <div className="space-y-2">
                     {mailVariables.map((row) => (
-                      <div key={row.id} className="grid grid-cols-12 gap-2">
+                      <div key={row.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                         <input
                           value={row.key}
                           onChange={(e) => setMailVariables(prev => prev.map(item => item.id === row.id ? { ...item, key: e.target.value } : item))}
                           placeholder="horario_apertura"
-                          className="col-span-5 px-3 py-2 border border-edge rounded-lg text-xs text-heading"
+                          className="sm:col-span-5 px-3 py-2 border border-edge rounded-lg text-xs text-heading"
                         />
                         <input
                           value={row.value}
                           onChange={(e) => setMailVariables(prev => prev.map(item => item.id === row.id ? { ...item, value: e.target.value } : item))}
                           placeholder="12:30"
-                          className="col-span-6 px-3 py-2 border border-edge rounded-lg text-xs text-heading"
+                          className="sm:col-span-6 px-3 py-2 border border-edge rounded-lg text-xs text-heading"
                         />
                         <button
                           type="button"
                           onClick={() => setMailVariables(prev => prev.filter(item => item.id !== row.id))}
-                          className="col-span-1 px-2 py-2 bg-subtle text-muted rounded-lg hover:text-danger hover:bg-danger-light transition"
+                          className="sm:col-span-1 px-2 py-2 bg-subtle text-muted rounded-lg hover:text-danger hover:bg-danger-light transition"
                           aria-label="Eliminar variable"
                         >
                           <i className="fas fa-trash text-xs" />

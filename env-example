@@ -1,20 +1,29 @@
 
-# 🔐 RESEND API - Configuración segura para evitar bloqueos
-RESEND_API_KEY=Tu_clave_resend
+# ─── Supabase ────────────────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+
+# ─── App ─────────────────────────────────────────────────
+# URL base de la aplicación (sin trailing slash)
+NEXT_PUBLIC_APP_URL=https://accredia.cl
+
+# ─── Resend (Email) ─────────────────────────────────────
+RESEND_API_KEY=re_xxxxxxxxx
 
 # Opción 1 (RECOMENDADA): Usar subdomain gratuito de Resend
-# No necesita verificación DNS - 100% seguro
+# No necesita verificación DNS — 100% seguro
 # Formato: noreply@tuproyecto.resend.dev
-# RESEND_FROM_EMAIL=noreply@acreditaciones.resend.dev
+RESEND_FROM_EMAIL=noreply@acreditaciones.resend.dev
 
 # Opción 2 (Avanzado): Solo si tienes dominio verificado en Resend
 # ⚠️ NO USAR SIN VERIFICACIÓN PREVIA O SE BLOQUEARÁ LA AGENCIA
-# Requiere:
-#   1. Verificar dominio en panel Resend
-#   2. Configurar DNS records (SPF, DKIM, DMARC) en tu proveedor
-#   3. Esperar validación (~24-48h)
-# RESEND_VERIFIED_DOMAIN=acreditaciones.agencia.com
+# Requiere: verificar dominio en panel Resend + DNS (SPF, DKIM, DMARC)
+# RESEND_FROM_EMAIL=noreply@acreditaciones.tudominio.com
 
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_llave_public_anon
+# ─── Stripe (Billing — opcional) ────────────────────────
+# Dejar vacío para desactivar billing
+NEXT_PUBLIC_BILLING_ENABLED=false
+STRIPE_SECRET_KEY=sk_test_xxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxx
 
-NEXT_PUBLIC_SUPABASE_URL=tu_llave_public_supabase

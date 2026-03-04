@@ -32,6 +32,30 @@ export async function getActiveEvent(tenantId: string, opts?: { publicOnly?: boo
 }
 
 /**
+ * Obtener TODOS los eventos activos de un tenant (para landing multi-evento)
+ * @param publicOnly - si true, solo retorna eventos con visibility='public'
+ */
+export async function getActiveEvents(tenantId: string, opts?: { publicOnly?: boolean }): Promise<EventFull[]> {
+  const supabase = createSupabaseAdminClient();
+
+  let query = supabase
+    .from('v_event_full')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true);
+
+  if (opts?.publicOnly) {
+    query = query.eq('visibility', 'public');
+  }
+
+  const { data, error } = await query
+    .order('fecha', { ascending: true });
+
+  if (error || !data) return [];
+  return data as EventFull[];
+}
+
+/**
  * Obtener evento por ID
  */
 export async function getEventById(eventId: string): Promise<Event | null> {

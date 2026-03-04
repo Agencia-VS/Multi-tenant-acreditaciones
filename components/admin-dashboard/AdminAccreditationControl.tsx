@@ -158,18 +158,18 @@ export default function AdminAccreditationControl() {
       {/* Compact header — always visible, clickable to expand */}
       <button
         onClick={() => setCollapsed(c => !c)}
-        className="w-full px-5 py-3 flex items-center justify-between hover:bg-canvas/50 transition"
+        className="w-full px-3 sm:px-5 py-3 flex items-center justify-between gap-2 hover:bg-canvas/50 transition"
       >
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOpen ? 'bg-[#d1fae5]' : 'bg-[#fee2e2]'}`}>
-            <i className={`fas ${isOpen ? 'fa-lock-open text-[#059669]' : 'fa-lock text-[#dc2626]'} text-sm`} />
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isOpen ? 'bg-[#d1fae5]' : 'bg-[#fee2e2]'}`}>
+            <i className={`fas ${isOpen ? 'fa-lock-open text-[#059669]' : 'fa-lock text-[#dc2626]'} text-xs sm:text-sm`} />
           </div>
-          <div className="text-left">
-            <span className="text-sm font-bold text-heading">Control de Acreditación</span>
-            <span className="text-xs text-body ml-2">— {reason}</span>
+          <div className="text-left min-w-0">
+            <span className="text-xs sm:text-sm font-bold text-heading">Control de Acreditación</span>
+            <span className="hidden sm:inline text-xs text-body ml-2">— {reason}</span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Quick toggle without expanding */}
           <div
             onClick={(e) => { e.stopPropagation(); handleToggle(); }}
@@ -190,7 +190,7 @@ export default function AdminAccreditationControl() {
       {/* Expandable details */}
       <div className={`transition-all duration-300 ease-in-out overflow-hidden ${collapsed ? 'max-h-0' : 'max-h-[500px]'}`}>
         {/* Info cards */}
-        <div className="p-5 pt-2 border-t border-edge">
+        <div className="p-3 sm:p-5 pt-2 border-t border-edge">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {/* Status */}
           <div className={`p-3 rounded-xl border ${isOpen ? 'bg-[#d1fae5]/50 border-[#059669]/20' : 'bg-[#fee2e2]/50 border-[#dc2626]/20'}`}>

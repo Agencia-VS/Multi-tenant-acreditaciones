@@ -6,7 +6,7 @@ export { createRegistration, createBulkRegistrations, listRegistrations, updateR
 export { checkQuota, getQuotaRulesWithUsage, upsertQuotaRule, deleteQuotaRule } from './quotas';
 export { resolveZone, getZoneRules, upsertZoneRule, deleteZoneRule } from './zones';
 export { getTenantBySlug, getTenantById, listTenants, createTenant, updateTenant, createTenantAdmin, listTenantAdmins, updateTenantAdmin, deleteTenantAdmin, listSuperAdmins, updateSuperAdmin, deleteSuperAdmin, listActiveTenants, deleteTenant } from './tenants';
-export { getActiveEvent, getEventById, getEventTenantId, getEventFull, listEventsByTenant, listAllEvents, createEvent, updateEvent, deactivateEvent, deleteEvent } from './events';
+export { getActiveEvent, getActiveEvents, getEventById, getEventTenantId, getEventFull, listEventsByTenant, listAllEvents, createEvent, updateEvent, deactivateEvent, deleteEvent } from './events';
 export { listEventDays, getCurrentEventDay, createEventDay, createEventDaysBulk, updateEventDay, deleteEventDay, syncEventDays, getRegistrationDays, getEventDayCheckinStats } from './eventDays';
 export { getTeamMembers, addTeamMember, removeTeamMember, updateTeamMember, updateTeamMemberProfile, getTeamMembersForEvent } from './teams';
 export { sendApprovalEmail, sendRejectionEmail, sendBulkApprovalEmails, sendWelcomeEmail, sendInvitationEmail } from './email';
@@ -17,3 +17,4 @@ export type { AuthResult, RequireAuthOptions, AuthRole } from './requireAuth';
 export { shouldForcePasswordChange, validatePassword, getForceChangeRedirectUrl, PASSWORD_RULES } from './passwordPolicy';
 export { listInvitations, getInvitationByToken, validateInviteToken, createInvitations, markInvitationSent, acceptInvitation, deleteInvitation, expireEventInvitations } from './invitations';
 export { listPlans, getPlanBySlug, getPlanById, upsertPlan, getTenantSubscription, getTenantPlan, assignPlanToTenant, assignFreePlan, checkLimit, recordUsage, getUsageSummary, createCheckoutSession, createPortalSession, processStripeWebhook, getBillingSummary, isStripeConfigured } from './billing';
+export { getProviderById, getProviderByTenantAndProfile, listProvidersByTenant, listProvidersByProfile, getProviderStats, createProviderRequest, approveProvider, rejectProvider, suspendProvider, updateProviderZones, deleteProvider, generateInviteCode_forTenant, validateInviteCode, toggleProviderMode } from './providers';

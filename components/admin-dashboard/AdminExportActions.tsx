@@ -39,10 +39,10 @@ export default function AdminExportActions() {
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <div className="flex items-center gap-1 bg-canvas rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-canvas rounded-xl p-1 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => handleExport('xlsx')}
-            className="px-3 py-2 text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-2"
+            className="px-2 sm:px-3 py-2 text-sm sm:text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
             title="Exportar Excel completo"
           >
             <i className="fas fa-file-excel text-success" />
@@ -51,36 +51,36 @@ export default function AdminExportActions() {
 
           <button
             onClick={() => setShowColumnPicker(true)}
-            className="px-3 py-2 text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-2"
+            className="px-2 sm:px-3 py-2 text-sm sm:text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
             title="Excel personalizado — elegir columnas"
           >
             <i className="fas fa-columns text-brand" />
-            <span className="hidden sm:inline">Personalizado</span>
+            <span className="hidden md:inline">Personalizado</span>
           </button>
 
           <button
             onClick={() => handleExport('puntoticket')}
-            className="px-3 py-2 text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-2"
+            className="px-2 sm:px-3 py-2 text-sm sm:text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
             title="Excel formato PuntoTicket (respeta filtros actuales; sin filtro de estado incluye todos)"
           >
             <i className="fas fa-ticket-alt text-purple-600" />
-            <span className="hidden sm:inline">PuntoTicket</span>
+            <span className="hidden md:inline">PuntoTicket</span>
           </button>
 
           <button
             onClick={() => handleExport('puntoticket', false, { approved_only: 'true' })}
-            className="px-3 py-2 text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-2"
+            className="px-2 sm:px-3 py-2 text-sm sm:text-base font-medium text-label hover:bg-surface hover:shadow-sm rounded-lg transition flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
             title="Excel formato PuntoTicket (solo aprobados)"
           >
             <i className="fas fa-check-circle text-success" />
-            <span className="hidden sm:inline">PT Aprobados</span>
+            <span className="hidden md:inline">PT Aprobados</span>
           </button>
         </div>
 
         {(filters.status || filters.tipo_medio || filters.search) && (
           <button
             onClick={() => handleExport('xlsx', true)}
-            className="px-3 py-2 text-base font-medium text-brand bg-accent-light hover:bg-accent-light/80 rounded-xl transition flex items-center gap-2"
+            className="px-2 sm:px-3 py-2 text-sm sm:text-base font-medium text-brand bg-accent-light hover:bg-accent-light/80 rounded-xl transition flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
             title="Exportar solo lo filtrado (Excel)"
           >
             <i className="fas fa-filter" />

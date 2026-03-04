@@ -6,11 +6,13 @@
  */
 
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { normalizeForMatch } from '@/lib/normalizeMatch';
 import type { EventQuotaRule, QuotaCheckResult } from '@/types';
 
 /**
  * Verificar si hay cupo disponible para un tipo_medio + organización en un evento.
  * Consulta la tabla event_quota_rules y cuenta registros existentes.
+ * Comparaciones normalizadas: case-insensitive y sin espacios.
  */
 export async function checkQuota(
   eventId: string,
@@ -18,14 +20,16 @@ export async function checkQuota(
   organizacion: string
 ): Promise<QuotaCheckResult> {
   const supabase = createSupabaseAdminClient();
+  const nTipoMedio = normalizeForMatch(tipoMedio);
+  const nOrganizacion = normalizeForMatch(organizacion);
 
-  // Buscar regla para este tipo_medio
-  const { data: rule } = await supabase
+  // Buscar regla para este tipo_medio (normalizado)
+  const { data: rules } = await supabase
     .from('event_quota_rules')
     .select('*')
-    .eq('event_id', eventId)
-    .eq('tipo_medio', tipoMedio)
-    .single();
+    .eq('event_id', eventId);
+
+  const rule = rules?.find(r => normalizeForMatch(r.tipo_medio) === nTipoMedio) ?? null;
 
   // Sin regla = sin límite
   if (!rule) {
@@ -39,25 +43,21 @@ export async function checkQuota(
     };
   }
 
-  // Contar registros existentes (no rechazados) por organización
-  const { count: usedOrg } = await supabase
+  // Obtener registros del evento para contar (normalizado)
+  const { data: regs } = await supabase
     .from('registrations')
-    .select('*', { count: 'exact', head: true })
+    .select('tipo_medio, organizacion')
     .eq('event_id', eventId)
-    .eq('tipo_medio', tipoMedio)
-    .eq('organizacion', organizacion)
     .neq('status', 'rechazado');
 
-  // Contar registros globales de este tipo_medio
-  const { count: usedGlobal } = await supabase
-    .from('registrations')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('tipo_medio', tipoMedio)
-    .neq('status', 'rechazado');
+  const orgCount = regs?.filter(r =>
+    normalizeForMatch(r.tipo_medio) === nTipoMedio &&
+    normalizeForMatch(r.organizacion) === nOrganizacion
+  ).length ?? 0;
 
-  const orgCount = usedOrg || 0;
-  const globalCount = usedGlobal || 0;
+  const globalCount = regs?.filter(r =>
+    normalizeForMatch(r.tipo_medio) === nTipoMedio
+  ).length ?? 0;
 
   // Verificar límite por organización
   if (rule.max_per_organization > 0 && orgCount >= rule.max_per_organization) {
@@ -121,17 +121,17 @@ export async function getQuotaRulesWithUsage(eventId: string): Promise<
   const usageMap: Record<string, { orgs: Record<string, number>; global: number }> = {};
   
   registrations?.forEach((r) => {
-    const tm = r.tipo_medio || 'unknown';
+    const tm = normalizeForMatch(r.tipo_medio) || 'unknown';
     if (!usageMap[tm]) usageMap[tm] = { orgs: {}, global: 0 };
     usageMap[tm].global++;
-    const org = r.organizacion || 'unknown';
+    const org = normalizeForMatch(r.organizacion) || 'unknown';
     usageMap[tm].orgs[org] = (usageMap[tm].orgs[org] || 0) + 1;
   });
 
   return (rules as EventQuotaRule[]).map((rule) => ({
     ...rule,
-    used_org_map: usageMap[rule.tipo_medio]?.orgs || {},
-    used_global: usageMap[rule.tipo_medio]?.global || 0,
+    used_org_map: usageMap[normalizeForMatch(rule.tipo_medio)]?.orgs || {},
+    used_global: usageMap[normalizeForMatch(rule.tipo_medio)]?.global || 0,
   }));
 }
 

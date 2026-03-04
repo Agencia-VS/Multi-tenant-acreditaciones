@@ -9,8 +9,11 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getProfileByUserId } from '@/lib/services/profiles';
 import { normalizeDocumentByType } from '@/lib/validation';
+import { authLimiter } from '@/lib/rateLimit';
 
 export async function GET(request: NextRequest) {
+  const limited = authLimiter.check(request, 10);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '/';

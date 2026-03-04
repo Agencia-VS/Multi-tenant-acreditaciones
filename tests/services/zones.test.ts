@@ -13,19 +13,16 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { resolveZone, getZoneRules, upsertZoneRule, deleteZoneRule } from '@/lib/services/zones';
 
-// Chain builder helpers
-function singleChain(data: unknown) {
-  return {
+/**
+ * resolveZone now does 1 query: from('event_zone_rules').select(...).eq('event_id', ...)
+ * Returns all rules for the event, then filters in JS with normalizeForMatch.
+ */
+function mockZoneRules(rules: unknown[]) {
+  mockFrom.mockReturnValue({
     select: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data }),
-          }),
-        }),
-      }),
+      eq: vi.fn().mockResolvedValue({ data: rules }),
     }),
-  };
+  });
 }
 
 function listChain(data: unknown[], error: unknown = null) {
@@ -44,26 +41,29 @@ describe('resolveZone', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns cargo match zone when cargo matches', async () => {
-    mockFrom.mockReturnValue(singleChain({ zona: 'Prensa' }));
+    mockZoneRules([
+      { match_field: 'cargo', cargo: 'Periodista', zona: 'Prensa' },
+      { match_field: 'tipo_medio', cargo: 'TV', zona: 'Tribuna' },
+    ]);
 
     const zone = await resolveZone('e-1', 'Periodista', 'TV');
     expect(zone).toBe('Prensa');
   });
 
   it('falls back to tipo_medio when cargo has no match', async () => {
-    // First call (cargo) returns null, second call (tipo_medio) returns a zone
-    mockFrom
-      .mockReturnValueOnce(singleChain(null))
-      .mockReturnValueOnce(singleChain({ zona: 'Staff' }));
+    mockZoneRules([
+      { match_field: 'cargo', cargo: 'Periodista', zona: 'Prensa' },
+      { match_field: 'tipo_medio', cargo: 'Operaciones', zona: 'Staff' },
+    ]);
 
     const zone = await resolveZone('e-1', 'Unknown', 'Operaciones');
     expect(zone).toBe('Staff');
   });
 
   it('returns null when no rules match', async () => {
-    mockFrom
-      .mockReturnValueOnce(singleChain(null))
-      .mockReturnValueOnce(singleChain(null));
+    mockZoneRules([
+      { match_field: 'cargo', cargo: 'Periodista', zona: 'Prensa' },
+    ]);
 
     const zone = await resolveZone('e-1', 'NoMatch', 'NoMatch');
     expect(zone).toBeNull();
@@ -76,12 +76,23 @@ describe('resolveZone', () => {
   });
 
   it('skips cargo check when cargo is undefined', async () => {
-    mockFrom.mockReturnValueOnce(singleChain({ zona: 'VIP' }));
+    mockZoneRules([
+      { match_field: 'cargo', cargo: 'Periodista', zona: 'Prensa' },
+      { match_field: 'tipo_medio', cargo: 'Invitado', zona: 'VIP' },
+    ]);
 
     const zone = await resolveZone('e-1', undefined, 'Invitado');
     expect(zone).toBe('VIP');
-    // Only one call (for tipo_medio)
     expect(mockFrom).toHaveBeenCalledTimes(1);
+  });
+
+  it('matches case-insensitively and ignores spaces', async () => {
+    mockZoneRules([
+      { match_field: 'cargo', cargo: 'Prensa Escrita', zona: 'Sala Prensa' },
+    ]);
+
+    const zone = await resolveZone('e-1', 'prensaescrita');
+    expect(zone).toBe('Sala Prensa');
   });
 });
 

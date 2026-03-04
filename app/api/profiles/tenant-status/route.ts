@@ -37,7 +37,7 @@ export async function GET() {
     // Obtener todos los tenants activos con sus eventos activos
     const { data: events } = await supabase
       .from('v_event_full')
-      .select('id, nombre, fecha, form_fields, tenant_id, tenant_nombre, tenant_slug, tenant_logo_url, tenant_color_primario, tenant_shield_url')
+      .select('id, nombre, fecha, form_fields, tenant_id, tenant_nombre, tenant_slug, tenant_logo_url, tenant_color_primario, tenant_shield_url, tenant_config')
       .eq('is_active', true)
       .order('fecha', { ascending: true });
 
@@ -50,6 +50,30 @@ export async function GET() {
     for (const event of events) {
       if (!tenantMap.has(event.tenant_id!)) {
         tenantMap.set(event.tenant_id!, event);
+      }
+    }
+
+    // Filtrar tenants con provider_mode=approved_only si el usuario no es proveedor aprobado
+    const approvedOnlyTenantIds = [...tenantMap.entries()]
+      .filter(([, ev]) => {
+        const cfg = ev.tenant_config as Record<string, unknown> | null;
+        return cfg?.provider_mode === 'approved_only';
+      })
+      .map(([id]) => id);
+
+    if (approvedOnlyTenantIds.length > 0) {
+      const { data: providers } = await supabase
+        .from('tenant_providers')
+        .select('tenant_id')
+        .eq('profile_id', profile.id)
+        .eq('status', 'approved')
+        .in('tenant_id', approvedOnlyTenantIds);
+
+      const approvedSet = new Set((providers || []).map(p => p.tenant_id));
+      for (const tid of approvedOnlyTenantIds) {
+        if (!approvedSet.has(tid)) {
+          tenantMap.delete(tid);
+        }
       }
     }
 

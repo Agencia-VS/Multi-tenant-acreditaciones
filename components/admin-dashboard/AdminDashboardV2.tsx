@@ -11,6 +11,7 @@ import AdminRejectModal from './AdminRejectModal';
 import AdminConfigTab from './AdminConfigTab';
 import AdminMailTab from './AdminMailTab';
 import AdminPlanTab from './AdminPlanTab';
+import AdminProvidersTab from './AdminProvidersTab';
 import BillingBanner from './BillingBanner';
 import type { RegistrationFull } from '@/types';
 
@@ -77,6 +78,8 @@ function AdminDashboardInner() {
           <AdminMailTab />
         ) : activeTab === 'plan' ? (
           <AdminPlanTab />
+        ) : activeTab === 'proveedores' ? (
+          <AdminProvidersTab />
         ) : null}
       </div>
 

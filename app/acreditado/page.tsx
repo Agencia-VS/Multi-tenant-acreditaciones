@@ -17,7 +17,7 @@ interface ActiveEvent {
   fecha: string | null;
   venue: string | null;
   fecha_limite_acreditacion: string | null;
-  tenant: { nombre: string; slug: string; shield_url: string | null; color_primario: string };
+  tenant: { id: string; nombre: string; slug: string; shield_url: string | null; color_primario: string; config: Record<string, unknown> | null };
 }
 
 export default function AcreditadoHomePage() {
@@ -49,21 +49,49 @@ export default function AcreditadoHomePage() {
       }
     } catch { /* ignore */ }
 
-    // Get active events
-    const { data: eventsData } = await supabase
-      .from('events')
-      .select('id, nombre, fecha, venue, fecha_limite_acreditacion, tenant:tenants(nombre, slug, logo_url, shield_url, color_primario)')
-      .eq('is_active', true)
-      .order('fecha', { ascending: true });
+    // Get active events + provider accesses in parallel
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (eventsData) setEvents(eventsData as unknown as ActiveEvent[]);
+    const [eventsResult, providerAccesses] = await Promise.all([
+      supabase
+        .from('events')
+        .select('id, nombre, fecha, venue, fecha_limite_acreditacion, tenant:tenants(id, nombre, slug, logo_url, shield_url, color_primario, config)')
+        .eq('is_active', true)
+        .order('fecha', { ascending: true }),
+      session
+        ? fetch('/api/providers/my-access', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([]),
+    ]);
 
-    // Get tenant completion statuses
+    // Build set of approved tenant IDs
+    const approvedTenantIds = new Set(
+      (providerAccesses as { status: string; tenant_id: string }[])
+        .filter(p => p.status === 'approved')
+        .map(p => p.tenant_id)
+    );
+
+    if (eventsResult.data) {
+      // Exclude events from provider tenants (those appear in Organizaciones tab)
+      // Also hide approved_only tenants where user is NOT a provider
+      const filtered = (eventsResult.data as unknown as ActiveEvent[]).filter(e => {
+        const tenant = Array.isArray(e.tenant) ? e.tenant[0] : e.tenant;
+        if (approvedTenantIds.has(tenant?.id || '')) return false;
+        const tenantConfig = tenant?.config as Record<string, unknown> | null;
+        if (tenantConfig?.provider_mode === 'approved_only') return false;
+        return true;
+      });
+      setEvents(filtered);
+    }
+
+    // Get tenant completion statuses (exclude provider tenants)
     try {
       const statusRes = await fetch('/api/profiles/tenant-status');
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        setTenantStatuses(statusData.tenants || []);
+        const allStatuses: TenantProfileStatus[] = statusData.tenants || [];
+        setTenantStatuses(allStatuses.filter(t => !approvedTenantIds.has(t.tenantId)));
       }
     } catch { /* ignore */ }
 
@@ -90,8 +118,8 @@ export default function AcreditadoHomePage() {
           <h3 className="font-bold text-heading text-sm sm:text-base">Mis Acreditaciones</h3>
           <p className="text-xs sm:text-sm text-body mt-1">Ver estado de mis solicitudes</p>
         </Link>
-        <Link href="/acreditado/nueva" className="p-4 sm:p-6 bg-success-light rounded-xl border border-success-light hover:bg-success-light/80 transition">
-          <i className="fas fa-plus-circle text-xl sm:text-2xl text-success mb-2" />
+        <Link href="/acreditado/nueva" className="p-4 sm:p-6 bg-pink-100 rounded-xl border border-gray-200 hover:bg-gray-200 transition">
+          <i className="fas fa-plus-circle text-xl sm:text-2xl text-pink-600 mb-2" />
           <h3 className="font-bold text-heading text-sm sm:text-base">Nueva Solicitud</h3>
           <p className="text-xs sm:text-sm text-body mt-1">Solicitar acreditación para un evento</p>
         </Link>
@@ -116,7 +144,7 @@ export default function AcreditadoHomePage() {
               return (
                 <Link
                   key={t.tenantId}
-                  href={`/${t.tenantSlug}/acreditacion`}
+                  href={t.eventId ? `/${t.tenantSlug}/acreditacion?event=${t.eventId}` : `/${t.tenantSlug}/acreditacion`}
                   className="flex items-center gap-3 p-4 bg-surface rounded-xl border border-edge hover:shadow-md transition"
                 >
                   {/* Mini completion ring */}
@@ -205,7 +233,7 @@ export default function AcreditadoHomePage() {
                     </div>
                   </div>
                   <Link
-                    href={`/${tenant?.slug}/acreditacion`}
+                    href={`/${tenant?.slug}/acreditacion?event=${event.id}`}
                     className="px-4 py-2 bg-brand text-on-brand rounded-lg text-xs sm:text-sm font-medium hover:bg-brand-hover transition w-full sm:w-auto text-center shrink-0"
                   >
                     Acreditarme

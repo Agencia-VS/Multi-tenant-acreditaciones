@@ -220,7 +220,7 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
       setResponsable(prev => ({
         document_type: ((userProfile as Partial<Record<string, unknown>>)?.document_type as 'rut' | 'dni_extranjero') || prev.document_type || 'rut',
-        rut: userProfile.rut || prev.rut,
+        rut: userProfile.rut || (userProfile as Partial<Record<string, unknown>>)?.document_number as string || prev.rut,
         nombre: userProfile.nombre || prev.nombre,
         apellido: userProfile.apellido || prev.apellido,
         segundo_apellido: (userProfile.datos_base as Record<string, string> | undefined)?.segundo_apellido || prev.segundo_apellido,
@@ -614,7 +614,11 @@ export function useRegistrationForm(props: RegistrationFormProps) {
 
   const downloadTemplate = async () => {
     const color = tenantColors.primario.replace('#', '');
-    const url = `/api/bulk/parse?tenant=${tenantSlug}&color=${color}&event_id=${eventId}`;
+    let url = `/api/bulk/parse?tenant=${tenantSlug}&color=${color}&event_id=${eventId}`;
+    // If provider has allowed_zones, pass them so the template only shows those zones
+    if (props.providerAllowedZones && props.providerAllowedZones.length > 0) {
+      url += `&allowed_zones=${encodeURIComponent(props.providerAllowedZones.join(','))}`;
+    }
     const a = document.createElement('a');
     a.href = url;
     a.download = `plantilla-carga-masiva-${tenantSlug}.xlsx`;

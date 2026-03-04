@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAdmin } from './AdminContext';
 import { isoToLocalDatetime } from '@/lib/dates';
-import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig, BulkTemplateColumn, ResponsableConfig } from '@/types';
+import type { Event, EventType, EventVisibility, FormFieldDefinition, ZoneMatchField, DisclaimerSection, DisclaimerConfig, BulkTemplateColumn, ResponsableConfig, EventDayFormData } from '@/types';
 import { TIPOS_MEDIO, CARGOS } from '@/types';
 import { getBulkTemplateColumnsFromConfig } from '@/lib/bulkTemplate';
 import { getResponsableConfigFromEventConfig } from '@/lib/responsableConfig';
@@ -25,6 +25,8 @@ export interface EventForm {
   visibility: EventVisibility;
   disclaimer_enabled: boolean;
   disclaimer_sections: DisclaimerSection[];
+  fecha_inicio: string;
+  fecha_fin: string;
 }
 
 export interface QuotaRule {
@@ -52,6 +54,8 @@ const INITIAL_FORM: EventForm = {
   visibility: 'public',
   disclaimer_enabled: true,
   disclaimer_sections: [],
+  fecha_inicio: '',
+  fecha_fin: '',
 };
 
 export const DEFAULT_FORM_FIELDS: FormFieldDefinition[] = [
@@ -81,6 +85,7 @@ export function useEventForm() {
   const [cloning, setCloning] = useState(false);
   const [bulkTemplateColumns, setBulkTemplateColumns] = useState<BulkTemplateColumn[]>([]);
   const [responsableConfig, setResponsableConfig] = useState<ResponsableConfig>({ organization_mode: 'text', organization_options: [] });
+  const [eventDays, setEventDays] = useState<EventDayFormData[]>([]);
 
   const resetForm = () => {
     setForm(INITIAL_FORM);
@@ -91,6 +96,7 @@ export function useEventForm() {
     setCloneSourceId('');
     setBulkTemplateColumns([]);
     setResponsableConfig({ organization_mode: 'text', organization_options: [] });
+    setEventDays([]);
   };
 
   /** Sincronizas el formulario con un evento existente (para edición) */
@@ -112,10 +118,24 @@ export function useEventForm() {
       visibility: (event as Event & { visibility?: string }).visibility as EventVisibility || 'public',
       disclaimer_enabled: dc?.enabled ?? true,
       disclaimer_sections: dc?.sections ?? [],
+      fecha_inicio: (event as Event & { fecha_inicio?: string }).fecha_inicio || '',
+      fecha_fin: (event as Event & { fecha_fin?: string }).fecha_fin || '',
     });
     setZonas(eventConfig.zonas || []);
     setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(eventConfig));
     setResponsableConfig(getResponsableConfigFromEventConfig(eventConfig));
+
+    // Cargar event_days si es multidía
+    if (event.event_type === 'multidia' && event.id) {
+      fetch(`/api/events/${event.id}/days`)
+        .then(r => r.ok ? r.json() : [])
+        .then((days: EventDayFormData[]) => {
+          setEventDays(days.map(d => ({ fecha: d.fecha, label: d.label, orden: d.orden })));
+        })
+        .catch(() => { /* ignore */ });
+    } else {
+      setEventDays([]);
+    }
   };
 
   /** Clonar configuración desde un evento anterior del mismo tenant */
@@ -201,6 +221,7 @@ export function useEventForm() {
     formFields, setFormFields,
     quotaRules, zoneRules,
     zonas, setZonas,
+    eventDays, setEventDays,
     bulkTemplateColumns,
     responsableConfig,
     setResponsableConfig,

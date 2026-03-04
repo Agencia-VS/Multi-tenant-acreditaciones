@@ -163,7 +163,7 @@ export default function EventosPage() {
     if (!rawSource) return;
 
     // Deep clone to break ALL shared references with the events array
-    const source: SAEvent = JSON.parse(JSON.stringify(rawSource));
+    const source: SAEvent = structuredClone(rawSource);
 
     // Populate form fields from source (keep tenant_id, clear name/date)
     setEventForm(prev => ({
@@ -184,7 +184,7 @@ export default function EventosPage() {
     const evConfig = source.config ?? {};
     setClonedBaseConfig(
       evConfig && typeof evConfig === 'object'
-        ? JSON.parse(JSON.stringify(evConfig)) as Record<string, unknown>
+        ? structuredClone(evConfig) as Record<string, unknown>
         : {}
     );
     setEventZonas(evConfig.zonas || []);
@@ -192,51 +192,46 @@ export default function EventosPage() {
     setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
     setResponsableConfig(getResponsableConfigFromEventConfig(evConfig));
 
-    // Load event days structure (without dates)
-    if (source.event_type === 'multidia') {
-      try {
-        const daysRes = await fetch(`/api/events/${source.id}/days`);
-        if (daysRes.ok) {
-          const daysData = await daysRes.json();
-          const daysArr = Array.isArray(daysData) ? daysData : [];
-          setEventDays(daysArr.map((d: { label: string; orden: number }, i: number) => ({
-            fecha: '',
-            label: d.label || `Día ${i + 1}`,
-            orden: d.orden,
-          })));
-        }
-      } catch { /* ignore */ }
+    // Load days, quotas, zones IN PARALLEL
+    const [daysResult, quotasResult, zonesResult] = await Promise.allSettled([
+      source.event_type === 'multidia' ? fetch(`/api/events/${source.id}/days`).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
+      fetch(`/api/events/${source.id}/quotas`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/events/${source.id}/zones`).then(r => r.ok ? r.json() : []),
+    ]);
+
+    // Apply days
+    if (source.event_type === 'multidia' && daysResult.status === 'fulfilled') {
+      const daysArr = Array.isArray(daysResult.value) ? daysResult.value : [];
+      setEventDays(daysArr.map((d: { label: string; orden: number }, i: number) => ({
+        fecha: '',
+        label: d.label || `Día ${i + 1}`,
+        orden: d.orden,
+      })));
     } else {
       setEventDays([]);
     }
 
-    // Load quota rules
-    try {
-      const res = await fetch(`/api/events/${source.id}/quotas`);
-      if (res.ok) {
-        const data = await res.json();
-        const rules = Array.isArray(data) ? data : (data.rules || []);
-        setQuotaRules(rules.map((r: QuotaRule) => ({
-          tipo_medio: r.tipo_medio,
-          max_per_organization: r.max_per_organization,
-          max_global: r.max_global,
-        })));
-      }
-    } catch { /* ignore */ }
+    // Apply quotas
+    if (quotasResult.status === 'fulfilled') {
+      const data = quotasResult.value;
+      const rules = Array.isArray(data) ? data : (data.rules || []);
+      setQuotaRules(rules.map((r: QuotaRule) => ({
+        tipo_medio: r.tipo_medio,
+        max_per_organization: r.max_per_organization,
+        max_global: r.max_global,
+      })));
+    }
 
-    // Load zone rules
-    try {
-      const zRes = await fetch(`/api/events/${source.id}/zones`);
-      if (zRes.ok) {
-        const zData = await zRes.json();
-        const zArr = Array.isArray(zData) ? zData : [];
-        setZoneRules(zArr.map((r: { match_field?: string; cargo: string; zona: string }) => ({
-          match_field: (r.match_field as ZoneMatchField) || 'cargo',
-          cargo: r.cargo,
-          zona: r.zona,
-        })));
-      }
-    } catch { /* ignore */ }
+    // Apply zones
+    if (zonesResult.status === 'fulfilled') {
+      const zData = zonesResult.value;
+      const zArr = Array.isArray(zData) ? zData : [];
+      setZoneRules(zArr.map((r: { match_field?: string; cargo: string; zona: string }) => ({
+        match_field: (r.match_field as ZoneMatchField) || 'cargo',
+        cargo: r.cargo,
+        zona: r.zona,
+      })));
+    }
 
     showSuccess(`Configuración copiada de "${source.nombre}"`);
   };
@@ -276,7 +271,7 @@ export default function EventosPage() {
 
   const handleEdit = async (event: SAEvent) => {
     // Deep clone to avoid mutating the events array when editing config
-    const cloned: SAEvent = JSON.parse(JSON.stringify(event));
+    const cloned: SAEvent = structuredClone(event);
     setEditing(cloned);
     setClonedBaseConfig(null);
     setCloneFromEventId(null);
@@ -299,66 +294,54 @@ export default function EventosPage() {
     });
     setFormFields(cloned.form_fields?.length ? cloned.form_fields : DEFAULT_FORM_FIELDS);
 
-    // Load event days for multidía events
-    if (cloned.event_type === 'multidia') {
-      try {
-        const daysRes = await fetch(`/api/events/${cloned.id}/days`);
-        if (daysRes.ok) {
-          const daysData = await daysRes.json();
-          const daysArr = Array.isArray(daysData) ? daysData : [];
-          setEventDays(daysArr.map((d: { fecha: string; label: string; orden: number }) => ({
-            fecha: d.fecha,
-            label: d.label,
-            orden: d.orden,
-          })));
-        }
-      } catch {
-        console.warn('No se pudieron cargar días del evento');
-      }
-    } else {
-      setEventDays([]);
-    }
-
-    // Load event zonas from config
+    // Load event zonas from config (sync — no fetch needed)
     const evConfig = cloned.config ?? {};
     setEventZonas(evConfig.zonas || []);
     setZonaEnFormulario(!!evConfig.zona_en_formulario);
     setBulkTemplateColumns(getBulkTemplateColumnsFromConfig(evConfig));
     setResponsableConfig(getResponsableConfigFromEventConfig(evConfig));
 
-    // Load quota rules (API returns array directly, not { rules: [...] })
-    try {
-      const res = await fetch(`/api/events/${cloned.id}/quotas`);
-      if (res.ok) {
-        const data = await res.json();
-        // API returns array directly from getQuotaRulesWithUsage
-        const rules = Array.isArray(data) ? data : (data.rules || []);
-        setQuotaRules(rules.map((r: QuotaRule & { id?: string }) => ({
-          id: r.id,
-          tipo_medio: r.tipo_medio,
-          max_per_organization: r.max_per_organization,
-          max_global: r.max_global,
-        })));
-      }
-    } catch {
-      console.warn('No se pudieron cargar reglas de cupos');
+    // Load days, quotas, zones IN PARALLEL
+    const [daysResult, quotasResult, zonesResult] = await Promise.allSettled([
+      cloned.event_type === 'multidia' ? fetch(`/api/events/${cloned.id}/days`).then(r => r.ok ? r.json() : []) : Promise.resolve(null),
+      fetch(`/api/events/${cloned.id}/quotas`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/events/${cloned.id}/zones`).then(r => r.ok ? r.json() : []),
+    ]);
+
+    // Apply days
+    if (cloned.event_type === 'multidia' && daysResult.status === 'fulfilled' && daysResult.value) {
+      const daysArr = Array.isArray(daysResult.value) ? daysResult.value : [];
+      setEventDays(daysArr.map((d: { fecha: string; label: string; orden: number }) => ({
+        fecha: d.fecha,
+        label: d.label,
+        orden: d.orden,
+      })));
+    } else {
+      setEventDays([]);
     }
 
-    // Load zone rules
-    try {
-      const zRes = await fetch(`/api/events/${cloned.id}/zones`);
-      if (zRes.ok) {
-        const zData = await zRes.json();
-        const zArr = Array.isArray(zData) ? zData : [];
-        setZoneRules(zArr.map((r: { id?: string; match_field?: string; cargo: string; zona: string }) => ({
-          id: r.id,
-          match_field: (r.match_field as ZoneMatchField) || 'cargo',
-          cargo: r.cargo,
-          zona: r.zona,
-        })));
-      }
-    } catch {
-      console.warn('No se pudieron cargar reglas de zonas');
+    // Apply quotas
+    if (quotasResult.status === 'fulfilled') {
+      const data = quotasResult.value;
+      const rules = Array.isArray(data) ? data : (data.rules || []);
+      setQuotaRules(rules.map((r: QuotaRule & { id?: string }) => ({
+        id: r.id,
+        tipo_medio: r.tipo_medio,
+        max_per_organization: r.max_per_organization,
+        max_global: r.max_global,
+      })));
+    }
+
+    // Apply zones
+    if (zonesResult.status === 'fulfilled') {
+      const zData = zonesResult.value;
+      const zArr = Array.isArray(zData) ? zData : [];
+      setZoneRules(zArr.map((r: { id?: string; match_field?: string; cargo: string; zona: string }) => ({
+        id: r.id,
+        match_field: (r.match_field as ZoneMatchField) || 'cargo',
+        cargo: r.cargo,
+        zona: r.zona,
+      })));
     }
 
     setActiveTab('general');
@@ -428,58 +411,59 @@ export default function EventosPage() {
       const eventData = await res.json();
       const eventId = eventData.event?.id || eventData.id || editing?.id;
 
-      // Save quota rules — upsert handles duplicates via (event_id, tipo_medio) constraint
+      // Save quota rules, zone rules, and event days IN PARALLEL
       if (eventId) {
-        // First, get existing rules to detect deletions
-        const existingRes = await fetch(`/api/events/${eventId}/quotas`);
-        const existingRules = existingRes.ok ? await existingRes.json() : [];
-        const existingArray = Array.isArray(existingRules) ? existingRules : (existingRules.rules || []);
+        // Fetch existing quotas & zones in parallel to detect deletions
+        const [existingRes, existingZRes] = await Promise.all([
+          fetch(`/api/events/${eventId}/quotas`).then(r => r.ok ? r.json() : []),
+          fetch(`/api/events/${eventId}/zones`).then(r => r.ok ? r.json() : []),
+        ]);
+        const existingArray = Array.isArray(existingRes) ? existingRes : (existingRes.rules || []);
+        const existingZArr = Array.isArray(existingZRes) ? existingZRes : [];
 
-        // Delete rules that were removed
+        // Build all quota operations
+        const quotaOps: Promise<unknown>[] = [];
         for (const existing of existingArray) {
           const stillExists = quotaRules.some(r => r.tipo_medio === existing.tipo_medio);
           if (!stillExists && existing.id) {
-            await fetch(`/api/events/${eventId}/quotas?rule_id=${existing.id}`, { method: 'DELETE' });
+            quotaOps.push(fetch(`/api/events/${eventId}/quotas?rule_id=${existing.id}`, { method: 'DELETE' }));
           }
         }
-
-        // Upsert current rules
         for (const rule of quotaRules) {
-          await fetch(`/api/events/${eventId}/quotas`, {
+          quotaOps.push(fetch(`/api/events/${eventId}/quotas`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(rule),
-          });
+          }));
         }
 
-        // Save zone rules — same pattern: detect deletions + upsert
-        const existingZRes = await fetch(`/api/events/${eventId}/zones`);
-        const existingZones = existingZRes.ok ? await existingZRes.json() : [];
-        const existingZArr = Array.isArray(existingZones) ? existingZones : [];
-
+        // Build all zone operations
+        const zoneOps: Promise<unknown>[] = [];
         for (const existing of existingZArr) {
           const stillExists = zoneRules.some(r => r.match_field === existing.match_field && r.cargo === existing.cargo);
           if (!stillExists && existing.id) {
-            await fetch(`/api/events/${eventId}/zones?rule_id=${existing.id}`, { method: 'DELETE' });
+            zoneOps.push(fetch(`/api/events/${eventId}/zones?rule_id=${existing.id}`, { method: 'DELETE' }));
           }
         }
-
         for (const rule of zoneRules) {
-          await fetch(`/api/events/${eventId}/zones`, {
+          zoneOps.push(fetch(`/api/events/${eventId}/zones`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cargo: rule.cargo, zona: rule.zona, match_field: rule.match_field }),
-          });
+          }));
         }
 
-        // Sync event days for multidía events
-        if (eventForm.event_type === 'multidia' && eventDays.length > 0) {
-          await fetch(`/api/events/${eventId}/days`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ days: eventDays }),
-          });
-        }
+        // Build days operation
+        const daysOp = eventForm.event_type === 'multidia' && eventDays.length > 0
+          ? fetch(`/api/events/${eventId}/days`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ days: eventDays }),
+            })
+          : Promise.resolve();
+
+        // Execute all sub-resource operations in parallel
+        await Promise.all([...quotaOps, ...zoneOps, daysOp]);
       }
 
       setShowForm(false);
@@ -529,17 +513,21 @@ export default function EventosPage() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
+    // Optimistic: remove from local state
+    const prevEvents = events;
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    setDeletingEventId(null);
     try {
       const res = await fetch(`/api/events?id=${eventId}&action=delete`, { method: 'DELETE' });
       if (res.ok) {
         showSuccess('Evento eliminado permanentemente');
-        setDeletingEventId(null);
-        loadData();
       } else {
+        setEvents(prevEvents);
         const d = await res.json();
         showError(d.error || 'Error eliminando evento');
       }
     } catch {
+      setEvents(prevEvents);
       showError('Error de conexión');
     }
   };
@@ -887,7 +875,7 @@ export default function EventosPage() {
 
               {/* Invitations Tab (invite_only, editing only) */}
               {activeTab === 'invitaciones' && editing && (
-                <EventInvitationsTab eventId={editing.id} tenantSlug={editing.tenant_slug || ''} />
+                <EventInvitationsTab inviteToken={editing.invite_token || null} tenantSlug={editing.tenant_slug || ''} />
               )}
 
               <FormActions
@@ -899,7 +887,7 @@ export default function EventosPage() {
       </Modal>
 
       {/* Events List */}
-      {loading ? (
+      {loading && events.length === 0 ? (
         <LoadingSpinner />
       ) : events.length === 0 ? (
         <EmptyState message="No hay eventos creados" icon="fa-calendar-times" action={{ label: 'Crear Evento', onClick: handleNew }} />

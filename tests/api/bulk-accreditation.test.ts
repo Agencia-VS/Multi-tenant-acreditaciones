@@ -13,6 +13,8 @@ const mockGetCurrentUser = vi.fn();
 const mockIsSuperAdmin = vi.fn();
 const mockGetProfileByUserId = vi.fn();
 const mockLogAuditAction = vi.fn();
+const mockGetProviderByTenantAndProfile = vi.fn();
+const mockGetTenantById = vi.fn();
 
 vi.mock('@/lib/services', () => ({
   getEventById: (...args: unknown[]) => mockGetEventById(...args),
@@ -29,6 +31,21 @@ vi.mock('@/lib/services/profiles', () => ({
 
 vi.mock('@/lib/services/audit', () => ({
   logAuditAction: (...args: unknown[]) => mockLogAuditAction(...args),
+}));
+
+vi.mock('@/lib/services/providers', () => ({
+  getProviderByTenantAndProfile: (...args: unknown[]) => mockGetProviderByTenantAndProfile(...args),
+}));
+
+vi.mock('@/lib/services/tenants', () => ({
+  getTenantById: (...args: unknown[]) => mockGetTenantById(...args),
+}));
+
+vi.mock('@/lib/rateLimit', () => ({
+  heavyLimiter: { check: () => null },
+  apiLimiter: { check: () => null },
+  authLimiter: { check: () => null },
+  rateLimit: () => ({ check: () => null }),
 }));
 
 vi.mock('@/lib/dates', () => ({
@@ -56,6 +73,15 @@ function createFromMock() {
         select: vi.fn().mockReturnValue({
           limit: vi.fn().mockResolvedValue({ data: profileStore.slice(0, 1), error: null }),
           in: vi.fn().mockResolvedValue({ data: [...profileStore] }),
+          // Fallback query: .is('document_normalized', null).in('rut', [...])
+          is: vi.fn().mockReturnValue({
+            in: vi.fn().mockImplementation((_col: string, ruts: string[]) => {
+              const matches = profileStore.filter(
+                p => !p.document_normalized && p.rut && ruts.includes(p.rut)
+              );
+              return Promise.resolve({ data: matches });
+            }),
+          }),
         }),
         upsert: vi.fn().mockImplementation((rows: Array<{ rut?: string | null; nombre: string; document_type?: string; document_normalized?: string }>) => {
           const created = rows.map((r, i) => {
@@ -184,6 +210,8 @@ describe('POST /api/bulk-accreditation', () => {
     mockIsSuperAdmin.mockResolvedValue(false);
     mockGetEventById.mockResolvedValue(null);
     mockLogAuditAction.mockResolvedValue(undefined);
+    mockGetTenantById.mockResolvedValue(null);
+    mockGetProviderByTenantAndProfile.mockResolvedValue(null);
     profileStore = [];
     zoneRulesStore = [];
     registrationStore = [];
@@ -671,5 +699,162 @@ describe('POST /api/bulk-accreditation', () => {
     // cargo is passed directly in the RPC row payload
     const rpcPayload = mockRpc.mock.calls[0][1].p_rows as Array<{ cargo: string }>;
     expect(rpcPayload[0].cargo).toBe('Periodista');
+  });
+
+  // ── Provider validation ──
+
+  describe('provider mode validation', () => {
+    const PROVIDER_TENANT = {
+      id: 'tenant-1',
+      nombre: 'Test Org',
+      slug: 'test-org',
+      config: { provider_mode: 'approved_only' },
+    };
+
+    it('returns 403 when tenant is approved_only and no authenticated user', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue(null);
+
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toContain('proveedor autorizado');
+    });
+
+    it('returns 403 when user is not an approved provider', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+      mockGetProfileByUserId.mockResolvedValue({ id: 'prof-submitter' });
+      mockGetProviderByTenantAndProfile.mockResolvedValue({ status: 'pending', allowed_zones: [] });
+
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toContain('No tienes acceso');
+    });
+
+    it('returns 403 when provider has no record for the tenant', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+      mockGetProfileByUserId.mockResolvedValue({ id: 'prof-submitter' });
+      mockGetProviderByTenantAndProfile.mockResolvedValue(null);
+
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toContain('No tienes acceso');
+    });
+
+    it('allows approved provider to submit', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+      mockGetProfileByUserId.mockResolvedValue({ id: 'prof-submitter' });
+      mockGetProviderByTenantAndProfile.mockResolvedValue({
+        status: 'approved',
+        allowed_zones: ['VIP', 'Prensa'],
+      });
+      profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+      mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
+
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.success).toBe(1);
+      expect(body.errors).toBe(0);
+    });
+
+    it('rejects rows with zones not in provider allowed_zones', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+      mockGetProfileByUserId.mockResolvedValue({ id: 'prof-submitter' });
+      mockGetProviderByTenantAndProfile.mockResolvedValue({
+        status: 'approved',
+        allowed_zones: ['VIP', 'Prensa'],
+      });
+      profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+      // Row has zona='Cancha' which is NOT in allowed_zones
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez', { zona: 'Cancha' })];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.success).toBe(0);
+      expect(body.errors).toBe(1);
+      expect(body.results[0].error).toContain('Cancha');
+      expect(body.results[0].error).toContain('no permitida');
+    });
+
+    it('rejects auto-resolved zone not in provider allowed_zones', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+      mockGetProfileByUserId.mockResolvedValue({ id: 'prof-submitter' });
+      mockGetProviderByTenantAndProfile.mockResolvedValue({
+        status: 'approved',
+        allowed_zones: ['VIP'],
+      });
+      profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+      zoneRulesStore = [{ cargo: 'Fotógrafo', zona: 'Cancha', match_field: 'cargo' }];
+
+      // Row auto-resolves to zona='Cancha' via cargo rule, but provider only has VIP
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez', { cargo: 'Fotógrafo' })];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.success).toBe(0);
+      expect(body.errors).toBe(1);
+      expect(body.results[0].error).toContain('Cancha');
+      expect(body.results[0].error).toContain('no permitida');
+    });
+
+    it('allows rows with zone in provider allowed_zones', async () => {
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(PROVIDER_TENANT);
+      mockGetCurrentUser.mockResolvedValue({ id: 'user-1' });
+      mockGetProfileByUserId.mockResolvedValue({ id: 'prof-submitter' });
+      mockGetProviderByTenantAndProfile.mockResolvedValue({
+        status: 'approved',
+        allowed_zones: ['VIP', 'Prensa'],
+      });
+      profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+      mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
+
+      // Row has zona='VIP' which IS in allowed_zones
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez', { zona: 'VIP' })];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.success).toBe(1);
+    });
+
+    it('skips provider check for open tenants', async () => {
+      const OPEN_TENANT = { id: 'tenant-1', config: { provider_mode: 'open' } };
+      mockGetEventById.mockResolvedValue(VALID_EVENT);
+      mockGetTenantById.mockResolvedValue(OPEN_TENANT);
+      profileStore = [{ id: 'prof-1', rut: '11111111-1', user_id: null }];
+
+      mockBulkRpcSuccess([{ row_index: 0, ok: true, reg_id: 'reg-1' }]);
+
+      const rows = [makeRow('11111111-1', 'Juan', 'Pérez')];
+      const req = makeRequest({ event_id: 'evt-1', rows });
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.success).toBe(1);
+      expect(mockGetProviderByTenantAndProfile).not.toHaveBeenCalled();
+    });
   });
 });

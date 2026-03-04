@@ -87,7 +87,21 @@ export type EmailZoneContent = Tables<'email_zone_content'>;
 export type AuditLog = Tables<'audit_logs'> & {
   metadata: AuditMetadata;
 };
+// ─── Proveedores Autorizados ─────────────────────────────────────────────
 
+/** Status de un proveedor autorizado */
+export type ProviderStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+
+/** Proveedor autorizado de un tenant — derivado de `tenant_providers` */
+export type TenantProvider = Tables<'tenant_providers'> & {
+  status: ProviderStatus;
+  allowed_zones: string[];
+};
+
+/** Proveedor con datos del perfil expandidos (para listas en admin) */
+export interface TenantProviderFull extends TenantProvider {
+  profile?: Profile;
+}
 // ─── Enums y Constantes ────────────────────────────────────────────────────
 
 export type RegistrationStatus = 'pendiente' | 'aprobado' | 'rechazado' | 'revision';
@@ -513,7 +527,7 @@ export interface Invoice {
 
 // ─── Tipos Admin Dashboard ────────────────────────────────────────────────
 
-export type AdminTab = 'acreditaciones' | 'configuracion' | 'mail' | 'plan';
+export type AdminTab = 'acreditaciones' | 'configuracion' | 'mail' | 'plan' | 'proveedores';
 
 export interface AdminFilterState {
   search: string;
@@ -563,12 +577,22 @@ export interface PuntoTicketRow {
 /** Campo fuente para regla de zona */
 export type ZoneMatchField = 'cargo' | 'tipo_medio';
 
+/** Modo de acceso del tenant */
+export type ProviderMode = 'open' | 'approved_only';
+
 /** Typed tenant config */
 export interface TenantConfig {
   acreditacion_masiva_enabled?: boolean;
   zonas?: string[];  // zona options available for this tenant (fallback)
   puntoticket_acreditacion_fija?: string;  // fixed value for PT "Acreditación" column
   social?: SocialLinks;
+  /** Modo de acceso: 'open' = público (default), 'approved_only' = solo proveedores.
+   *  Solo modificable por superadmin. */
+  provider_mode?: ProviderMode;
+  /** Código de invitación para proveedores (se genera al activar el módulo) */
+  provider_invite_code?: string;
+  /** Descripción pública del tenant para la página de invitación de proveedores */
+  provider_description?: string;
   [key: string]: unknown;
 }
 
@@ -648,6 +672,8 @@ export interface AdminContextType {
   events: Event[];
   selectedEvent: EventFull | null;
   registrations: RegistrationFull[];
+  /** Registrations after applying client-side filters (status, tipo_medio, search, event_day) */
+  filteredRegistrations: RegistrationFull[];
   stats: AdminStats;
   /** Jornadas del evento seleccionado (solo multidía) */
   eventDays: import('./index').EventDay[];

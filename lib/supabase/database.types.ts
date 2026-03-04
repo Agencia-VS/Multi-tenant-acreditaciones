@@ -1112,6 +1112,79 @@ export type Database = {
           },
         ]
       }
+      tenant_providers: {
+        Row: {
+          allowed_zones: string[]
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          id: string
+          mensaje: string | null
+          motivo_rechazo: string | null
+          notas: string | null
+          organizacion: string | null
+          profile_id: string
+          rejected_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_zones?: string[]
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          mensaje?: string | null
+          motivo_rechazo?: string | null
+          notas?: string | null
+          organizacion?: string | null
+          profile_id: string
+          rejected_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_zones?: string[]
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          mensaje?: string | null
+          motivo_rechazo?: string | null
+          notas?: string | null
+          organizacion?: string | null
+          profile_id?: string
+          rejected_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_providers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_providers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_providers_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           activo: boolean | null
@@ -1320,6 +1393,8 @@ export type Database = {
           processed_by: string | null
           profile_apellido: string | null
           profile_datos_base: Json | null
+          profile_document_number: string | null
+          profile_document_type: string | null
           profile_email: string | null
           profile_foto: string | null
           profile_id: string | null

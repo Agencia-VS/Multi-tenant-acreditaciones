@@ -34,6 +34,13 @@ vi.mock('@/lib/services/requireAuth', () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
 
+vi.mock('@/lib/rateLimit', () => ({
+  heavyLimiter: { check: () => null },
+  apiLimiter: { check: () => null },
+  authLimiter: { check: () => null },
+  rateLimit: () => ({ check: () => null }),
+}));
+
 vi.mock('@/lib/schemas', async () => {
   const actual = await vi.importActual('@/lib/schemas');
   return actual;
@@ -80,6 +87,7 @@ describe('GET /api/events', () => {
   });
 
   it('returns events by tenant when tenant_id is provided', async () => {
+    authOk();
     mockListEventsByTenant.mockResolvedValue([{ id: 'e-2' }]);
 
     const req = new NextRequest('http://localhost/api/events?tenant_id=t-1');

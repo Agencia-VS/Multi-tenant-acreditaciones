@@ -18,11 +18,15 @@
  * NO vincula authUserId a profiles de bulk (evita duplicate key user_id).
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { heavyLimiter } from '@/lib/rateLimit';
 import { getEventById } from '@/lib/services';
 import { getCurrentUser, isSuperAdmin } from '@/lib/services/auth';
 import { getProfileByUserId } from '@/lib/services/profiles';
+import { getProviderByTenantAndProfile } from '@/lib/services/providers';
+import { getTenantById } from '@/lib/services/tenants';
 import { logAuditAction } from '@/lib/services/audit';
 import { isAccreditationClosed } from '@/lib/dates';
+import { normalizeForMatch } from '@/lib/normalizeMatch';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { validateEmail, sanitize, validateDocumentByType, normalizeDocumentByType, type DocumentType } from '@/lib/validation';
 import type { Json } from '@/lib/supabase/database.types';
@@ -98,6 +102,9 @@ function allOrNothingError(summary: string, totalRows: number = 2): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = heavyLimiter.check(request, 5);
+    if (limited) return limited;
+
     const traceId = crypto.randomUUID();
     const body = await request.json();
     const { event_id, rows } = body as { event_id: string; rows: BulkRow[] };
@@ -148,6 +155,7 @@ export async function POST(request: NextRequest) {
     // ── 2. Resolver usuario autenticado (submitter) ──
     let authUserId: string | undefined;
     let submitterProfileId: string | undefined;
+    let providerAllowedZones: string[] | null = null;
     try {
       const user = await getCurrentUser();
       if (user) {
@@ -160,6 +168,28 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch { /* no bloquear */ }
+
+    // ── 2b. Provider gate: si tenant es approved_only, validar proveedor ──
+    try {
+      const tenant = await getTenantById(event.tenant_id);
+      const tenantConfig = tenant?.config as Record<string, unknown> | undefined;
+      if (tenantConfig?.provider_mode === 'approved_only') {
+        if (!submitterProfileId) {
+          return NextResponse.json(
+            { error: 'Esta organización requiere ser proveedor autorizado para enviar acreditaciones' },
+            { status: 403 }
+          );
+        }
+        const provider = await getProviderByTenantAndProfile(event.tenant_id, submitterProfileId);
+        if (!provider || provider.status !== 'approved') {
+          return NextResponse.json(
+            { error: 'No tienes acceso como proveedor autorizado a esta organización' },
+            { status: 403 }
+          );
+        }
+        providerAllowedZones = provider.allowed_zones || [];
+      }
+    } catch { /* non-blocking: if tenant lookup fails, skip provider check */ }
 
     // ── 3. Validar filas y separar válidas/inválidas ──
     const results: BulkResultRow[] = [];
@@ -311,6 +341,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fallback: buscar por columna legacy `rut` para perfiles que tengan document_normalized NULL
+    const rutNormalized = validRows
+      .filter(v => v.formData.document_type === 'rut')
+      .map(v => v.formData.document_normalized);
+    const missingRuts = rutNormalized.filter(n => !existingProfiles.has(docKey('rut', n)));
+    if (missingRuts.length > 0) {
+      for (const rutChunk of chunk(missingRuts, 100)) {
+        const { data: legacyProfiles } = await (supabase as any)
+          .from('profiles')
+          .select('id, rut, user_id, document_type, document_normalized')
+          .is('document_normalized', null)
+          .in('rut', rutChunk);
+        if (legacyProfiles) {
+          for (const p of legacyProfiles) {
+            const normalized = p.rut as string;
+            if (normalized && !existingProfiles.has(docKey('rut', normalized))) {
+              existingProfiles.set(docKey('rut', normalized), { id: p.id, user_id: p.user_id });
+            }
+          }
+        }
+      }
+    }
+
     // Separate new profiles from existing ones
     const profilesToCreate: Record<string, unknown>[] = [];
     const pendingProfileUpdates: { id: string; updates: Record<string, unknown> }[] = [];
@@ -433,11 +486,13 @@ export async function POST(request: NextRequest) {
     function resolveZoneLocal(cargo?: string, tipoMedio?: string): string | null {
       if (!zoneRules) return null;
       if (cargo) {
-        const rule = zoneRules.find(r => r.match_field === 'cargo' && r.cargo === cargo);
+        const nCargo = normalizeForMatch(cargo);
+        const rule = zoneRules.find(r => r.match_field === 'cargo' && normalizeForMatch(r.cargo) === nCargo);
         if (rule?.zona) return rule.zona;
       }
       if (tipoMedio) {
-        const rule = zoneRules.find(r => r.match_field === 'tipo_medio' && r.cargo === tipoMedio);
+        const nTM = normalizeForMatch(tipoMedio);
+        const rule = zoneRules.find(r => r.match_field === 'tipo_medio' && normalizeForMatch(r.cargo) === nTM);
         if (rule?.zona) return rule.zona;
       }
       return null;
@@ -480,6 +535,21 @@ export async function POST(request: NextRequest) {
       if (!datosExtra.zona) {
         const autoZona = resolveZoneLocal(formData.cargo, formData.tipo_medio);
         if (autoZona) datosExtra.zona = autoZona;
+      }
+
+      // Provider zone validation: if provider has allowed_zones, verify the resolved zone
+      if (providerAllowedZones && providerAllowedZones.length > 0 && datosExtra.zona) {
+        if (!providerAllowedZones.includes(datosExtra.zona)) {
+          skippedResults.push({
+            row: index + 1,
+            rut: formData.rut,
+            nombre: `${formData.nombre} ${formData.apellido}`,
+            ok: false,
+            error: `Zona '${datosExtra.zona}' no permitida para tu acceso. Zonas autorizadas: ${providerAllowedZones.join(', ')}`,
+          });
+          errorCount++;
+          continue;
+        }
       }
 
       rpcRows.push({

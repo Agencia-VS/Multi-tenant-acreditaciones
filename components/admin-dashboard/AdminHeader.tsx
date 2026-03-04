@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAdmin } from './AdminContext';
 import { ButtonSpinner } from '@/components/shared/ui';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChangePasswordModal from './ChangePasswordModal';
-import type { AdminTab } from '@/types';
+import type { AdminTab, TenantConfig } from '@/types';
 
 const AUTO_REFRESH_MS = 60_000; // 60s
 
 export default function AdminHeader() {
   const { tenant, selectedEvent, activeTab, setActiveTab, stats, fetchData, loading, registrations } = useAdmin();
+  const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -50,12 +52,14 @@ export default function AdminHeader() {
   }, []);
 
   const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
+  const providerMode = (tenant?.config as TenantConfig | undefined)?.provider_mode;
 
   const tabs: { key: AdminTab; label: string; icon: string; badge?: number; newBadge?: number }[] = [
     { key: 'acreditaciones', label: 'Acreditaciones', icon: 'fa-id-badge', badge: stats.pendientes, newBadge: newPendientes },
     { key: 'configuracion', label: 'Configuración', icon: 'fa-cog' },
     { key: 'mail', label: 'Mail', icon: 'fa-envelope' },
     ...(billingEnabled ? [{ key: 'plan' as AdminTab, label: 'Plan', icon: 'fa-crown' }] : []),
+    ...(providerMode === 'approved_only' ? [{ key: 'proveedores' as AdminTab, label: 'Proveedores', icon: 'fa-user-shield' }] : []),
   ];
 
   // Mark as seen when switching to the acreditaciones tab
@@ -93,10 +97,12 @@ export default function AdminHeader() {
     try {
       const supabase = getSupabaseBrowserClient();
       await supabase.auth.signOut();
-      const slug = window.location.pathname.split('/')[1];
-      window.location.href = `/${slug}/admin/login`;
+      const slug = tenant?.slug || window.location.pathname.split('/')[1];
+      router.push(`/${slug}/admin/login`);
+      router.refresh();
     } catch {
-      window.location.href = '/';
+      router.push('/');
+      router.refresh();
     }
   };
 
@@ -104,12 +110,12 @@ export default function AdminHeader() {
     <div className="bg-surface/95 backdrop-blur-sm border-b border-edge top-0 z-30">
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6">
         {/* Top bar */}
-        <div className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between gap-2 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {/* Back to tenant landing */}
             <Link
               href={`/${tenant?.slug || ''}`}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-subtle border border-edge text-body text-sm font-medium hover:bg-edge hover:text-heading transition-all"
+              className="flex-shrink-0 flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-xl bg-subtle border border-edge text-body text-sm font-medium hover:bg-edge hover:text-heading transition-all"
               title="Volver al sitio"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -118,11 +124,11 @@ export default function AdminHeader() {
               <span className="hidden md:inline">Sitio</span>
             </Link>
             {tenant?.logo_url && (
-              <Image src={tenant.logo_url} alt={tenant.nombre} width={40} height={40} className="h-10 w-10 rounded-lg object-contain" priority />
+              <Image src={tenant.logo_url} alt={tenant.nombre} width={40} height={40} className="hidden sm:block h-10 w-10 rounded-lg object-contain flex-shrink-0" priority />
             )}
-            <div>
-              <h1 className="text-xl font-bold text-heading">{tenant?.nombre || 'Panel Admin'}</h1>
-              <p className="text-base text-body">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-bold text-heading truncate">{tenant?.nombre || 'Panel Admin'}</h1>
+              <p className="text-sm sm:text-base text-body truncate">
                 {selectedEvent ? selectedEvent.nombre : 'Sin evento seleccionado'}
                 {selectedEvent?.fecha && (
                   <span className="ml-2 text-muted">
@@ -133,7 +139,7 @@ export default function AdminHeader() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Last updated indicator */}
             {mounted && (
               <span className="hidden sm:inline text-xs text-muted" title={`Última actualización: ${lastUpdated?.toLocaleTimeString('es-CL') ?? ''}`}>
@@ -143,7 +149,7 @@ export default function AdminHeader() {
             )}
             <button
               onClick={doRefresh}
-              className={`px-3 py-2 text-body hover:text-heading hover:bg-subtle rounded-lg transition ${loading ? 'animate-spin' : ''}`}
+              className={`p-2 sm:px-3 sm:py-2 text-body hover:text-heading hover:bg-subtle rounded-lg transition ${loading ? 'animate-spin' : ''}`}
               title="Actualizar datos"
             >
               <i className="fas fa-sync-alt" />
@@ -152,26 +158,26 @@ export default function AdminHeader() {
             {selectedEvent?.qr_enabled && (
               <Link
                 href={`/${tenant?.slug || ''}/admin/scanner`}
-                className="px-3 py-2 text-body hover:text-brand hover:bg-accent-light rounded-lg transition flex items-center gap-2"
+                className="p-2 sm:px-3 sm:py-2 text-body hover:text-brand hover:bg-accent-light rounded-lg transition flex items-center gap-2"
                 title="Scanner QR — Control de acceso"
               >
                 <i className="fas fa-qrcode" />
-                <span className="hidden md:inline text-base font-medium">Scanner</span>
+                <span className="hidden lg:inline text-base font-medium">Scanner</span>
               </Link>
             )}
             <button
               onClick={() => setShowChangePassword(true)}
-              className="px-3 py-2 text-body hover:text-brand hover:bg-accent-light rounded-lg transition flex items-center gap-2"
+              className="p-2 sm:px-3 sm:py-2 text-body hover:text-brand hover:bg-accent-light rounded-lg transition flex items-center gap-2"
               title="Cambiar contraseña"
               aria-label="Cambiar contraseña"
             >
               <i className="fas fa-key" />
-              <span className="hidden md:inline text-base font-medium">Contraseña</span>
+              <span className="hidden lg:inline text-base font-medium">Contraseña</span>
             </button>
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="px-3 py-2 text-body hover:text-danger hover:bg-danger-light rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+              className="p-2 sm:px-3 sm:py-2 text-body hover:text-danger hover:bg-danger-light rounded-lg transition flex items-center gap-2 disabled:opacity-50"
               title="Cerrar sesión"
               aria-label="Cerrar sesión"
             >
@@ -185,20 +191,20 @@ export default function AdminHeader() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1">
+        {/* Tabs — horizontally scrollable on mobile */}
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0">
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-3 text-base font-medium rounded-t-lg transition-all flex items-center gap-2 relative ${
+              className={`px-3 sm:px-5 py-2.5 sm:py-3 text-sm sm:text-base font-medium rounded-t-lg transition-all flex items-center gap-1.5 sm:gap-2 relative whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.key
                   ? 'bg-canvas text-brand border-b-2 border-brand'
                   : 'text-body hover:text-heading hover:bg-canvas'
               }`}
             >
               <i className={`fas ${tab.icon}`} />
-              {tab.label}
+              <span className="hidden xs:inline sm:inline">{tab.label}</span>
               {/* Total pending badge (amber) */}
               {tab.badge && tab.badge > 0 ? (
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold rounded-full bg-amber-500 text-white shadow-sm">

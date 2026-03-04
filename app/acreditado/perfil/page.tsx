@@ -100,10 +100,13 @@ export default function PerfilPage() {
       const res = await fetch('/api/profiles/lookup');
       const data = await res.json();
       if (data.found && data.profile) {
+        // Strip TEMP- placeholder values — show as empty so user fills in their real document
+        const rawDoc = data.profile.document_number || data.profile.rut || '';
+        const cleanDoc = typeof rawDoc === 'string' && rawDoc.startsWith('TEMP-') ? '' : rawDoc;
         setProfile({
           ...data.profile,
           document_type: data.profile.document_type || 'rut',
-          document_number: data.profile.document_number || data.profile.rut || '',
+          document_number: cleanDoc,
         });
         setProfileExists(true);
       } else {
