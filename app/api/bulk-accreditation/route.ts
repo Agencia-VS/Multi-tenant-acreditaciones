@@ -485,11 +485,13 @@ export async function POST(request: NextRequest) {
     function resolveZoneLocal(cargo?: string, tipoMedio?: string): string | null {
       if (!zoneRules) return null;
       if (cargo) {
-        const rule = zoneRules.find(r => r.match_field === 'cargo' && r.cargo === cargo);
+        const cargoLower = cargo.toLowerCase();
+        const rule = zoneRules.find(r => r.match_field === 'cargo' && r.cargo?.toLowerCase() === cargoLower);
         if (rule?.zona) return rule.zona;
       }
       if (tipoMedio) {
-        const rule = zoneRules.find(r => r.match_field === 'tipo_medio' && r.cargo === tipoMedio);
+        const tmLower = tipoMedio.toLowerCase();
+        const rule = zoneRules.find(r => r.match_field === 'tipo_medio' && r.cargo?.toLowerCase() === tmLower);
         if (rule?.zona) return rule.zona;
       }
       return null;

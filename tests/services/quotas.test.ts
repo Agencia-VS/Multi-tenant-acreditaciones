@@ -53,12 +53,13 @@ describe('checkQuota', () => {
 
   it('returns available when no quota rule exists', async () => {
     // First call: event_quota_rules → no rule
+    // Chain: .select('*').eq('event_id', ...).ilike('tipo_medio', ...).single()
+    const terminal = { single: vi.fn().mockResolvedValue({ data: null }) };
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: null }),
-          }),
+          ilike: vi.fn().mockReturnValue(terminal),
+          eq: vi.fn().mockReturnValue(terminal),
         }),
       }),
     });
@@ -73,40 +74,39 @@ describe('checkQuota', () => {
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        // event_quota_rules
+        // event_quota_rules: .select().eq(event_id).ilike(tipo_medio).single()
+        const terminal = { single: vi.fn().mockResolvedValue({ data: { max_per_organization: 3, max_global: 0, tipo_medio: 'Fotógrafo' } }) };
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { max_per_organization: 3, max_global: 0, tipo_medio: 'Fotógrafo' },
-                }),
-              }),
+              ilike: vi.fn().mockReturnValue(terminal),
+              eq: vi.fn().mockReturnValue(terminal),
             }),
           }),
         };
       }
       if (callCount === 2) {
-        // registrations count org
+        // registrations count org: .select().eq(event_id).ilike(tipo_medio).ilike(organizacion).neq(status)
+        const neqFn = vi.fn().mockResolvedValue({ count: 3 });
+        const step3: Record<string, ReturnType<typeof vi.fn>> = { neq: neqFn };
+        const step2: Record<string, ReturnType<typeof vi.fn>> = { ilike: vi.fn().mockReturnValue(step3), eq: vi.fn().mockReturnValue(step3), neq: neqFn };
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  neq: vi.fn().mockResolvedValue({ count: 3 }),
-                }),
-              }),
+              ilike: vi.fn().mockReturnValue(step2),
+              eq: vi.fn().mockReturnValue(step2),
             }),
           }),
         };
       }
-      // registrations count global
+      // registrations count global: .select().eq(event_id).ilike(tipo_medio).neq(status)
+      const neqFn = vi.fn().mockResolvedValue({ count: 5 });
+      const step2: Record<string, ReturnType<typeof vi.fn>> = { neq: neqFn };
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              neq: vi.fn().mockResolvedValue({ count: 5 }),
-            }),
+            ilike: vi.fn().mockReturnValue(step2),
+            eq: vi.fn().mockReturnValue(step2),
           }),
         }),
       };
@@ -125,39 +125,38 @@ describe('checkQuota', () => {
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
+        const terminal = { single: vi.fn().mockResolvedValue({ data: { max_per_organization: 10, max_global: 5, tipo_medio: 'Radial' } }) };
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { max_per_organization: 10, max_global: 5, tipo_medio: 'Radial' },
-                }),
-              }),
+              ilike: vi.fn().mockReturnValue(terminal),
+              eq: vi.fn().mockReturnValue(terminal),
             }),
           }),
         };
       }
       if (callCount === 2) {
         // org count = 2 (within limit)
+        const neqFn = vi.fn().mockResolvedValue({ count: 2 });
+        const step3: Record<string, ReturnType<typeof vi.fn>> = { neq: neqFn };
+        const step2: Record<string, ReturnType<typeof vi.fn>> = { ilike: vi.fn().mockReturnValue(step3), eq: vi.fn().mockReturnValue(step3), neq: neqFn };
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  neq: vi.fn().mockResolvedValue({ count: 2 }),
-                }),
-              }),
+              ilike: vi.fn().mockReturnValue(step2),
+              eq: vi.fn().mockReturnValue(step2),
             }),
           }),
         };
       }
       // global count = 5 (at limit)
+      const neqFn = vi.fn().mockResolvedValue({ count: 5 });
+      const step2: Record<string, ReturnType<typeof vi.fn>> = { neq: neqFn };
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              neq: vi.fn().mockResolvedValue({ count: 5 }),
-            }),
+            ilike: vi.fn().mockReturnValue(step2),
+            eq: vi.fn().mockReturnValue(step2),
           }),
         }),
       };
@@ -175,37 +174,36 @@ describe('checkQuota', () => {
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
+        const terminal = { single: vi.fn().mockResolvedValue({ data: { max_per_organization: 5, max_global: 20, tipo_medio: 'Prensa' } }) };
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { max_per_organization: 5, max_global: 20, tipo_medio: 'Prensa' },
-                }),
-              }),
+              ilike: vi.fn().mockReturnValue(terminal),
+              eq: vi.fn().mockReturnValue(terminal),
             }),
           }),
         };
       }
       if (callCount === 2) {
+        const neqFn = vi.fn().mockResolvedValue({ count: 2 });
+        const step3: Record<string, ReturnType<typeof vi.fn>> = { neq: neqFn };
+        const step2: Record<string, ReturnType<typeof vi.fn>> = { ilike: vi.fn().mockReturnValue(step3), eq: vi.fn().mockReturnValue(step3), neq: neqFn };
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  neq: vi.fn().mockResolvedValue({ count: 2 }),
-                }),
-              }),
+              ilike: vi.fn().mockReturnValue(step2),
+              eq: vi.fn().mockReturnValue(step2),
             }),
           }),
         };
       }
+      const neqFn = vi.fn().mockResolvedValue({ count: 8 });
+      const step2: Record<string, ReturnType<typeof vi.fn>> = { neq: neqFn };
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              neq: vi.fn().mockResolvedValue({ count: 8 }),
-            }),
+            ilike: vi.fn().mockReturnValue(step2),
+            eq: vi.fn().mockReturnValue(step2),
           }),
         }),
       };

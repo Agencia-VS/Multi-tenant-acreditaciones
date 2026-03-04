@@ -13,17 +13,18 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { resolveZone, getZoneRules, upsertZoneRule, deleteZoneRule } from '@/lib/services/zones';
 
-// Chain builder helpers
+// Chain builder helpers — support both .eq() and .ilike() at each step
 function singleChain(data: unknown) {
+  const terminal = { single: vi.fn().mockResolvedValue({ data }) };
+  const step2: Record<string, ReturnType<typeof vi.fn>> = {};
+  step2.eq = vi.fn().mockReturnValue(terminal);
+  step2.ilike = vi.fn().mockReturnValue(terminal);
+  const step1: Record<string, ReturnType<typeof vi.fn>> = {};
+  step1.eq = vi.fn().mockReturnValue(step2);
+  step1.ilike = vi.fn().mockReturnValue(step2);
   return {
     select: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data }),
-          }),
-        }),
-      }),
+      eq: vi.fn().mockReturnValue(step1),
     }),
   };
 }

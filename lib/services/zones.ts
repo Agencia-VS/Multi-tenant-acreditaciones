@@ -24,26 +24,26 @@ export async function resolveZone(
 ): Promise<string | null> {
   const supabase = createSupabaseAdminClient();
 
-  // 1. Try match by cargo first
+  // 1. Try match by cargo first (case-insensitive)
   if (cargo) {
     const { data: rule } = await supabase
       .from('event_zone_rules')
       .select('zona')
       .eq('event_id', eventId)
       .eq('match_field', 'cargo')
-      .eq('cargo', cargo)
+      .ilike('cargo', cargo)
       .single();
     if (rule?.zona) return rule.zona;
   }
 
-  // 2. Then try match by tipo_medio
+  // 2. Then try match by tipo_medio (case-insensitive)
   if (tipoMedio) {
     const { data: rule } = await supabase
       .from('event_zone_rules')
       .select('zona')
       .eq('event_id', eventId)
       .eq('match_field', 'tipo_medio')
-      .eq('cargo', tipoMedio)
+      .ilike('cargo', tipoMedio)
       .single();
     if (rule?.zona) return rule.zona;
   }

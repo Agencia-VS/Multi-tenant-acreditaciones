@@ -19,12 +19,12 @@ export async function checkQuota(
 ): Promise<QuotaCheckResult> {
   const supabase = createSupabaseAdminClient();
 
-  // Buscar regla para este tipo_medio
+  // Buscar regla para este tipo_medio (case-insensitive)
   const { data: rule } = await supabase
     .from('event_quota_rules')
     .select('*')
     .eq('event_id', eventId)
-    .eq('tipo_medio', tipoMedio)
+    .ilike('tipo_medio', tipoMedio)
     .single();
 
   // Sin regla = sin límite
@@ -39,21 +39,21 @@ export async function checkQuota(
     };
   }
 
-  // Contar registros existentes (no rechazados) por organización
+  // Contar registros existentes (no rechazados) por organización (case-insensitive)
   const { count: usedOrg } = await supabase
     .from('registrations')
     .select('*', { count: 'exact', head: true })
     .eq('event_id', eventId)
-    .eq('tipo_medio', tipoMedio)
-    .eq('organizacion', organizacion)
+    .ilike('tipo_medio', tipoMedio)
+    .ilike('organizacion', organizacion)
     .neq('status', 'rechazado');
 
-  // Contar registros globales de este tipo_medio
+  // Contar registros globales de este tipo_medio (case-insensitive)
   const { count: usedGlobal } = await supabase
     .from('registrations')
     .select('*', { count: 'exact', head: true })
     .eq('event_id', eventId)
-    .eq('tipo_medio', tipoMedio)
+    .ilike('tipo_medio', tipoMedio)
     .neq('status', 'rechazado');
 
   const orgCount = usedOrg || 0;
@@ -121,17 +121,17 @@ export async function getQuotaRulesWithUsage(eventId: string): Promise<
   const usageMap: Record<string, { orgs: Record<string, number>; global: number }> = {};
   
   registrations?.forEach((r) => {
-    const tm = r.tipo_medio || 'unknown';
+    const tm = (r.tipo_medio || 'unknown').toLowerCase();
     if (!usageMap[tm]) usageMap[tm] = { orgs: {}, global: 0 };
     usageMap[tm].global++;
-    const org = r.organizacion || 'unknown';
+    const org = (r.organizacion || 'unknown').toLowerCase();
     usageMap[tm].orgs[org] = (usageMap[tm].orgs[org] || 0) + 1;
   });
 
   return (rules as EventQuotaRule[]).map((rule) => ({
     ...rule,
-    used_org_map: usageMap[rule.tipo_medio]?.orgs || {},
-    used_global: usageMap[rule.tipo_medio]?.global || 0,
+    used_org_map: usageMap[rule.tipo_medio.toLowerCase()]?.orgs || {},
+    used_global: usageMap[rule.tipo_medio.toLowerCase()]?.global || 0,
   }));
 }
 
