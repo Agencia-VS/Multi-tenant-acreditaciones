@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdmin } from './AdminContext';
 import { ButtonSpinner } from '@/components/shared/ui';
 import AdminMailZones from './AdminMailZones';
 import { sanitizeHtml } from '@/lib/sanitize';
-import type { EmailTemplate, EmailTemplateType, Event, EventConfig } from '@/types';
+import type { EmailTemplate, EmailTemplateType, EmailZoneContent, Event, EventConfig, TenantConfig } from '@/types';
 
 type MailSubTab = 'templates' | 'zonas';
 
@@ -88,6 +88,10 @@ export default function AdminMailTab() {
   const [mailVariables, setMailVariables] = useState<MailVariableRow[]>([]);
   const [savingVariables, setSavingVariables] = useState(false);
 
+  // Zone content for preview
+  const [zoneContents, setZoneContents] = useState<EmailZoneContent[]>([]);
+  const [previewZona, setPreviewZona] = useState('');
+
   // Fetch templates
   const fetchTemplates = useCallback(async () => {
     if (!tenant) return;
@@ -108,6 +112,38 @@ export default function AdminMailTab() {
   }, [tenant]);
 
   useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
+  // Fetch zone content for preview
+  const fetchZoneContents = useCallback(async () => {
+    if (!tenant) return;
+    try {
+      const res = await fetch(`/api/email/zone-content?tenant_id=${tenant.id}&tipo=${activeType}`);
+      if (res.ok) {
+        const data: EmailZoneContent[] = await res.json();
+        setZoneContents(data);
+      }
+    } catch { /* zone content might not exist yet */ }
+  }, [tenant, activeType]);
+
+  useEffect(() => { fetchZoneContents(); }, [fetchZoneContents]);
+
+  // Available zones (same logic as AdminMailZones)
+  const zonas = useMemo(() => {
+    const tenantConfig = tenant?.config as TenantConfig | undefined;
+    const tenantZonas = tenantConfig?.zonas || [];
+    const eventConfigZonas = (events || []).flatMap(ev => {
+      const cfg = ev.config as EventConfig | undefined;
+      return cfg?.zonas || [];
+    });
+    return [...new Set([...tenantZonas, ...eventConfigZonas])];
+  }, [tenant, events]);
+
+  // Auto-select first zone for preview
+  useEffect(() => {
+    if (zonas.length > 0 && !previewZona) {
+      setPreviewZona(zonas[0]);
+    }
+  }, [zonas, previewZona]);
 
   useEffect(() => {
     if (!selectedEventId && events.length > 0) {
@@ -213,7 +249,13 @@ export default function AdminMailTab() {
     }
   };
 
-  // Generate preview HTML with sample data
+  // Get zone content for selected preview zone
+  const selectedZoneContent = useMemo(() => {
+    if (!previewZona) return null;
+    return zoneContents.find(zc => zc.zona === previewZona) || null;
+  }, [zoneContents, previewZona]);
+
+  // Generate preview HTML with sample data + real zone content
   const previewHtml = bodyHtml
     .replace(/\{nombre\}/g, 'Juan')
     .replace(/\{apellido\}/g, 'Pérez')
@@ -222,15 +264,15 @@ export default function AdminMailTab() {
     .replace(/\{lugar\}/g, 'Estadio Nacional')
     .replace(/\{organizacion\}/g, 'El Deportivo')
     .replace(/\{cargo\}/g, 'Periodista')
-    .replace(/\{zona\}/g, 'Tribuna Prensa')
+    .replace(/\{zona\}/g, previewZona || 'Tribuna Prensa')
     .replace(/\{area\}/g, 'Prensa')
     .replace(/\{motivo\}/g, 'Cupo máximo alcanzado')
     .replace(/\{tenant\}/g, tenant?.nombre || 'Accredia')
     .replace(/\{qr_section\}/g, '<div style="text-align:center;padding:15px;background:#f8f9fa;border-radius:8px;"><p style="color:#666;font-size:13px;">[ Código QR aquí ]</p></div>')
-    .replace(/\{instrucciones_acceso\}/g, '<p style="color:#4b5563;">Instrucciones de acceso de la zona seleccionada aparecerán aquí.</p>')
-    .replace(/\{info_especifica\}/g, '<p style="color:#4b5563;">Información específica de la zona aparecerá aquí.</p>')
-    .replace(/\{notas_importantes\}/g, '<p style="color:#dc2626;font-weight:600;">Notas importantes de la zona aparecerán aquí.</p>')
-    .replace(/\{info_general\}/g, infoGeneral || '<p style="color:#6b7280;">Información general común a todas las zonas aparecerá aquí.</p>');
+    .replace(/\{instrucciones_acceso\}/g, selectedZoneContent?.instrucciones_acceso || '<p style="color:#9ca3af;font-style:italic;">Sin instrucciones de acceso configuradas para esta zona.</p>')
+    .replace(/\{info_especifica\}/g, selectedZoneContent?.info_especifica || '<p style="color:#9ca3af;font-style:italic;">Sin información específica configurada para esta zona.</p>')
+    .replace(/\{notas_importantes\}/g, selectedZoneContent?.notas_importantes || '<p style="color:#9ca3af;font-style:italic;">Sin notas importantes configuradas para esta zona.</p>')
+    .replace(/\{info_general\}/g, infoGeneral || '<p style="color:#9ca3af;font-style:italic;">Sin información general configurada.</p>');
 
   const previewWithEventVars = (() => {
     let rendered = previewHtml;
@@ -331,8 +373,31 @@ export default function AdminMailTab() {
                 </div>
 
                 {showPreview ? (
-                  <div className="border border-edge rounded-xl p-4 bg-white min-h-[400px] overflow-auto">
-                    <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewWithEventVars) }} />
+                  <div className="space-y-3">
+                    {/* Zone selector for preview */}
+                    {zonas.length > 0 && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <i className="fas fa-map-pin text-[#d97706]" />
+                        <span className="text-label font-medium">Zona de ejemplo:</span>
+                        <select
+                          value={previewZona}
+                          onChange={e => setPreviewZona(e.target.value)}
+                          className="px-2 py-1 border border-edge rounded-lg text-xs text-heading bg-white"
+                        >
+                          {zonas.map(z => (
+                            <option key={z} value={z}>{z}</option>
+                          ))}
+                        </select>
+                        {selectedZoneContent ? (
+                          <span className="text-[#059669] flex items-center gap-1"><i className="fas fa-check-circle" /> Con contenido</span>
+                        ) : (
+                          <span className="text-muted">Sin contenido configurado</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="border border-edge rounded-xl p-4 bg-white min-h-[400px] overflow-auto">
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewWithEventVars) }} />
+                    </div>
                   </div>
                 ) : (
                   <textarea
