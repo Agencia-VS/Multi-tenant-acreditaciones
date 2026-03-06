@@ -149,7 +149,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         .then(r => r.ok ? r.json() : null);
 
       // 2. First page of registrations
-      const firstParams = new URLSearchParams({ event_id: eventId, limit: String(PAGE_SIZE), offset: '0' });
+      const firstParams = new URLSearchParams({ event_id: eventId, tenant_id: tenantId, limit: String(PAGE_SIZE), offset: '0' });
       const firstRes = await fetch(`/api/registrations?${firstParams}`);
       const firstJson = await firstRes.json();
       const firstPage: RegistrationFull[] = firstJson.data || [];
@@ -161,7 +161,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
         const remaining = Math.ceil((totalCount - PAGE_SIZE) / PAGE_SIZE);
         const pagePromises = Array.from({ length: remaining }, (_, i) => {
           const offset = (i + 1) * PAGE_SIZE;
-          const params = new URLSearchParams({ event_id: eventId, limit: String(PAGE_SIZE), offset: String(offset) });
+          const params = new URLSearchParams({ event_id: eventId, tenant_id: tenantId, limit: String(PAGE_SIZE), offset: String(offset) });
           return fetch(`/api/registrations?${params}`).then(r => r.json());
         });
         const pages = await Promise.all(pagePromises);
@@ -211,7 +211,7 @@ export function AdminProvider({ tenantId, tenantSlug, initialTenant, children }:
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.event_id, selectedEvent?.id, isMultidia, showError]);
+  }, [filters.event_id, selectedEvent?.id, isMultidia, tenantId, showError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
