@@ -23,7 +23,7 @@ const VARIABLES_HELP = [
   { var: '{organizacion}', desc: 'Organización/medio' },
   { var: '{cargo}', desc: 'Cargo del acreditado' },
   { var: '{zona}', desc: 'Zona asignada al acreditado' },
-  { var: '{area}', desc: 'Área de acreditación' },
+  { var: '{area}', desc: 'Tipo de medio / área de acreditación' },
   { var: '{motivo}', desc: 'Motivo del rechazo (solo rechazo)' },
   { var: '{tenant}', desc: 'Nombre del tenant/club' },
   { var: '{qr_section}', desc: 'Bloque de código QR (si aplica)' },

@@ -94,6 +94,18 @@ export function ButtonSpinner({ className = '' }: { className?: string }) {
 
 export type ToastMessage = { type: 'success' | 'error'; text: string } | null;
 
+const toSpanishSentenceCase = (text: string) => {
+  const clean = text.trim();
+  if (!clean) return clean;
+  const firstLetterIndex = clean.search(/\p{L}/u);
+  if (firstLetterIndex < 0) return clean;
+  return (
+    clean.slice(0, firstLetterIndex)
+    + clean[firstLetterIndex].toLocaleUpperCase('es-CL')
+    + clean.slice(firstLetterIndex + 1)
+  );
+};
+
 /**
  * Hook para manejar toasts — ahora usa Sileo como motor.
  * La API (showSuccess, showError, dismiss) se mantiene idéntica
@@ -111,20 +123,22 @@ export function useToast(duration = 4000) {
   }, [toast, duration]);
 
   const showSuccess = useCallback((text: string) => {
-    setToast({ type: 'success', text });
+    const normalized = toSpanishSentenceCase(text);
+    setToast({ type: 'success', text: normalized });
     // defer Sileo call so it runs only in the browser
     if (typeof window !== 'undefined') {
       import('sileo').then(({ sileo }) => {
-        lastId.current = sileo.success({ title: text, duration });
+        lastId.current = sileo.success({ title: normalized, duration });
       });
     }
   }, [duration]);
 
   const showError = useCallback((text: string) => {
-    setToast({ type: 'error', text });
+    const normalized = toSpanishSentenceCase(text);
+    setToast({ type: 'error', text: normalized });
     if (typeof window !== 'undefined') {
       import('sileo').then(({ sileo }) => {
-        lastId.current = sileo.error({ title: text, duration });
+        lastId.current = sileo.error({ title: normalized, duration });
       });
     }
   }, [duration]);

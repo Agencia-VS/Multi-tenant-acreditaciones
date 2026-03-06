@@ -8,13 +8,22 @@ import { Toaster } from 'sileo';
  */
 export default function SileoProvider() {
   return (
-    <Toaster
-      position="top-right"
-      offset={{ top: 16, right: 16 }}
-      options={{
-        duration: 4000,
-        roundness: 12,
-      }}
-    />
+    <>
+      <Toaster
+        position="top-right"
+        offset={{ top: 16, right: 16 }}
+        options={{
+          duration: 4000,
+          roundness: 12,
+        }}
+      />
+
+      {/* Keep original casing from message strings (Spanish sentence case). */}
+      <style jsx global>{`
+        [data-sileo-title] {
+          text-transform: none !important;
+        }
+      `}</style>
+    </>
   );
 }

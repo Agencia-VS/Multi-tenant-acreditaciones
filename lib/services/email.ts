@@ -241,7 +241,7 @@ function buildVars(
     motivo: escapeHtml(motivo || registration.motivo_rechazo || ''),
     tenant: escapeHtml(tenant.nombre),
     zona: escapeHtml(extractZona(registration)),
-    area: escapeHtml(extractField(registration, 'area') || extractField(registration, 'tipo_credencial') || ''),
+    area: escapeHtml(registration.tipo_medio || extractField(registration, 'area') || extractField(registration, 'tipo_credencial') || ''),
     qr_section: qrSection,
     instrucciones_acceso: instrucciones,
     info_especifica: especifica,

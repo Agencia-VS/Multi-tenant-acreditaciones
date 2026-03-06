@@ -59,12 +59,12 @@ export default function ConfiguracionPage() {
         } else {
           loadData(); // fallback if response format unexpected
         }
-        showSuccess('SuperAdmin creado exitosamente');
+        showSuccess('Superadmin creado exitosamente');
         setShowForm(false);
         setForm({ email: '', nombre: '', password: '' });
       } else {
         const data = await res.json();
-        showError(data.error || 'Error al crear SuperAdmin');
+        showError(data.error || 'Error al crear superadmin');
       }
     } finally {
       setSaving(false);
@@ -83,7 +83,7 @@ export default function ConfiguracionPage() {
       if (res.ok) {
         // Optimistic: update in local list
         setSuperadmins(prev => prev.map(sa => sa.id === editing.id ? { ...sa, nombre: editNombre } : sa));
-        showSuccess('SuperAdmin actualizado');
+        showSuccess('Superadmin actualizado');
         setEditing(null);
       } else {
         const data = await res.json();
@@ -103,7 +103,7 @@ export default function ConfiguracionPage() {
         // Optimistic: remove from local list
         const deletedId = deleting.id;
         setSuperadmins(prev => prev.filter(sa => sa.id !== deletedId));
-        showSuccess('SuperAdmin eliminado');
+        showSuccess('Superadmin eliminado');
         setDeleting(null);
       } else {
         const data = await res.json();

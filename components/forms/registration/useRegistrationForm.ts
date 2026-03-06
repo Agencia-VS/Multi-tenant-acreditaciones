@@ -19,11 +19,24 @@ import { STEP_KEYS } from './types';
 import { normalizeOrganizationOptions, RESPONSABLE_LINK_PREFIX, RESPONSABLE_OTHER_VALUE } from '@/lib/responsableConfig';
 
 /* ── Sileo toast helper (fire-and-forget, no React state needed) ── */
+const toSpanishSentenceCase = (text: string) => {
+  const clean = text.trim();
+  if (!clean) return clean;
+  const firstLetterIndex = clean.search(/\p{L}/u);
+  if (firstLetterIndex < 0) return clean;
+  return (
+    clean.slice(0, firstLetterIndex)
+    + clean[firstLetterIndex].toLocaleUpperCase('es-CL')
+    + clean.slice(firstLetterIndex + 1)
+  );
+};
+
 const fireToast = (type: 'success' | 'error', text: string) => {
+  const normalized = toSpanishSentenceCase(text);
   if (typeof window !== 'undefined') {
     import('sileo').then(({ sileo }) => {
-      if (type === 'success') sileo.success({ title: text, duration: 4000 });
-      else sileo.error({ title: text, duration: 5000 });
+      if (type === 'success') sileo.success({ title: normalized, duration: 4000 });
+      else sileo.error({ title: normalized, duration: 5000 });
     });
   }
 };

@@ -45,7 +45,7 @@ export default function SuperAdminLoginPage() {
       if (!sa) {
         await supabase.auth.signOut();
         setError('No tienes permisos de Super Administrador');
-        showError('Sin permisos de Super Administrador');
+        showError('Sin permisos de super administrador');
         return;
       }
 
